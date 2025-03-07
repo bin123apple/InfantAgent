@@ -1,0 +1,72 @@
+# Python related
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+venv/
+.env
+
+# VSCode settings
+.vscode/
+
+# Logs
+*.log
+
+# Uvicorn
+*.pid
+
+# macOS related
+.DS_Store
+
+# Pytest cache
+.pytest_cache/
+
+# Environment variables
+.env
+
+# Byte-compiled / optimized / DLL files
+*.pyc
+*.pyo
+*.pyd
+
+# Test results
+htmlcov/
+
+# Local development artifacts
+*.swp
+*.swo
+
+# Coverage reports
+.coverage
+coverage.xml
+*.cover
+
+# MyPy
+.mypy_cache/
+
+# FastAPI static files
+staticfiles/
+
+# logs
+logs/*
+
+# workspace
+workspace/*
+tests/agent/workspace/*
+
+# debug
+tests/debug/*
+
+# dataset
+dataset/*
+
+# workspace
+workspace/*
+
+# evaluation
+evaluation/swe_bench/predictions.jsonl
+evaluation/swe_bench/gpt-4o.evaluation.json
+evaluation/swe_bench/logs/*
+evaluation/swe_bench/swe_repos/*
+evaluation/swe_bench_multimodal/*
