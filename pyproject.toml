@@ -55,6 +55,7 @@ pyacoustid = "*"
 imagehash = "*"
 librosa = "*"
 fastdtw = "*"
+selenium = "*"
 
 [tool.poetry.group.llama-index.dependencies]
 llama-index = "*"

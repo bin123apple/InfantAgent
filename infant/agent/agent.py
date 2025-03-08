@@ -1,6 +1,5 @@
 import re
 import copy
-import time
 import traceback
 from infant.config import config
 from infant.agent.parser import parse
@@ -229,7 +228,6 @@ class Agent:
     async def critic(self,) -> bool:
         messages = await self.memory_to_input("critic", self.state.memory_list)
         # print_messages(messages, 'critic')
-        # input("For debugging") # For setting up the first-time user
         resp, mem_blc= self.llm.completion(messages=messages)
         if mem_blc:
             self.state.memory_list.extend(mem_blc)
@@ -261,7 +259,6 @@ class Agent:
             git_patch=git_diff,
         )
         # print_messages(messages, 'summarize')
-        # input("For debugging") # For setting up the first-time user
         resp, mem_blc= self.llm.completion(messages=messages, stop=['</key_steps>'])
         if mem_blc:
             self.state.memory_list.extend(mem_blc)
@@ -435,24 +432,9 @@ class Agent:
         while not isinstance(localization_memory_block[-1], LocalizationFinish):
             # rtve_localization_memory_block = localization_memory_rtve(localization_memory_block)
             messages = localization_memory_to_diag(localization_memory_block)
-            # printable_messages = [
-            #     {
-            #         "role": message["role"],
-            #         "content": message["content"] if isinstance(message.get("content"), str) else "content is a image"
-            #     }
-            #     for message in messages
-            # ]
-            # print(f'Messages in image_description_to_coordinate: {printable_messages}')
             resp, mem_blc= self.llm.completion(messages=messages, stop=stop_signals)
             if mem_blc:
                 localization_memory_block.extend(mem_blc)
-            # Use different model to get the analysis the image
-            # resp, mem_blc= self.llm.completion(messages=messages, 
-            #                              stop=stop_signals,
-            #                              model='',
-            #                              api_key='')
-            # if mem_blc:
-            #     self.state.memory_list.extend(mem_blc)
             memory = parse(resp)
             # check if the zoom in/localization command is correct
             memory = await self.localizaiton_correction(memory, 

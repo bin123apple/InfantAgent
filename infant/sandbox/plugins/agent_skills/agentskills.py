@@ -1538,8 +1538,8 @@ def draw_dot(last_top_left, last_length, coordination):
     timestamp = int(time.time())
     screenshot_path = f"{screenshot_dir}/{timestamp}_draw_dot.png"
     cropped_img.save(screenshot_path)
-
-    print(f"Screenshot saved at {screenshot_path}")
+    time.sleep(2)
+    print(f"<Screenshot saved at> {screenshot_path}")
      
 @update_pwd_decorator
 def draw_rectangle(last_top_left, last_length, new_top_left, new_length):
@@ -1606,7 +1606,8 @@ def draw_rectangle(last_top_left, last_length, new_top_left, new_length):
 
     # Save original screenshot and labeled image
     cropped_img.save(screenshot_path)
-    print(f"Screenshot saved at {screenshot_path}")
+    time.sleep(2)
+    print(f"<Screenshot saved at> {screenshot_path}")
 
 def draw_grid(img, length, offset=(0, 0)):
     """
@@ -1727,10 +1728,10 @@ def take_screenshot(command: str | None = None, top_left: tuple | None = None, l
     os.makedirs(screenshot_dir, exist_ok=True)
     timestamp = int(time.time())
     if command:
-        safe_command = re.sub(r'[^\w\s-]', '_', command)  
-        safe_command = re.sub(r'\s+', '_', safe_command)  
-        screenshot_path = f"{screenshot_dir}/{timestamp}_{safe_command}.png"
-        labeled_screenshot_path = f"{screenshot_dir}/{timestamp}_{safe_command}_label.png"
+        # safe_command = re.sub(r'[^\w\s-]', '_', command)  # FIXME: iGnore this for now
+        # safe_command = re.sub(r'\s+', '_', safe_command)  
+        screenshot_path = f"{screenshot_dir}/{timestamp}.png"
+        labeled_screenshot_path = f"{screenshot_dir}/{timestamp}_label.png"
     else:
         screenshot_path = f"{screenshot_dir}/{timestamp}_screenshot.png"
         labeled_screenshot_path = f"{screenshot_dir}/{timestamp}_screenshot_label.png"
@@ -1750,19 +1751,22 @@ def take_screenshot(command: str | None = None, top_left: tuple | None = None, l
         img = ImageGrab.grab(bbox=region)
         # print(f"Capturing region: {region}")
         img.save(screenshot_path)
-        print(f"Screenshot saved at {screenshot_path}")
+        time.sleep(2)
+        print(f"<Screenshot saved at> {screenshot_path}")
         length = region[2] - region[0]
     else:
         img = ImageGrab.grab()
         img.save(screenshot_path)
-        print(f"Screenshot saved at {screenshot_path}")
+        time.sleep(2)
+        print(f"<Screenshot saved at> {screenshot_path}")
         length = screen_width
         
     new_img = draw_grid(img, length=length, offset=top_left)
 
     # Save the labeled image
     new_img.save(labeled_screenshot_path)
-    print(f"Screenshot saved at {labeled_screenshot_path}")
+    time.sleep(2)
+    print(f"<Screenshot saved at> {labeled_screenshot_path}")
 
 @update_pwd_decorator
 def mouse_left_click(x, y, button="left"):

@@ -64,7 +64,7 @@ def git_add_or_not(user_response, sandbox: Sandbox):
     If the user rejects the patch, it will undo the last git add.
     """
     # git add
-    get_diff_patch(sandbox)
+    diff_patch = get_diff_patch(sandbox)
     
     # git commit 
     if user_response:
@@ -72,13 +72,17 @@ def git_add_or_not(user_response, sandbox: Sandbox):
         logger.info("User approved the patch, no changes made.")
         # commit_msg.replace('"', '\"')
         commit_msg = 'Finish a task'
-        exit_code, output = sandbox.execute(f'git commit -m "{commit_msg}"')
-        if exit_code != 0:
-            logger.error(f'Failed to commit the changes: {output}')
-            return 'Error: Failed to commit the changes.'
+        if diff_patch == '':
+            logger.info('No changes to commit')
+            return 'No changes to commit.'
         else:
-            logger.info("Git has been committed successfully.")
-            return 'PR got approved and it has been committed successfully.'
+            exit_code, output = sandbox.execute(f'git commit -m "{commit_msg}"')
+            if exit_code != 0:
+                logger.error(f'Failed to commit the changes: {output}')
+                return 'Error: Failed to commit the changes.'
+            else:
+                logger.info("Git has been committed successfully.")
+                return 'PR got approved and it has been committed successfully.'
     else:
         # User rejected the patch, undo the last git add
         logger.info("User rejected the patch, resetting the last git add.")

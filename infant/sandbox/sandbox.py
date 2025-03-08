@@ -595,7 +595,6 @@ class Sandbox:
                     return exit_code, all_output
             return 0, all_output
 
-        # cmd_wrapper = f'timeout {timeout}s bash -c {shlex.quote(cmd)}'
         self.ssh.sendline(cmd)
 
         success = self.ssh.prompt(timeout=timeout)
@@ -907,8 +906,8 @@ class Sandbox:
                         if part.endswith('.py'):
                             py_file = part
                             break
+                        
                     # put the python command into a wrapper
-                    # command = f'timeout 30s bash -c {shlex.quote(command)}'
                     if py_file: 
                         mv_switch = True
                         save_original_file_flag = False
@@ -925,22 +924,17 @@ class Sandbox:
                         # Save the original file to the temp.py
                         save_original_file_content = f"cat {py_file} > /tmp/temp.py"
                         debug_exit_code, debug_output = self.execute(save_original_file_content)   
-                        # print(f'debug_exit_code:{debug_exit_code}\ndebug_output:{debug_output}') 
                         if debug_exit_code != 0:
                             mv_switch = False  # If this step fail, stop tracing
                         else:
                             save_original_file_flag = True # If this step pass, make sure to restore the file           
-                        # _,debug_save_original_file_content = self.execute('cat /tmp/temp.py')  
-                        # print(f'debug_save_original_file_content:{debug_save_original_file_content}')
                         
                         # Add the trace_code to the tmp .py file
                         if mv_switch == True:
-                            debug_exit_code, debug_output = self.execute(f"cat << 'EOF' > /tmp/trace_code.py\n{trace_code}\nEOF")
-                            # print(f'debug_exit_code:{debug_exit_code}\ndebug_output:{debug_output}')  
+                            debug_exit_code, debug_output = self.execute(f"cat << 'EOF' > /tmp/trace_code.py\n{trace_code}\nEOF") 
                             if debug_exit_code != 0:
                                 mv_switch = False                               
                             debug_exit_code, debug_output = self.execute(f'cat {py_file} >> /tmp/trace_code.py') 
-                            # print(f'debug_exit_code:{debug_exit_code}\ndebug_output:{debug_output}')
                             if debug_exit_code != 0:
                                 mv_switch = False                               
                             
@@ -950,8 +944,6 @@ class Sandbox:
                             # print(f'debug_exit_code:{debug_exit_code}\ndebug_output:{debug_output}') 
                             if debug_exit_code != 0:
                                 mv_switch = False                               
-                            # _,debug_add_trace_code = self.execute(f'cat {py_file}')  
-                            # print(f'debug_add_trace_code:{debug_add_trace_code}')
                         
                         # Add the filter_bash_code to the sandbox
                         if mv_switch == True:
@@ -962,36 +954,25 @@ class Sandbox:
                         
                         # Run the Trace code and send to temp.txt
                         if mv_switch == True:
-                            # It may have some asyio bugs, so no need to set mv_switch to False even if debug_exit_code is not 0
                             if command.strip().endswith('&'):
                                 command = f"{command.strip().rstrip('&').strip()} > /tmp/temp.txt &"
                             else:
                                 debug_exit_code, debug_output = self.execute(f'{command} > /tmp/temp.txt')                         
-                            # print(f'debug_exit_code:{debug_exit_code}\ndebug_output:{debug_output}')
-                            # print("/home/uconn/BinLei/OpenDevin/infant/runtime/server/runtime.py 4")
                                                 
                         # Run the filter_bash_code to extract the final_output.txt
                         if mv_switch == True:
                             debug_exit_code, debug_output = self.execute('bash /tmp/temp.sh')
-                            # print(f'debug_exit_code:{debug_exit_code}\ndebug_output:{debug_output}')
                             if debug_exit_code != 0:
                                 mv_switch = False
-                            # print("/home/uconn/BinLei/OpenDevin/infant/runtime/server/runtime.py 5")
                         
                         # Get the output
                         if mv_switch == True:
                             trace_exit_code, trace_output = self.execute('cat /tmp/final_output.txt')
-                            # print(f'debug_trace_output:{trace_output}')  
-                            # print("/home/uconn/BinLei/OpenDevin/infant/runtime/server/runtime.py 6")
                         
                         # Clean the trace code
                         if save_original_file_flag == True: # ensure the trace code got cleaned
                             clean_trace_command = f"cat /tmp/temp.py > {py_file}"
                             debug_exit_code, debug_output = self.execute(clean_trace_command)
-                            # print(f'debug_exit_code:{debug_exit_code}\ndebug_output:{debug_output}')
-                            # debug_command = f"cat {py_file}"
-                            # _,debug_clean_trace_code = self.execute(debug_command)
-                            # print(f'debug_clean_trace_code:{debug_clean_trace_code}')
                     else:
                         exit_code, output = self.execute(command)   
                 else:

@@ -180,8 +180,8 @@ def reasoning_memory_to_diag(memory_block: list[Memory], end_prompt: str) -> str
             messages.append({'role': 'user' if memory.source == 'user' else 'assistant',
                             'content': message})
         if hasattr(memory, 'result') and memory.result: 
-            if 'Screenshot saved at' in memory.result: # image situation
-                screenshot_path = memory.result.split('Screenshot saved at')[-2].strip()
+            if '<Screenshot saved at>' in memory.result: # image situation
+                screenshot_path = memory.result.split('<Screenshot saved at>')[-2].strip()
                 mount_path = config.workspace_mount_path
                 # print(f"mount_path: {mount_path}")
                 if screenshot_path.startswith("/workspace"):
@@ -189,11 +189,14 @@ def reasoning_memory_to_diag(memory_block: list[Memory], end_prompt: str) -> str
                 # print(f"image_path: {image_path}")
                 image_path.replace("_label", '')
                 image_url = image_base64_to_url(image_path)
+                text = re.sub(r'^Screenshot saved at /workspace/screenshots/.*\n?', '', memory.result, flags=re.MULTILINE)
+                text = text + '\nThe screenshot is shown below:' 
                 messages.append({'role': 'user',
-                    'content': [{"type": "image_url","image_url": {"url": image_url}}]})
+                    'content': [{'type': 'text', 'text': text},
+                        {"type": "image_url","image_url": {"url": image_url}}]})
             else: # Text only situation
                 messages.append({'role': 'user',
-                    'content': memory.result}) 
+                    'content': memory.result})   
     messages.append({'role': 'user',
                     'content': end_prompt})  
     return messages
@@ -266,8 +269,8 @@ def execution_memory_to_diag(memory_block: list[Memory], cmd_set, end_prompt):
                                 'content': message})
             
         if hasattr(memory, 'result') and memory.result: 
-            if 'Screenshot saved at' in memory.result: # image situation
-                screenshot_path = memory.result.split('Screenshot saved at')[-2].strip()
+            if '<Screenshot saved at>' in memory.result: # image situation
+                screenshot_path = memory.result.split('<Screenshot saved at>')[-2].strip()
                 mount_path = config.workspace_mount_path
                 # print(f"mount_path: {mount_path}")
                 if screenshot_path.startswith("/workspace"):
@@ -275,8 +278,11 @@ def execution_memory_to_diag(memory_block: list[Memory], cmd_set, end_prompt):
                 # print(f"image_path: {image_path}")
                 image_path.replace("_label", '')
                 image_url = image_base64_to_url(image_path)
+                text = re.sub(r'^Screenshot saved at /workspace/screenshots/.*\n?', '', memory.result, flags=re.MULTILINE)
+                text = text + '\nThe screenshot is shown below:' 
                 messages.append({'role': 'user',
-                    'content': [{"type": "image_url","image_url": {"url": image_url}}]})
+                    'content': [{'type': 'text', 'text': text},
+                        {"type": "image_url","image_url": {"url": image_url}}]})
             else: # Text only situation
                 messages.append({'role': 'user',
                     'content': memory.result})      
@@ -342,8 +348,8 @@ def critic_memory_to_diag(memory_block: list[Memory]):
             messages.append({'role': 'user' if memory.source == 'user' else 'assistant',
                 'content': base_memory_to_str(memory)})
         if hasattr(memory, 'result') and memory.result: 
-            if 'Screenshot saved at' in memory.result: # image situation
-                screenshot_path = memory.result.split('Screenshot saved at')[-2].strip()
+            if '<Screenshot saved at>' in memory.result: # image situation
+                screenshot_path = memory.result.split('<Screenshot saved at>')[-2].strip()
                 mount_path = config.workspace_mount_path
                 # print(f"mount_path: {mount_path}")
                 if screenshot_path.startswith("/workspace"):
@@ -351,11 +357,14 @@ def critic_memory_to_diag(memory_block: list[Memory]):
                 # print(f"image_path: {image_path}")
                 image_path.replace("_label", '')
                 image_url = image_base64_to_url(image_path)
+                text = re.sub(r'^Screenshot saved at /workspace/screenshots/.*\n?', '', memory.result, flags=re.MULTILINE)
+                text = text + '\nThe screenshot is shown below:' 
                 messages.append({'role': 'user',
-                    'content': [{"type": "image_url","image_url": {"url": image_url}}]})
+                    'content': [{'type': 'text', 'text': text},
+                        {"type": "image_url","image_url": {"url": image_url}}]})
             else: # Text only situation
                 messages.append({'role': 'user',
-                    'content': memory.result})    
+                    'content': memory.result})      
                 
     # Find the last Task in the memory block
     for i in range(len(memory_block) - 1, -1, -1):
@@ -392,8 +401,8 @@ def summary_memory_to_diag(memory_block: list[Memory], git_patch, case):
             messages.append({'role': 'user' if memory.source == 'user' else 'assistant',
                 'content': base_memory_to_str(memory)})
         if hasattr(memory, 'result') and memory.result: 
-            if 'Screenshot saved at' in memory.result: # image situation
-                screenshot_path = memory.result.split('Screenshot saved at')[-2].strip()
+            if '<Screenshot saved at>' in memory.result: # image situation
+                screenshot_path = memory.result.split('<Screenshot saved at>')[-2].strip()
                 mount_path = config.workspace_mount_path
                 # print(f"mount_path: {mount_path}")
                 if screenshot_path.startswith("/workspace"):
@@ -401,11 +410,14 @@ def summary_memory_to_diag(memory_block: list[Memory], git_patch, case):
                 # print(f"image_path: {image_path}")
                 image_path.replace("_label", '')
                 image_url = image_base64_to_url(image_path)
+                text = re.sub(r'^Screenshot saved at /workspace/screenshots/.*\n?', '', memory.result, flags=re.MULTILINE)
+                text = text + '\nThe screenshot is shown below:' 
                 messages.append({'role': 'user',
-                    'content': [{"type": "image_url","image_url": {"url": image_url}}]})
+                    'content': [{'type': 'text', 'text': text},
+                        {"type": "image_url","image_url": {"url": image_url}}]})
             else: # Text only situation
                 messages.append({'role': 'user',
-                    'content': memory.result})  
+                    'content': memory.result})   
     if git_patch:
         messages.append({"role": "user", "content": git_patch})
     if case == "summary_true":

@@ -129,7 +129,7 @@ class LLM_API_BASED:
         logger.info(f'Initializing the Brain of the Agent with the following parameters: {non_none_str}')
         
         self.api_key = api_key
-        self.gift_key = True # if we use some gift key, litellm may not be good enough
+        self.gift_key = False # FIXME: Move this to config
         self.base_url = base_url
         self.model_name = model
         self.metrics = metrics

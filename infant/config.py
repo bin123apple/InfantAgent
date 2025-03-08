@@ -32,7 +32,7 @@ class Config:
     max_chars: The maximum number of characters to send to and receive from the API. This is a fallback for token counting, which doesn't work in all cases.
     temperature: The temperature for the API.
     top_p: The top p for the API.
-    custom_llm_provider: The custom LLM provider to use. This is undocumented in opendevin, and normally not used. It is documented on the litellm side.
+    custom_llm_provider: The custom LLM provider to use. It is documented on the litellm side.
     max_input_tokens: The maximum number of input tokens. Note that this is currently unused, and the value at runtime is actually the total tokens in OpenAI (e.g. 128,000 tokens for GPT-4).
     max_output_tokens: The maximum number of output tokens. This is sent to the LLM.
     input_cost_per_token: The cost per input token. This will available in logs for the user to check.
@@ -61,7 +61,6 @@ class Config:
     max_reasoning_iterations: max number of retries for basic tasks
     max_execution_iterations: max number of retries for evaluation tasks
     max_self_modify_basic: max number of self-modifications allowed (code linting, etc.)
-    max_self_modify_advanced: ???## FIXME: What is this?
     max_critic_retries: max number of retries for critic
     max_action_times: max number of actions in one basic_retry
     max_finish_retry: max number of retries before the agent finishes the task
@@ -117,7 +116,7 @@ class Config:
     feedback_mode: bool = False
     
     ## vllm Attributes
-    model_name: str = 'bytedance-research/UI-TARS-72B-DPO'
+    model_name: str = ''
     tensor_parallel_size: int = 4 # Tensor parallelism splits the model's tensors across n GPUs
     max_model_len: int = 9632
     disable_custom_all_reduce: bool = True

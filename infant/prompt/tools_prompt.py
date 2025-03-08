@@ -136,8 +136,8 @@ Collecting click>=8.1.3
   Using cached click-8.1.7-py3-none-any.whl (97 kB)
 Collecting itsdangerous>=2.1.2
   Using cached itsdangerous-2.2.0-py3-none-any.whl (16 kB)
-Requirement already satisfied: Jinja2>=3.1.2 in /home/opendevin/.local/lib/python3.10/site-packages (from flask) (3.1.3)
-Requirement already satisfied: MarkupSafe>=2.0 in /home/opendevin/.local/lib/python3.10/site-packages (from Jinja2>=3.1.2->flask) (2.1.5)
+Requirement already satisfied: Jinja2>=3.1.2 in /home/user/.local/lib/python3.10/site-packages (from flask) (3.1.3)
+Requirement already satisfied: MarkupSafe>=2.0 in /home/user/.local/lib/python3.10/site-packages (from Jinja2>=3.1.2->flask) (2.1.5)
 Installing collected packages: Werkzeug, itsdangerous, click, blinker, flask
 Successfully installed Werkzeug-3.0.2 blinker-1.7.0 click-8.1.7 flask-3.0.3 itsdangerous-2.2.0
 
@@ -258,6 +258,7 @@ tool_web_browse = '''
 
 tool_mk_operation = '''
 You can use the following functions to perform various mouse and keyboard operations.
+- take_screenshot(): If you want to check the current screen, you can use this command to take a screenshot of the current screen.
 - mouse_left_click(Item_to_Click: str, Position_description: str): Left mouse click at the specified position. For example: mouse_left_click('search bar', 'It is located near the top center of the Google Chrome browser window. It is a long, rectangular input field with rounded edges. The search bar spans almost the entire width of the browser window and sits directly below the browser's tab row. It has placeholder text that reads "Search Google or type a URL." The search bar is centrally aligned, making it easy to spot above the main content area of the browser.')
 - mouse_double_click(Item_to_Click: str, Position_description: str): Double-click at the specified position. For example: mouse_double_click('The VSCode icon', 'It is located in the sidebar (Launcher) on the left side of the screen. It is the first icon from the top in the vertical arrangement. The icon has a blue background with a white folded "V"-shaped design in the center. The sidebar is aligned along the leftmost edge of the screen, adjacent to the desktop background on its right side.')
 - mouse_right_click(Item_to_Click: str, Position_description: str): Right mouse click at the specified position. For example: mouse_right_click('The refresh button', 'It is located at the top-left corner of the Google Chrome browser window, inside the address bar. It is a circular arrow icon situated next to the left and right navigation arrows (back and forward buttons). The refresh button is just to the left of the search bar. Click it to refresh the current page.')
@@ -303,6 +304,16 @@ User:
 Screenshot of the search term "kittens" entered.
 
 Assistant:
+Let's double check the current screen.  
+<execute_ipython>
+take_screenshot()
+</execute_ipython>
+
+User:
+Screenshot of the current screen.
+
+Assistant:
+It seems that the search term is correct.
 Press the "Enter" key to perform the search.
 <execute_ipython>
 press_key("Return")

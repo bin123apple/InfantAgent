@@ -6,6 +6,7 @@ from datetime import datetime
 from infant.config import config
 from infant.agent.agent import Agent
 from infant.sandbox.sandbox import Sandbox
+from infant.agent.memory.memory import Finish
 from infant.llm.llm_api_base import LLM_API_BASED
 from infant.llm.llm_oss_base import LLM_OSS_BASED
 from infant.agent.memory.memory import Userrequest
@@ -22,7 +23,34 @@ async def monitor_agent_state(agent: Agent):
             break
 """
 
-async def main(user_request, config=config):
+async def run_single_step(agent: Agent, user_request_text: str):
+    agent.state.memory_list.append(Userrequest(text=user_request_text))
+
+    monitor_task = asyncio.create_task(agent.monitor_agent_state())
+    special_case_task = asyncio.create_task(agent.special_case_handler())
+    step_task = asyncio.create_task(agent.step())
+    
+    await monitor_task
+
+    if not step_task.done():
+        step_task.cancel() 
+        try:
+            await step_task
+        except asyncio.CancelledError:
+            logger.info("Step task has been cancelled")
+    
+    if not special_case_task.done():
+        special_case_task.cancel()
+        try:
+            await special_case_task
+        except asyncio.CancelledError:
+            logger.info("Special case task has been cancelled")
+    
+    finish_memory: Finish = agent.state.memory_list[-1]
+    answer = finish_memory.thought
+    return answer
+
+async def main(config=config):
     
     try:
         # Initialize the API Based LLM
@@ -65,13 +93,24 @@ async def main(user_request, config=config):
         # Initialize the Agent
         agent_parameter = config.get_agent_params()
         agent = Agent(agent_parameter, api_llm, oss_llm, sandbox)
-        agent.state.memory_list = [Userrequest(content=user_request)]
         logger.info(f'Agent initialized successfully.')
-
-        monitor_task = asyncio.create_task(agent.monitor_agent_state())
-        while not monitor_task.done():  # If monitor_task is not finished
-            await agent.step()
-        await monitor_task
+        
+        # Run the agent
+        while True:
+            try:
+                user_request = input("Input your request or use type exit to refresh the agent: ")
+                if user_request.lower() == 'exit':
+                    agent.state.reset()
+                    logger.info("Agent state reset.")
+                    user_request = input("Input your new request: ")
+                await run_single_step(agent, user_request)
+            except KeyboardInterrupt:
+                logger.warning("exit")
+                break
+            except Exception as e:
+                error_details = traceback.format_exc()
+                logger.error(f'Error in main: {e}\nTraceback:\n{error_details}')
+                break
     
     except Exception as e:
         error_details = traceback.format_exc()
@@ -103,5 +142,4 @@ async def cleanup(agent: None | Agent = None, sandbox: None | Sandbox = None):
 
 # Run the main function
 if __name__ == "__main__":
-    user_request = '''Could you help me extract data in the table from a new pdf (named:test) uploaded to my Google Drive, then export it to a Libreoffice calc .xlsx file in the desktop? You can use use some online free pdf -> xlsx converter.'''
-    asyncio.run(main(user_request))
+    asyncio.run(main())
