@@ -8,6 +8,8 @@
 
 ## Setup 
 
+NOTE: Now, it is only tested on linux server. There may be some bugs for Mac/Windows
+
 1. Setup enviroment
 ```
 cd InfantAgent
