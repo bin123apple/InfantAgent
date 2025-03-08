@@ -41,4 +41,5 @@ Need a Demo here
 - [ ] Add: Credits.md
 - [ ] BUG: Move the localization function to here
 - [ ] Add: evaluation in swe-bench/osworld/GAIA/GPQA...
+- [ ] Add: More emoj/user friendly front end.
 
