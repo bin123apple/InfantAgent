@@ -37,7 +37,7 @@ Need a Demo here
 
 ## TODO
 
-- [ ] BUG: Sometimes the VM is laggy, it will hinder the normal process.
+- [x] BUG: Sometimes the VM is laggy, it will hinder the normal process.
 - [ ] Add: A demo.
 - [ ] Add waiting for user input state.
 - [ ] Add: Credits.md
