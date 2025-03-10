@@ -1,6 +1,6 @@
 # InfantAgent
 
-# Introduction
+## Introduction
 1. To build a multimodal agent that can interact with its own PC in a multimodal manner. This means it can autonomously operate the mouse and click anywhere on the screen, rather than relying solely on browser analysis to make decisions.
 
 2. This agent system will be used for subsequent reinforcement learning training of agents.

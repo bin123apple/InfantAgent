@@ -5,15 +5,15 @@ ENV LANG=en_GB.UTF-8
 ENV TZ=Europe/London
 ENV DEBIAN_FRONTEND=noninteractive
 
-# install gnome desktop and otehr tools
+# install gnome desktop and other tools
 RUN \
     # Enable partner repository (needed for codecs)
     sed -i 's/# deb http:\/\/archive.canonical.com\/ubuntu bionic partner/deb http:\/\/archive.canonical.com\/ubuntu bionic partner/' /etc/apt/sources.list && \
-    # Remove "This system has been minimized" warning. (which should appear while ssh to the container)
+    # Remove "This system has been minimized" warning.
     rm -f /etc/update-motd.d/60-unminimize && \
     rm -f /etc/update-motd.d/98-fsck-at-reboot && \
     # Update base packages.
-    apt-get update && DEBIAN_FRONTEND=noninteractive \ 
+    apt-get update && DEBIAN_FRONTEND=noninteractive \
     apt-get -fy -o Dpkg::Options::="--force-confnew" \
                 -o APT::Immediate-Configure=false \
                 dist-upgrade && \
@@ -66,11 +66,10 @@ RUN \
     remmina-common remmina-plugin-rdp remmina-plugin-vnc \
     # 3D figure tools
     mesa-utils \
-    # Install Display Manager and dependencies
-    lightdm slick-greeter dbus-x11 && \
+    # Install Display Manager and dependencies (改为安装 GDM3)
+    gdm3 dbus-x11 && \
     # Default libgl1-mesa-dri causes "black window" issues
     # when software rendering. Use ppa to upgrade version.
-    # suitable for intel/AMD and Nvidia GPU.
     add-apt-repository -y ppa:oibaf/graphics-drivers && \
     apt-get update && DEBIAN_FRONTEND=noninteractive \
     apt-get install -y libgl1-mesa-dri && \
@@ -85,58 +84,16 @@ RUN \
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
     DEBIAN_FRONTEND=noninteractive \
     dpkg-reconfigure tzdata && \
-    # Configure LightDM Display Manager to use
-    # Xephyr instead of X
-    # Force to use Xephyr instead of Wayland
-    rm /usr/share/lightdm/lightdm.conf.d/50-ubuntu.conf && \
-    rm /usr/share/wayland-sessions/*.desktop && \
-    rm -f google-chrome-stable_current_amd64.deb && \
-    # Reorganise /usr/share/xsessions to set Ubuntu as
-    # default session as slick-greeter uses hardcoded names
-    # to select the default session.
-    rm /usr/share/xsessions/gnome.desktop && \
-    mv /usr/share/xsessions/ubuntu.desktop \
-       /usr/share/xsessions/ubuntu-xorg.desktop && \
-    mv /usr/share/xsessions/gnome-xorg.desktop \
-       /usr/share/xsessions/gnome-classic.desktop && \
-    echo '#!/bin/bash\nexport XAUTHORITY=/root/.Xauthority.docker\nexport DISPLAY=:0\nexec Xephyr $1 -ac >> /var/log/lightdm/x-1.log' > /usr/bin/Xephyr-lightdm-wrapper && \
-    chmod +x /usr/bin/Xephyr-lightdm-wrapper && \
-    echo '[LightDM]\nminimum-display-number=1\n[Seat:*]\nuser-session=ubuntu-xorg\nxserver-command=/usr/bin/Xephyr-lightdm-wrapper' > /etc/lightdm/lightdm.conf.d/70-ubuntu.conf && \
-    echo '[Greeter]\nbackground=/usr/share/backgrounds/warty-final-ubuntu.png\n' > /etc/lightdm/slick-greeter.conf && \
-    # Configure console
-    echo "console-setup console-setup/charmap select UTF-8" | debconf-set-selections && \
-    # Fix synaptic Empty Dir::Cache::pkgcache setting not
-    # handled correctly https://bugs.launchpad.net/ubuntu/+source/synaptic/+bug/1243615
-    # which causes synaptic to barf with: E: Could not 
-    # open file - open (2: No such file or directory)
-    # E: _cache->open() failed, please report.
-    sed -i 's/Dir::Cache::pkgcache ""; //' \
-        /etc/apt/apt.conf.d/docker-clean && \
-    # Disable getty@tty1.service to speed up desktop loading.
-    rm -f /etc/systemd/system/getty.target.wants/getty@tty1.service && \
-    # Fix issues with slow shutdown
-    sed -i 's/#DefaultTimeoutStopSec=90s/DefaultTimeoutStopSec=5s/' /etc/systemd/system.conf && \
-    # Fix Polkit issues caused by container login being
-    # considered to be an "inactive" session.
-    chmod 755 /etc/polkit-1/localauthority && \
-    # Date & Time
-    echo "[Date & Time]\nIdentity=unix-user:*\nAction=org.gnome.controlcenter.datetime.configure\nResultAny=auth_admin_keep\nResultInactive=auth_admin_keep\nResultActive=auth_admin_keep\n" > /etc/polkit-1/localauthority/50-local.d/10-datetimemechanism.pkla && \
-    # User Accounts
-    echo "[Manage user accounts]\nIdentity=unix-user:*\nAction=org.gnome.controlcenter.user-accounts.administration\nResultAny=auth_admin_keep\nResultInactive=auth_admin_keep\nResultActive=auth_admin_keep\n" > /etc/polkit-1/localauthority/50-local.d/10-user-accounts.pkla && \
-    # Gnome System Log
-    echo "[Gnome System Log]\nIdentity=unix-user:*\nAction=org.debian.pkexec.gnome-system-log.run\nResultAny=auth_admin_keep\nResultInactive=auth_admin_keep\nResultActive=auth_admin_keep\n" > /etc/polkit-1/localauthority/50-local.d/10-system-log.pkla && \
-    # System Color Manager
-    echo "[System Color Manager]\nIdentity=unix-user:*\nAction=org.freedesktop.color-manager.create-device;org.freedesktop.color-manager.create-profile;org.freedesktop.color-manager.delete-device;org.freedesktop.color-manager.delete-profile;org.freedesktop.color-manager.modify-device;org.freedesktop.color-manager.modify-profile;org.freedesktop.color-manager.device-inhibit;org.freedesktop.color-manager.sensor-lock\nResultAny=yes\nResultInactive=yes\nResultActive=yes\n" > /etc/polkit-1/localauthority/50-local.d/10-color.pkla && \
-    # Shutdown & Restart
-    # Note that auth_admin_keep may be better than yes
-    # here, but there seems to be an issue with the
-    # authentication dialog appearing.
-    echo "[Shutdown & Restart]\nIdentity=unix-user:*\nAction=org.freedesktop.login1.power-off;org.freedesktop.login1.power-off-multiple-sessions;org.freedesktop.login1.reboot;org.freedesktop.login1.reboot-multiple-sessions\nResultAny=yes\nResultInactive=yes\nResultActive=yes\n" > /etc/polkit-1/localauthority/50-local.d/10-shutdown.pkla
+    # （原 LightDM 相关配置已全部移除，此处添加 GDM3 配置）
+    # 配置 GDM3：禁用 Wayland（NoMachine 建议使用 Xorg）
+    sed -i 's/#WaylandEnable=false/WaylandEnable=false/' /etc/gdm3/custom.conf && \
+    # 保持 /usr/share/xsessions 下的默认会话配置（Ubuntu Desktop 默认使用 GNOME）
+    rm -f google-chrome-stable_current_amd64.deb
 
 # install 3D accelerated virtual desktops
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive \
     apt-get install -y --no-install-recommends \
-    libvdpau1 mesa-vdpau-drivers libegl1-mesa && \
+    x11-xserver-utils pkg-config dbus libvdpau1 mesa-vdpau-drivers libegl1-mesa && \
     VGL_VERSION=$(curl -sSL https://sourceforge.net/projects/virtualgl/files/ | grep "<span class=\"name\">[0-9]" | head -n 1 | cut -d \> -f2 | cut -d \< -f1) && \
     echo "VirtualGL version: ${VGL_VERSION}" && \
     curl -sSL https://altushost-swe.dl.sourceforge.net/project/virtualgl/2.6.95%20%283.0rc1%29/virtualgl_2.6.95_amd64.deb -o virtualgl_2.6.95_amd64.deb && \
@@ -156,29 +113,11 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive \
     # Ensure the nx user ID is not in the normal user range.
     groupadd -r -g 2000 nx && \
     useradd -u 2000 -r -g nx nx && \
-    # Try to work out the latest version from the NoMachine
-    # Linux download page. If this fails set the following
-    # variables manually instead.
-    # NOMACHINE_VERSION=$(curl -sSL \
-    #   "https://www.nomachine.com/download/download&id=3" |\
-    #   grep "Linux/nomachine" |\
-    #   cut -d \' -f2 | cut -d \_ -f2-3) && \
-    # NOMACHINE_MAJOR_VERSION=$(echo $NOMACHINE_VERSION |\
-    #   cut -d \. -f1-2) && \
-    # echo "VERSION: ${NOMACHINE_VERSION}" && \
-    # echo "MAJOR_VERSION: ${NOMACHINE_MAJOR_VERSION}" && \
-    # curl -sSL https://download.nomachine.com/download/${NOMACHINE_MAJOR_VERSION}/Linux/nomachine_${NOMACHINE_VERSION}_amd64.deb -o nomachine_${NOMACHINE_VERSION}_amd64.deb && \
-    # dpkg -i nomachine_${NOMACHINE_VERSION}_amd64.deb && \
-    # rm nomachine_${NOMACHINE_VERSION}_amd64.deb && \
-    # NOMACHINE_MAJOR_VERSION="8.14-PRODUCTION" && \
-    # NOMACHINE_VERSION="8.14.2_1" && \
+    # 安装 NoMachine Enterprise Desktop（版本号根据需要调整）
     NOMACHINE_MAJOR_VERSION="8.16-PRODUCTION" && \
     NOMACHINE_VERSION="8.16.1_1" && \
     echo "VERSION: ${NOMACHINE_VERSION}" && \
     echo "MAJOR_VERSION: ${NOMACHINE_MAJOR_VERSION}" && \
-    # curl -sSL https://download.nomachine.com/download/${NOMACHINE_MAJOR_VERSION}/Linux/nomachine_${NOMACHINE_VERSION}_amd64.deb -o nomachine_${NOMACHINE_VERSION}_amd64.deb && \
-    # dpkg -i nomachine_${NOMACHINE_VERSION}_amd64.deb && \
-    # rm nomachine_${NOMACHINE_VERSION}_amd64.deb && \
     curl -sSL https://download.nomachine.com/packages/${NOMACHINE_MAJOR_VERSION}/Linux/nomachine-enterprise-desktop_${NOMACHINE_VERSION}_amd64.deb -o nomachine-enterprise-desktop_${NOMACHINE_VERSION}_amd64.deb && \
     dpkg -i nomachine-enterprise-desktop_${NOMACHINE_VERSION}_amd64.deb && \
     rm nomachine-enterprise-desktop_${NOMACHINE_VERSION}_amd64.deb && \
@@ -186,18 +125,11 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive \
     # the lightdm user but not for a normal user.
     echo 'mkdir -p ~/.config/pulse\nif [ ! -f ~/.config/pulse/client.conf ]; then\ncp /etc/pulse/client.conf ~/.config/pulse/client.conf\nsed -i "s/; default-server =/default-server = unix:\/tmp\/pulse-socket/g" ~/.config/pulse/client.conf\nfi' > /etc/profile.d/create-pulse-clientconf.sh && \
     echo 'load-module module-native-protocol-unix auth-anonymous=1 socket=/tmp/pulse-socket' >> /etc/pulse/default.pa && \
-   echo '[LightDM]\nminimum-display-number=1\n[Seat:*]\nuser-session=ubuntu-xorg\nxserver-command=Xorg -ac' > /etc/lightdm/lightdm.conf.d/70-ubuntu.conf
+   echo '[GDM]\n# GDM 默认配置，无需额外指定 xserver-command' > /etc/gdm3/custom.conf
 
-COPY xorg.conf /etc/X11/xorg.conf
 
-# Debug for VirtualDesktop
-# Display Number -> :0
-RUN sudo sed -i 's/minimum-display-number=1/minimum-display-number=0/g' /etc/lightdm/lightdm.conf.d/70-ubuntu.conf
-# Comment Optional pam_keallt*
-RUN sudo sed -i 's/auth    optional        pam_kwallet.so/#auth    optional        pam_kwallet.so/g' /etc/pam.d/lightdm
-RUN sudo sed -i 's/auth    optional        pam_kwallet5.so/#auth    optional        pam_kwallet5.so/g' /etc/pam.d/lightdm
 # Install dbus-session
-RUN sudo apt install -y dbus-user-session
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dbus-user-session
 # Nomachine Use EGL capture
 RUN sudo /etc/NX/nxserver --eglcapture yes
 RUN sudo sed -i '$a WaylandModes "egl,compositor,drm"' /usr/NX/etc/node.cfg

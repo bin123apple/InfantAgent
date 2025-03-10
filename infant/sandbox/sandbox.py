@@ -436,6 +436,13 @@ class Sandbox:
         self.execute("source ~/.bashrc")
         
         time.sleep(2) # wait for the installation to finish
+        # Fix lagging issue
+        self.execute("sudo pkill Xvfb")
+        self.execute("sudo systemctl stop gdm3")
+        self.execute("export DISPLAY=:0")
+        self.execute("unset LD_PRELOAD")
+        self.execute("Xvfb :0 -screen 0 1920x1080x24 &")
+        self.execute("gnome-session &")
         logger.info(f"Please check the details at: 'https://localhost:{self.gui_port}'")
         logger.info(f"For first-time users, please go to https://localhost:{self.gui_port} to set up and skip unnecessary steps.")
         try:

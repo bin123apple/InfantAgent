@@ -1,5 +1,6 @@
 #!/bin/bash
 # set up user
+echo "127.0.0.1    infant-sandbox" | sudo tee -a /etc/hosts
 echo "Please set $CreateUserAccount password:"
 sudo adduser $CreateUserAccount
 # Add user to nopasswdlogin
@@ -66,32 +67,21 @@ else
   echo "Using default CPU rendering mode"
 fi
 
-
+# Disable GNOME animations (optional, for performance)
 sudo gsettings set org.gnome.desktop.interface enable-animations false
-sudo /etc/init.d/lightdm restart
-sed -i \
--e 's/^-auth/#-auth/g' \
--e 's/^-#auth/#-auth/g' \
--e 's/^session \[success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so close/#session \[success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so close/' \
--e 's/^session \[success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so open/#session \[success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so open/' \
--e 's/^-session/#-session/g' \
--e 's/titiauto_start/auto_start/' \
-/etc/pam.d/lightdm
 
-# Modify /etc/gdm3/custom.conf for automatic login
+# Configure GDM3 for automatic login
 if [ -f /etc/gdm3/custom.conf ]; then
     sudo sed -i "/^#  AutomaticLoginEnable = true/ s/^# //" /etc/gdm3/custom.conf
     sudo sed -i "/^#  AutomaticLogin =/ s/^# //" /etc/gdm3/custom.conf
     sudo sed -i "/^AutomaticLogin =/c\AutomaticLogin = infant" /etc/gdm3/custom.conf
+else
+    echo -e "[daemon]\nAutomaticLoginEnable=true\nAutomaticLogin=infant" | sudo tee /etc/gdm3/custom.conf > /dev/null
 fi
 
-# Modify /etc/lightdm/lightdm.conf for automatic login
-if [ -f /etc/lightdm/lightdm.conf ]; then
-    sudo sed -i "/^\[Seat:\*\]/a autologin-user=infant\nautologin-user-timeout=0" /etc/lightdm/lightdm.conf
-else
-    echo -e "[Seat:*]\nautologin-user=infant\nautologin-user-timeout=0" | sudo tee /etc/lightdm/lightdm.conf > /dev/null
-fi
-sudo systemctl restart lightdm
+# Restart GDM3 to apply changes
+sudo systemctl restart gdm3
+
 # Print completion message
 echo "xdotool installed and automatic login configured."
 
@@ -119,6 +109,16 @@ sudo touch /var/lib/locales/supported.d/local
 sudo sed -i '$a en_US.UTF-8 UTF-8\nzh_CN.UTF-8 UTF-8\nzh_CN.GBK GBK\nzh_CN GB2312' /var/lib/locales/supported.d/local
 sudo locale-gen
 sudo apt-get install -y fonts-droid-fallback ttf-wqy-zenhei ttf-wqy-microhei fonts-arphic-ukai fonts-arphic-uming
+
+# Fix Nomachine lag issue
+echo 'setting up xvfb'
+sudo systemctl stop gdm3
+sudo apt-get install -y xvfb
+Xvfb :0 -screen 0 1920x1080x24 &
+export DISPLAY=:0
+unset LD_PRELOAD
+sudo apt-get install -y gnome-session-flashback
+gnome-session &
 
 sleep 5
 sudo /etc/NX/nxserver --restart
