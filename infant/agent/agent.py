@@ -60,6 +60,21 @@ from infant.agent.memory.restore_memory import (
     image_base64_to_url
 )
 
+from infant.helper_functions.visual_helper_functions import (
+    localizaiton,
+    encode_image,
+    draw_rectangle,
+    draw_dot,
+    extract_icon_and_desc,
+    crop_screenshot,
+    process_image_and_draw_grid,
+    replace_icon_desc_with_coordinates
+)
+    
+    
+    
+    
+
 from infant.agent.memory.file_related_memory import get_diff_patch, git_add_or_not
 
 import asyncio
@@ -204,9 +219,9 @@ class Agent:
                 if hasattr(memory, 'code') and memory.code:
                     tmp_code = memory.code
                     
-                await self.localizaiton(memory)                                  
+                memory = await localizaiton(self, self.sandbox, memory) # convert the image description to coordinate for accurate mouse click   
+                                               
                 method = getattr(self.sandbox, memory.action)
-                # print('Debugging method in execution')
                 result = await method(memory)
                 memory.result = truncate_output(output = result)
                 
@@ -382,204 +397,204 @@ class Agent:
             messages = summary_memory_to_diag(memory_block, git_patch, case)
         return messages
 
-    async def localizaiton(self, memory):
-        '''
-        Convert the image description to coordinate for accurate mouse click
-        '''
-        if isinstance(memory, IPythonRun):
-            pattern = r"mouse_(left_click|double_click|move|right_click)\((['\"])(.*?)\2, (['\"])(.*?)\4\)"
-            # print(f'Debugging memory.code in execution: {memory.code}')
-            match = re.search(pattern, memory.code)
-            # print(f'Debugging match in execution: {match}')
-            if match:
-                # Take a screenshot
-                action = match.group(1)
-                scr_memory = IPythonRun(code=f'take_screenshot()')
-                method = getattr(self.sandbox, scr_memory.action)
-                result = await method(scr_memory)
-                memory.result = result
-                logger.info(memory, extra={'msg_type': 'Execution Result'})
+    # async def localizaiton(self, memory):
+    #     '''
+    #     Convert the image description to coordinate for accurate mouse click
+    #     '''
+    #     if isinstance(memory, IPythonRun):
+    #         pattern = r"mouse_(left_click|double_click|move|right_click)\((['\"])(.*?)\2, (['\"])(.*?)\4\)"
+    #         # print(f'Debugging memory.code in execution: {memory.code}')
+    #         match = re.search(pattern, memory.code)
+    #         # print(f'Debugging match in execution: {match}')
+    #         if match:
+    #             # Take a screenshot
+    #             action = match.group(1)
+    #             scr_memory = IPythonRun(code=f'take_screenshot()')
+    #             method = getattr(self.sandbox, scr_memory.action)
+    #             result = await method(scr_memory)
+    #             memory.result = result
+    #             logger.info(memory, extra={'msg_type': 'Execution Result'})
                 
-                # Find the coordination
-                coordination =  await self.image_description_to_coordinate(memory)
-                if coordination == '':
-                    logger.info("Coordination is an empty string.")
-                    memory.code = f"mouse_{action}(-1, -1)"
-                elif coordination == 'exit':
-                    logger.info("Coordination is 'exit'. Exiting the function.")
-                    memory.code = f"mouse_{action}(-1, -1)"
-                else:
-                    try:
-                        coord_tuple = eval(coordination)  
-                        if isinstance(coord_tuple, tuple) and len(coord_tuple) == 2:
-                            x, y = coord_tuple  
-                            memory.code = f"mouse_{action}({x}, {y})" # replace the image description with the coordinate
-                            logger.info(f"Mouse clicked at coordinates: ({x}, {y})")
-                        else:
-                            logger.error("Coordination is not a valid tuple.")
-                    except (SyntaxError, ValueError) as e:
-                        logger.error(f"Failed to parse coordination: {coordination}. Error: {e}")          
+    #             # Find the coordination
+    #             coordination =  await self.image_description_to_coordinate(memory)
+    #             if coordination == '':
+    #                 logger.info("Coordination is an empty string.")
+    #                 memory.code = f"mouse_{action}(-1, -1)"
+    #             elif coordination == 'exit':
+    #                 logger.info("Coordination is 'exit'. Exiting the function.")
+    #                 memory.code = f"mouse_{action}(-1, -1)"
+    #             else:
+    #                 try:
+    #                     coord_tuple = eval(coordination)  
+    #                     if isinstance(coord_tuple, tuple) and len(coord_tuple) == 2:
+    #                         x, y = coord_tuple  
+    #                         memory.code = f"mouse_{action}({x}, {y})" # replace the image description with the coordinate
+    #                         logger.info(f"Mouse clicked at coordinates: ({x}, {y})")
+    #                     else:
+    #                         logger.error("Coordination is not a valid tuple.")
+    #                 except (SyntaxError, ValueError) as e:
+    #                     logger.error(f"Failed to parse coordination: {coordination}. Error: {e}")          
 
-    async def image_description_to_coordinate(self, mouse_click_action: Memory):
-        """
-        Convert the image description to coordinate for accurate mouse click.
-        """
-        # Initialize the localization memory block
-        localization_memory_block = []
-        localization_memory_block.append(mouse_click_action) 
-        stop_signals = ['</loca_finish>', '</execute_ipython>']
+    # async def image_description_to_coordinate(self, mouse_click_action: Memory):
+    #     """
+    #     Convert the image description to coordinate for accurate mouse click.
+    #     """
+    #     # Initialize the localization memory block
+    #     localization_memory_block = []
+    #     localization_memory_block.append(mouse_click_action) 
+    #     stop_signals = ['</loca_finish>', '</execute_ipython>']
             
-        while not isinstance(localization_memory_block[-1], LocalizationFinish):
-            # rtve_localization_memory_block = localization_memory_rtve(localization_memory_block)
-            messages = localization_memory_to_diag(localization_memory_block)
-            resp, mem_blc= self.llm.completion(messages=messages, stop=stop_signals)
-            if mem_blc:
-                localization_memory_block.extend(mem_blc)
-            memory = parse(resp)
-            # check if the zoom in/localization command is correct
-            memory = await self.localizaiton_correction(memory, 
-                                                   localization_memory_block,)
+    #     while not isinstance(localization_memory_block[-1], LocalizationFinish):
+    #         # rtve_localization_memory_block = localization_memory_rtve(localization_memory_block)
+    #         messages = localization_memory_to_diag(localization_memory_block)
+    #         resp, mem_blc= self.llm.completion(messages=messages, stop=stop_signals)
+    #         if mem_blc:
+    #             localization_memory_block.extend(mem_blc)
+    #         memory = parse(resp)
+    #         # check if the zoom in/localization command is correct
+    #         memory = await self.localizaiton_correction(memory, 
+    #                                                localization_memory_block,)
             
-            if memory.runnable:
-                method = getattr(self.sandbox, memory.action)
-                result = await method(memory)
-                memory.result = result
-                logger.info(memory, extra={'msg_type': 'Execution Result'})
-                localization_memory_block.append(memory)
-            elif isinstance(memory, Message):
-                localization_memory_block.append(memory)
-                execution_fake_user_response = Message(content=localization_fake_user_response_prompt)
-                execution_fake_user_response.source = 'user'
-                localization_memory_block.append(execution_fake_user_response)
-            else:
-                localization_memory_block.append(memory)
-        if isinstance(localization_memory_block[-1], LocalizationFinish):
-            coordination = localization_memory_block[-1].coordination
-        self.state.memory_list.extend(localization_memory_block[1:])
-        return coordination
+    #         if memory.runnable:
+    #             method = getattr(self.sandbox, memory.action)
+    #             result = await method(memory)
+    #             memory.result = result
+    #             logger.info(memory, extra={'msg_type': 'Execution Result'})
+    #             localization_memory_block.append(memory)
+    #         elif isinstance(memory, Message):
+    #             localization_memory_block.append(memory)
+    #             execution_fake_user_response = Message(content=localization_fake_user_response_prompt)
+    #             execution_fake_user_response.source = 'user'
+    #             localization_memory_block.append(execution_fake_user_response)
+    #         else:
+    #             localization_memory_block.append(memory)
+    #     if isinstance(localization_memory_block[-1], LocalizationFinish):
+    #         coordination = localization_memory_block[-1].coordination
+    #     self.state.memory_list.extend(localization_memory_block[1:])
+    #     return coordination
 
-    async def localizaiton_correction(self, localization_action: Memory, 
-                                localization_memory_block: list[Memory],):
-        '''
-        Check if the zoom in/localization command is correct
-        '''
-        # Initialize the localization_check memory block
-        rtve_localization_memory_block = localization_memory_rtve(localization_memory_block)
-        localization_correction_memory_block = copy.deepcopy(rtve_localization_memory_block)
-        print(f'localization_correction_memory_block: {localization_correction_memory_block}')
-        last_py_memory = next(
-            (memory for memory in reversed(localization_correction_memory_block) if memory.__class__.__name__ == "IPythonRun"),
-            IPythonRun(code = 'localization(top_left=0,0),length=1920')  # If there is not found, use a default value
-        )
-        stop_signals = ['</loca_finish>', '</execute_ipython>']
+    # async def localizaiton_correction(self, localization_action: Memory, 
+    #                             localization_memory_block: list[Memory],):
+    #     '''
+    #     Check if the zoom in/localization command is correct
+    #     '''
+    #     # Initialize the localization_check memory block
+    #     rtve_localization_memory_block = localization_memory_rtve(localization_memory_block)
+    #     localization_correction_memory_block = copy.deepcopy(rtve_localization_memory_block)
+    #     print(f'localization_correction_memory_block: {localization_correction_memory_block}')
+    #     last_py_memory = next(
+    #         (memory for memory in reversed(localization_correction_memory_block) if memory.__class__.__name__ == "IPythonRun"),
+    #         IPythonRun(code = 'localization(top_left=0,0),length=1920')  # If there is not found, use a default value
+    #     )
+    #     stop_signals = ['</loca_finish>', '</execute_ipython>']
         
-        if 'localization(' in last_py_memory.code:
-            regex = r"top_left\s*=\s*\((\d+,\s*\d+)\)|length\s*=\s*(\d+)"
-            matches = re.findall(regex, last_py_memory.code)
-            for match in matches:
-                if match[0]:  # Matches top_left
-                    last_top_left = tuple(map(int, match[0].split(',')))
-                if match[1]:  # Matches length
-                    last_length = int(match[1])
-        else:
-            # Use full screen as the default value
-            last_top_left = (0, 0)
-            last_length = 1920
+    #     if 'localization(' in last_py_memory.code:
+    #         regex = r"top_left\s*=\s*\((\d+,\s*\d+)\)|length\s*=\s*(\d+)"
+    #         matches = re.findall(regex, last_py_memory.code)
+    #         for match in matches:
+    #             if match[0]:  # Matches top_left
+    #                 last_top_left = tuple(map(int, match[0].split(',')))
+    #             if match[1]:  # Matches length
+    #                 last_length = int(match[1])
+    #     else:
+    #         # Use full screen as the default value
+    #         last_top_left = (0, 0)
+    #         last_length = 1920
             
-        # convert previous memory block to block
-        messages = localization_memory_to_diag(localization_correction_memory_block)
+    #     # convert previous memory block to block
+    #     messages = localization_memory_to_diag(localization_correction_memory_block)
 
-        while not isinstance(localization_action, Message):
-            if isinstance(localization_action, LocalizationFinish):
-                messages.append({'role': 'assistant', 'content': f'{localization_action.thought}\n<loca_finish>{localization_action.coordination}</loca_finish>'})
-            elif isinstance(localization_action, IPythonRun) and 'localization' in localization_action.code:
-                messages.append({'role': 'assistant', 'content': f'{localization_action.thought}\n<execute_ipython>{localization_action.code}</execute_ipython>'})
-            else:
-                return localization_action
+    #     while not isinstance(localization_action, Message):
+    #         if isinstance(localization_action, LocalizationFinish):
+    #             messages.append({'role': 'assistant', 'content': f'{localization_action.thought}\n<loca_finish>{localization_action.coordination}</loca_finish>'})
+    #         elif isinstance(localization_action, IPythonRun) and 'localization' in localization_action.code:
+    #             messages.append({'role': 'assistant', 'content': f'{localization_action.thought}\n<execute_ipython>{localization_action.code}</execute_ipython>'})
+    #         else:
+    #             return localization_action
             
-            # draw a red rectangle or a dot on the image for the localization correction
-            if isinstance(localization_action, LocalizationFinish):
-                coordination = localization_action.coordination
-                # draw a red dot if this is the last step
-                draw_dot = IPythonRun(code=f'draw_dot({last_top_left}, {last_length}, {coordination})')
-                print(f'draw_dot: {draw_dot}')
-                method = getattr(self.sandbox, draw_dot.action)
-                result = await method(draw_dot)
-                print(f'draw_dot result: {result}')
-                if 'Screenshot saved at' in result:
-                    screenshot_path = result.split('Screenshot saved at')[-1].strip()
-                    mount_path = config.workspace_mount_path
-                    if screenshot_path.startswith("/workspace"):
-                        image_path = screenshot_path.replace("/workspace", mount_path, 1)
-                    image_url = image_base64_to_url(image_path)
-                    messages.append({'role': 'user',
-                        'content': [{'type': 'text', 'text': localization_check_dot_prompt},
-                            {"type": "image_url","image_url": {"url": image_url}}]})
+    #         # draw a red rectangle or a dot on the image for the localization correction
+    #         if isinstance(localization_action, LocalizationFinish):
+    #             coordination = localization_action.coordination
+    #             # draw a red dot if this is the last step
+    #             draw_dot = IPythonRun(code=f'draw_dot({last_top_left}, {last_length}, {coordination})')
+    #             print(f'draw_dot: {draw_dot}')
+    #             method = getattr(self.sandbox, draw_dot.action)
+    #             result = await method(draw_dot)
+    #             print(f'draw_dot result: {result}')
+    #             if 'Screenshot saved at' in result:
+    #                 screenshot_path = result.split('Screenshot saved at')[-1].strip()
+    #                 mount_path = config.workspace_mount_path
+    #                 if screenshot_path.startswith("/workspace"):
+    #                     image_path = screenshot_path.replace("/workspace", mount_path, 1)
+    #                 image_url = image_base64_to_url(image_path)
+    #                 messages.append({'role': 'user',
+    #                     'content': [{'type': 'text', 'text': localization_check_dot_prompt},
+    #                         {"type": "image_url","image_url": {"url": image_url}}]})
                     
-                    # print the messages for debugging
-                    # printable_messages = [
-                    #     {
-                    #         "role": message["role"],
-                    #         "content": message["content"] if isinstance(message.get("content"), str) else "content is a image"
-                    #     }
-                    #     for message in messages
-                    # ]
-                    # print(f'Messages in localizaiton_check: {printable_messages}')
-                    dc_messages = copy.deepcopy(messages)
-                    resp, _ = self.llm.completion(messages=dc_messages, stop=stop_signals)
-                    if '<|command_correct|>' in resp:
-                        return localization_action
-                    else:
-                        localization_action = parse(resp)
-                else:
-                    return localization_action
-            elif isinstance(localization_action, IPythonRun):
-                if 'localization' in localization_action.code:
-                    # draw a red rectangle if this is the intermediate step
-                    regex = r"top_left\s*=\s*\((\d+,\s*\d+)\)|length\s*=\s*(\d+)"
-                    matches = re.findall(regex, localization_action.code)
-                    for match in matches:
-                        if match[0]:  # Matches top_left
-                            top_left = tuple(map(int, match[0].split(',')))
-                        if match[1]:  # Matches length
-                            length = int(match[1])
-                    draw_rectangle = IPythonRun(code=f'draw_rectangle({last_top_left}, {last_length}, {top_left}, {length})')
-                    print(f'draw_rectangle: {draw_rectangle}')
-                    method = getattr(self.sandbox, draw_rectangle.action)
-                    result = await method(draw_rectangle)
-                    print(f'draw_rectangle result: {result}')
-                    if 'Screenshot saved at' in result:
-                        screenshot_path = result.split('Screenshot saved at')[-1].strip()
-                        mount_path = config.workspace_mount_path
-                        if screenshot_path.startswith("/workspace"):
-                            image_path = screenshot_path.replace("/workspace", mount_path, 1)
-                        image_url = image_base64_to_url(image_path)
-                        messages.append({'role': 'user',
-                            'content': [{'type': 'text', 'text': localization_check_rectangle_prompt},
-                                {"type": "image_url","image_url": {"url": image_url}}]})
+    #                 # print the messages for debugging
+    #                 # printable_messages = [
+    #                 #     {
+    #                 #         "role": message["role"],
+    #                 #         "content": message["content"] if isinstance(message.get("content"), str) else "content is a image"
+    #                 #     }
+    #                 #     for message in messages
+    #                 # ]
+    #                 # print(f'Messages in localizaiton_check: {printable_messages}')
+    #                 dc_messages = copy.deepcopy(messages)
+    #                 resp, _ = self.llm.completion(messages=dc_messages, stop=stop_signals)
+    #                 if '<|command_correct|>' in resp:
+    #                     return localization_action
+    #                 else:
+    #                     localization_action = parse(resp)
+    #             else:
+    #                 return localization_action
+    #         elif isinstance(localization_action, IPythonRun):
+    #             if 'localization' in localization_action.code:
+    #                 # draw a red rectangle if this is the intermediate step
+    #                 regex = r"top_left\s*=\s*\((\d+,\s*\d+)\)|length\s*=\s*(\d+)"
+    #                 matches = re.findall(regex, localization_action.code)
+    #                 for match in matches:
+    #                     if match[0]:  # Matches top_left
+    #                         top_left = tuple(map(int, match[0].split(',')))
+    #                     if match[1]:  # Matches length
+    #                         length = int(match[1])
+    #                 draw_rectangle = IPythonRun(code=f'draw_rectangle({last_top_left}, {last_length}, {top_left}, {length})')
+    #                 print(f'draw_rectangle: {draw_rectangle}')
+    #                 method = getattr(self.sandbox, draw_rectangle.action)
+    #                 result = await method(draw_rectangle)
+    #                 print(f'draw_rectangle result: {result}')
+    #                 if 'Screenshot saved at' in result:
+    #                     screenshot_path = result.split('Screenshot saved at')[-1].strip()
+    #                     mount_path = config.workspace_mount_path
+    #                     if screenshot_path.startswith("/workspace"):
+    #                         image_path = screenshot_path.replace("/workspace", mount_path, 1)
+    #                     image_url = image_base64_to_url(image_path)
+    #                     messages.append({'role': 'user',
+    #                         'content': [{'type': 'text', 'text': localization_check_rectangle_prompt},
+    #                             {"type": "image_url","image_url": {"url": image_url}}]})
                         
-                        # print the messages for debugging
-                        # printable_messages = [
-                        #     {
-                        #         "role": message["role"],
-                        #         "content": message["content"] if isinstance(message.get("content"), str) else "content is a image"
-                        #     }
-                        #     for message in messages
-                        # ]
-                        # print(f'Messages in localizaiton_check: {printable_messages}')
-                        dc_messages = copy.deepcopy(messages)
-                        resp,_ = self.llm.completion(messages=dc_messages, stop=stop_signals)
-                        if '<|command_correct|>' in resp:
-                            return localization_action
-                        else:
-                            localization_action = parse(resp)
-                    else:
-                        return localization_action
-                else:
-                    return localization_action
-            else:
-                return localization_action
-        return localization_action
+    #                     # print the messages for debugging
+    #                     # printable_messages = [
+    #                     #     {
+    #                     #         "role": message["role"],
+    #                     #         "content": message["content"] if isinstance(message.get("content"), str) else "content is a image"
+    #                     #     }
+    #                     #     for message in messages
+    #                     # ]
+    #                     # print(f'Messages in localizaiton_check: {printable_messages}')
+    #                     dc_messages = copy.deepcopy(messages)
+    #                     resp,_ = self.llm.completion(messages=dc_messages, stop=stop_signals)
+    #                     if '<|command_correct|>' in resp:
+    #                         return localization_action
+    #                     else:
+    #                         localization_action = parse(resp)
+    #                 else:
+    #                     return localization_action
+    #             else:
+    #                 return localization_action
+    #         else:
+    #             return localization_action
+    #     return localization_action
             
             
 

@@ -194,6 +194,7 @@ class Config:
     nomachine_bind_port: int = 23333
     consistant_sandbox: bool = True # whether to use the same sandbox for the same user
     text_only_docker: bool = False # whether to use a text-only docker image
+    intermediate_results_dir: str = os.path.join(os.getcwd(), 'workspace')
     
     def __str__(self):
         sections = [
@@ -334,7 +335,8 @@ class Config:
             ssh_bind_port = self.ssh_port,
             nomachine_bind_port = self.nomachine_bind_port,
             consistant_sandbox = self.consistant_sandbox,
-            text_only_docker= self.text_only_docker
+            text_only_docker = self.text_only_docker,
+            intermediate_results_dir = self.intermediate_results_dir
         )
 
 class SandboxParams:
@@ -368,7 +370,8 @@ class SandboxParams:
         nvidia_visible_devices,
         ssh_bind_port,
         nomachine_bind_port,
-        consistant_sandbox
+        consistant_sandbox,
+        intermediate_results_dir
     ):
         self.runtime = runtime
         self.file_store = file_store
@@ -392,13 +395,14 @@ class SandboxParams:
         self.enable_auto_lint = enable_auto_lint
         self.run_as_infant = run_as_infant
         self.ssh_password = ssh_password
-        self.initialize_plugins= initialize_plugins
+        self.initialize_plugins = initialize_plugins
         self.nvidia_driver = nvidia_driver
         self.render_type = render_type
         self.nvidia_visible_devices = nvidia_visible_devices
         self.ssh_bind_port = ssh_bind_port
         self.nomachine_bind_port = nomachine_bind_port
         self.consistant_sandbox = consistant_sandbox
+        self.intermediate_results_dir = intermediate_results_dir
 
 class LitellmParams:
     def __init__(

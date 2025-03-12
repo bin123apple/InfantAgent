@@ -181,7 +181,7 @@ def reasoning_memory_to_diag(memory_block: list[Memory], end_prompt: str) -> str
                             'content': message})
         if hasattr(memory, 'result') and memory.result: 
             if '<Screenshot saved at>' in memory.result: # image situation
-                screenshot_path = memory.result.split('<Screenshot saved at>')[-2].strip()
+                screenshot_path = memory.result.split('<Screenshot saved at>')[-1].strip()
                 mount_path = config.workspace_mount_path
                 # print(f"mount_path: {mount_path}")
                 if screenshot_path.startswith("/workspace"):
@@ -270,7 +270,7 @@ def execution_memory_to_diag(memory_block: list[Memory], cmd_set, end_prompt):
             
         if hasattr(memory, 'result') and memory.result: 
             if '<Screenshot saved at>' in memory.result: # image situation
-                screenshot_path = memory.result.split('<Screenshot saved at>')[-2].strip()
+                screenshot_path = memory.result.split('<Screenshot saved at>')[-1].strip()
                 mount_path = config.workspace_mount_path
                 # print(f"mount_path: {mount_path}")
                 if screenshot_path.startswith("/workspace"):
@@ -349,7 +349,7 @@ def critic_memory_to_diag(memory_block: list[Memory]):
                 'content': base_memory_to_str(memory)})
         if hasattr(memory, 'result') and memory.result: 
             if '<Screenshot saved at>' in memory.result: # image situation
-                screenshot_path = memory.result.split('<Screenshot saved at>')[-2].strip()
+                screenshot_path = memory.result.split('<Screenshot saved at>')[-1].strip()
                 mount_path = config.workspace_mount_path
                 # print(f"mount_path: {mount_path}")
                 if screenshot_path.startswith("/workspace"):
@@ -402,7 +402,7 @@ def summary_memory_to_diag(memory_block: list[Memory], git_patch, case):
                 'content': base_memory_to_str(memory)})
         if hasattr(memory, 'result') and memory.result: 
             if '<Screenshot saved at>' in memory.result: # image situation
-                screenshot_path = memory.result.split('<Screenshot saved at>')[-2].strip()
+                screenshot_path = memory.result.split('<Screenshot saved at>')[-1].strip()
                 mount_path = config.workspace_mount_path
                 # print(f"mount_path: {mount_path}")
                 if screenshot_path.startswith("/workspace"):

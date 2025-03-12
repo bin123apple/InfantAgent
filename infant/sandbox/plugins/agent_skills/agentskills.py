@@ -1472,6 +1472,7 @@ def parse_pptx(file_path: str) -> None:
 
 ### MK Operations ###
 
+@update_pwd_decorator
 def get_mouse_position():
     """
     Get the current mouse position using xdotool.
@@ -1486,234 +1487,234 @@ def get_mouse_position():
     y = int(lines[1].split("=")[1])  # Extract y-coordinate
     return x, y
 
-@update_pwd_decorator
-def draw_dot(last_top_left, last_length, coordination):
-    """
-    Draws a red dot on the image at the specified coordination within a cropped screenshot.
+# @update_pwd_decorator
+# def draw_dot(last_top_left, last_length, coordination):
+#     """
+#     Draws a red dot on the image at the specified coordination within a cropped screenshot.
 
-    Args:
-        last_top_left (tuple): Top-left corner of the region to crop from the screenshot (x, y).
-        last_length (int): Length of the region to crop (width is calculated as 3/4 of the length).
-        coordination (tuple): The (x, y) coordinates of the dot within the cropped region.
+#     Args:
+#         last_top_left (tuple): Top-left corner of the region to crop from the screenshot (x, y).
+#         last_length (int): Length of the region to crop (width is calculated as 3/4 of the length).
+#         coordination (tuple): The (x, y) coordinates of the dot within the cropped region.
 
-    Returns:
-        Image: The modified image with the dot drawn.
-    """
-    # Capture a screenshot
-    screenshot = ImageGrab.grab()
+#     Returns:
+#         Image: The modified image with the dot drawn.
+#     """
+#     # Capture a screenshot
+#     screenshot = ImageGrab.grab()
 
-    # Convert dimensions to integers
-    last_length = int(last_length)
+#     # Convert dimensions to integers
+#     last_length = int(last_length)
 
-    # Calculate dimensions for cropping
-    last_width = int(last_length * 5 // 8)  # Width of the cropped rectangle
+#     # Calculate dimensions for cropping
+#     last_width = int(last_length * 5 // 8)  # Width of the cropped rectangle
 
-    # Validate if coordination is within the cropped region
-    x, y = last_top_left
-    dot_x, dot_y = coordination
-    if not (x <= dot_x <= x + last_length and y <= dot_y <= y + last_width):
-        raise ValueError(
-            f"Error: The dot at coordination {coordination} is outside the cropped region "
-            f"({last_length}x{last_width})."
-        )
+#     # Validate if coordination is within the cropped region
+#     x, y = last_top_left
+#     dot_x, dot_y = coordination
+#     if not (x <= dot_x <= x + last_length and y <= dot_y <= y + last_width):
+#         raise ValueError(
+#             f"Error: The dot at coordination {coordination} is outside the cropped region "
+#             f"({last_length}x{last_width})."
+#         )
 
-    # Draw a red dot on the original screenshot
-    draw = ImageDraw.Draw(screenshot)
-    dot_radius = max(3, int(min(last_width, last_length) * 0.02))  # Adjust dot radius based on cropped size
-    dot_color = (200, 0, 0)  # RGB color for the dot (red)
-    bbox = [
-        dot_x - dot_radius, dot_y - dot_radius,
-        dot_x + dot_radius, dot_y + dot_radius
-    ]
+#     # Draw a red dot on the original screenshot
+#     draw = ImageDraw.Draw(screenshot)
+#     dot_radius = max(3, int(min(last_width, last_length) * 0.02))  # Adjust dot radius based on cropped size
+#     dot_color = (200, 0, 0)  # RGB color for the dot (red)
+#     bbox = [
+#         dot_x - dot_radius, dot_y - dot_radius,
+#         dot_x + dot_radius, dot_y + dot_radius
+#     ]
 
-    draw.ellipse(bbox, fill=dot_color, outline=dot_color)
+#     draw.ellipse(bbox, fill=dot_color, outline=dot_color)
     
-    # Crop the region defined by last_top_left and last_length
-    x, y = last_top_left
-    cropped_img = screenshot.crop((x, y, x + last_length, y + last_width))
+#     # Crop the region defined by last_top_left and last_length
+#     x, y = last_top_left
+#     cropped_img = screenshot.crop((x, y, x + last_length, y + last_width))
     
-    # Save the screenshot with the drawn dot
-    screenshot_dir = "/workspace/screenshots"
-    os.makedirs(screenshot_dir, exist_ok=True)
-    timestamp = int(time.time())
-    screenshot_path = f"{screenshot_dir}/{timestamp}_draw_dot.png"
-    cropped_img.save(screenshot_path)
-    time.sleep(2)
-    print(f"<Screenshot saved at> {screenshot_path}")
+#     # Save the screenshot with the drawn dot
+#     screenshot_dir = "/workspace/screenshots"
+#     os.makedirs(screenshot_dir, exist_ok=True)
+#     timestamp = int(time.time())
+#     screenshot_path = f"{screenshot_dir}/{timestamp}_draw_dot.png"
+#     cropped_img.save(screenshot_path)
+#     time.sleep(2)
+#     print(f"<Screenshot saved at> {screenshot_path}")
      
-@update_pwd_decorator
-def draw_rectangle(last_top_left, last_length, new_top_left, new_length):
-    """
-    1. Captures a screenshot and crops a rectangular region defined by last_top_left and last_length.
-    2. Draws a rectangle inside the cropped region, specified by new_top_left and new_length.
-    3. Validates if new_top_left and new_length fall within the cropped region. If not, prints an error message and exits.
-    4. Saves the screenshot and modified image to a specified directory.
+# @update_pwd_decorator
+# def draw_rectangle(last_top_left, last_length, new_top_left, new_length):
+#     """
+#     1. Captures a screenshot and crops a rectangular region defined by last_top_left and last_length.
+#     2. Draws a rectangle inside the cropped region, specified by new_top_left and new_length.
+#     3. Validates if new_top_left and new_length fall within the cropped region. If not, prints an error message and exits.
+#     4. Saves the screenshot and modified image to a specified directory.
 
-    Args:
-        last_top_left (tuple): Top-left corner of the region to crop from the screenshot (x, y).
-        last_length (int): Length of the rectangle to crop (width is calculated as 5/8 of the length).
-        new_top_left (tuple): Top-left corner of the rectangle to draw within the cropped region (x, y).
-        new_length (int): Length of the rectangle to draw (width is calculated as 5/8 of the length).
-        command (str): Command or description for labeling the screenshot file.
+#     Args:
+#         last_top_left (tuple): Top-left corner of the region to crop from the screenshot (x, y).
+#         last_length (int): Length of the rectangle to crop (width is calculated as 5/8 of the length).
+#         new_top_left (tuple): Top-left corner of the rectangle to draw within the cropped region (x, y).
+#         new_length (int): Length of the rectangle to draw (width is calculated as 5/8 of the length).
+#         command (str): Command or description for labeling the screenshot file.
 
-    Returns:
-        Image: The modified image with the drawn rectangle.
-    """
-    # Capture a screenshot
-    screenshot = ImageGrab.grab()
+#     Returns:
+#         Image: The modified image with the drawn rectangle.
+#     """
+#     # Capture a screenshot
+#     screenshot = ImageGrab.grab()
 
-    # Convert dimensions to integers
-    last_length = int(last_length)
-    new_length = int(new_length)
+#     # Convert dimensions to integers
+#     last_length = int(last_length)
+#     new_length = int(new_length)
 
-    # Calculate dimensions for cropping and drawing
-    last_width = int(last_length * 5 // 8)  # Width of the cropped rectangle
-    new_width = int(new_length * 5 // 8)   # Width of the rectangle to draw
+#     # Calculate dimensions for cropping and drawing
+#     last_width = int(last_length * 5 // 8)  # Width of the cropped rectangle
+#     new_width = int(new_length * 5 // 8)   # Width of the rectangle to draw
 
-    # Draw the rectangle on the screenshot
-    rect_color = (200, 0, 0)
-    if last_length >= 960:
-        rect_width = 10
-    elif 960 > last_length >= 240:
-        rect_width = 6
-    else:
-        rect_width = 3
-    draw = ImageDraw.Draw(screenshot)
-    rect_x, rect_y = new_top_left
-    rect_bbox = [
-        rect_x, rect_y,
-        rect_x + new_length, rect_y + new_width
-    ]
-    draw.rectangle(rect_bbox, outline=rect_color, width=rect_width)
+#     # Draw the rectangle on the screenshot
+#     rect_color = (200, 0, 0)
+#     if last_length >= 960:
+#         rect_width = 10
+#     elif 960 > last_length >= 240:
+#         rect_width = 6
+#     else:
+#         rect_width = 3
+#     draw = ImageDraw.Draw(screenshot)
+#     rect_x, rect_y = new_top_left
+#     rect_bbox = [
+#         rect_x, rect_y,
+#         rect_x + new_length, rect_y + new_width
+#     ]
+#     draw.rectangle(rect_bbox, outline=rect_color, width=rect_width)
 
-    # Crop the region defined by last_top_left and last_length
-    x, y = last_top_left
-    cropped_img = screenshot.crop((x, y, x + last_length, y + last_width))
+#     # Crop the region defined by last_top_left and last_length
+#     x, y = last_top_left
+#     cropped_img = screenshot.crop((x, y, x + last_length, y + last_width))
 
-    # Validate if new_top_left and new_length are within the cropped region
-    nx, ny = new_top_left
-    if not (x <= nx <= x + last_length and y <= ny <= y + last_width and
-            x <= nx + new_length <= x + last_length and y <= ny + new_width <= y + last_width):
-        print("Error: The rectangle defined by top_left and length is outside the cropped region."
-              "Please reselect the top_left and length.")
+#     # Validate if new_top_left and new_length are within the cropped region
+#     nx, ny = new_top_left
+#     if not (x <= nx <= x + last_length and y <= ny <= y + last_width and
+#             x <= nx + new_length <= x + last_length and y <= ny + new_width <= y + last_width):
+#         print("Error: The rectangle defined by top_left and length is outside the cropped region."
+#               "Please reselect the top_left and length.")
 
-    # Save the screenshot and labeled image
-    screenshot_dir = "/workspace/screenshots"
-    os.makedirs(screenshot_dir, exist_ok=True)
-    timestamp = int(time.time())
+#     # Save the screenshot and labeled image
+#     screenshot_dir = "/workspace/screenshots"
+#     os.makedirs(screenshot_dir, exist_ok=True)
+#     timestamp = int(time.time())
     
-    screenshot_path = f"{screenshot_dir}/{timestamp}_draw_rectangle.png"
+#     screenshot_path = f"{screenshot_dir}/{timestamp}_draw_rectangle.png"
 
-    # Save original screenshot and labeled image
-    cropped_img.save(screenshot_path)
-    time.sleep(2)
-    print(f"<Screenshot saved at> {screenshot_path}")
+#     # Save original screenshot and labeled image
+#     cropped_img.save(screenshot_path)
+#     time.sleep(2)
+#     print(f"<Screenshot saved at> {screenshot_path}")
 
-def draw_grid(img, length, offset=(0, 0)):
-    """
-    Draws a grid with fixed divisions (2 horizontal lines and 3 vertical lines),
-    and labels the intersection points based on global coordinates.
-    Now, adds a black outer frame region as a background, and places red coordinate labels
-    on the frame region instead of inside the grid.
-    """
-    from PIL import Image, ImageDraw, ImageFont
+# def draw_grid(img, length, offset=(0, 0)):
+#     """
+#     Draws a grid with fixed divisions (2 horizontal lines and 3 vertical lines),
+#     and labels the intersection points based on global coordinates.
+#     Now, adds a black outer frame region as a background, and places red coordinate labels
+#     on the frame region instead of inside the grid.
+#     """
+#     from PIL import Image, ImageDraw, ImageFont
 
-    draw = ImageDraw.Draw(img)
-    width, height = img.size
-    if offset:
-        offset_x, offset_y = offset
-    else:
-        offset_x, offset_y = 0, 0
+#     draw = ImageDraw.Draw(img)
+#     width, height = img.size
+#     if offset:
+#         offset_x, offset_y = offset
+#     else:
+#         offset_x, offset_y = 0, 0
 
-    # Fixed divisions: 3 horizontal regions and 4 vertical regions
-    num_horizontal_lines = 5
-    num_vertical_lines = 7
+#     # Fixed divisions: 3 horizontal regions and 4 vertical regions
+#     num_horizontal_lines = 5
+#     num_vertical_lines = 7
 
-    # Calculate step sizes based on the screen size
-    step_x = width // (num_vertical_lines + 1)
-    step_y = height // (num_horizontal_lines + 1)
+#     # Calculate step sizes based on the screen size
+#     step_x = width // (num_vertical_lines + 1)
+#     step_y = height // (num_horizontal_lines + 1)
 
-    # Define line color, line style, and font size
-    grid_color = (200, 0, 0)  # Deep red (RGB)
-    label_color = "red"  # Red labels
-    dash_length = 10  # Length of each dash for dashed lines
-    font_size = max(int((length / 40)), 
-                    int(sqrt((width * height) / 2560)),
-                    8)  # Adjust font size based on screen area
+#     # Define line color, line style, and font size
+#     grid_color = (200, 0, 0)  # Deep red (RGB)
+#     label_color = "red"  # Red labels
+#     dash_length = 10  # Length of each dash for dashed lines
+#     font_size = max(int((length / 40)), 
+#                     int(sqrt((width * height) / 2560)),
+#                     8)  # Adjust font size based on screen area
 
-    # Load font
-    try:
-        font = ImageFont.truetype("DejaVuSans.ttf", font_size)
-    except:
-        font = ImageFont.load_default()
+#     # Load font
+#     try:
+#         font = ImageFont.truetype("DejaVuSans.ttf", font_size)
+#     except:
+#         font = ImageFont.load_default()
 
-    # Use textbbox to calculate maximum label dimensions
-    max_x_label_width = 0
-    max_y_label_width = 0
+#     # Use textbbox to calculate maximum label dimensions
+#     max_x_label_width = 0
+#     max_y_label_width = 0
 
-    for i in range(num_vertical_lines + 2):
-        label = f"{i * step_x + offset_x}"
-        bbox = draw.textbbox((0, 0), label, font=font)
-        max_x_label_width = max(max_x_label_width, bbox[2] - bbox[0])
+#     for i in range(num_vertical_lines + 2):
+#         label = f"{i * step_x + offset_x}"
+#         bbox = draw.textbbox((0, 0), label, font=font)
+#         max_x_label_width = max(max_x_label_width, bbox[2] - bbox[0])
 
-    for j in range(num_horizontal_lines + 2):
-        label = f"{j * step_y + offset_y}"
-        bbox = draw.textbbox((0, 0), label, font=font)
-        max_y_label_width = max(max_y_label_width, bbox[2] - bbox[0])
+#     for j in range(num_horizontal_lines + 2):
+#         label = f"{j * step_y + offset_y}"
+#         bbox = draw.textbbox((0, 0), label, font=font)
+#         max_y_label_width = max(max_y_label_width, bbox[2] - bbox[0])
 
-    frame_thickness_x = max_x_label_width  # Match longest X-coordinate label
-    frame_thickness_y = font_size  # Match font size for Y-coordinate label height
+#     frame_thickness_x = max_x_label_width  # Match longest X-coordinate label
+#     frame_thickness_y = font_size  # Match font size for Y-coordinate label height
 
-    # print(f"Frame thickness: {frame_thickness_x} x {frame_thickness_y}")
+#     # print(f"Frame thickness: {frame_thickness_x} x {frame_thickness_y}")
 
-    # Create a new image with the black frame
-    new_width = width + 2 * frame_thickness_x
-    new_height = height + 2 * frame_thickness_y
-    new_img = Image.new("RGB", (new_width, new_height), "black")
+#     # Create a new image with the black frame
+#     new_width = width + 2 * frame_thickness_x
+#     new_height = height + 2 * frame_thickness_y
+#     new_img = Image.new("RGB", (new_width, new_height), "black")
 
-    # Paste the original image onto the new background
-    new_img.paste(img, (frame_thickness_x, frame_thickness_y))
-    draw = ImageDraw.Draw(new_img)
+#     # Paste the original image onto the new background
+#     new_img.paste(img, (frame_thickness_x, frame_thickness_y))
+#     draw = ImageDraw.Draw(new_img)
 
-    # Draw vertical dashed lines
-    for i in range(1, num_vertical_lines + 1):
-        x = i * step_x + frame_thickness_x
-        for y in range(frame_thickness_y, height + frame_thickness_y, dash_length * 2):
-            draw.line([(x, y), (x, y + dash_length)], fill=grid_color, width=1)
+#     # Draw vertical dashed lines
+#     for i in range(1, num_vertical_lines + 1):
+#         x = i * step_x + frame_thickness_x
+#         for y in range(frame_thickness_y, height + frame_thickness_y, dash_length * 2):
+#             draw.line([(x, y), (x, y + dash_length)], fill=grid_color, width=1)
 
-    # Draw horizontal dashed lines
-    for i in range(1, num_horizontal_lines + 1):
-        y = i * step_y + frame_thickness_y
-        for x in range(frame_thickness_x, width + frame_thickness_x, dash_length * 2):
-            draw.line([(x, y), (x + dash_length, y)], fill=grid_color, width=1)
+#     # Draw horizontal dashed lines
+#     for i in range(1, num_horizontal_lines + 1):
+#         y = i * step_y + frame_thickness_y
+#         for x in range(frame_thickness_x, width + frame_thickness_x, dash_length * 2):
+#             draw.line([(x, y), (x + dash_length, y)], fill=grid_color, width=1)
 
-    # Label X-coordinates on the top and bottom frame
-    for i in range(num_vertical_lines + 2):
-        x = i * step_x + frame_thickness_x
-        label = f"{i * step_x + offset_x}"
-        # Top frame
-        draw.text(
-            (x - max_x_label_width // 2, frame_thickness_y // 2 - font_size // 2), label, fill=label_color, font=font
-        )
-        # Bottom frame
-        draw.text(
-            (x - max_x_label_width // 2, height + frame_thickness_y), label, fill=label_color, font=font
-        )
+#     # Label X-coordinates on the top and bottom frame
+#     for i in range(num_vertical_lines + 2):
+#         x = i * step_x + frame_thickness_x
+#         label = f"{i * step_x + offset_x}"
+#         # Top frame
+#         draw.text(
+#             (x - max_x_label_width // 2, frame_thickness_y // 2 - font_size // 2), label, fill=label_color, font=font
+#         )
+#         # Bottom frame
+#         draw.text(
+#             (x - max_x_label_width // 2, height + frame_thickness_y), label, fill=label_color, font=font
+#         )
 
-    # Label Y-coordinates on the left and right frame
-    for j in range(num_horizontal_lines + 2):
-        y = j * step_y + frame_thickness_y
-        label = f"{j * step_y + offset_y}"
-        # Left frame
-        draw.text(
-            (frame_thickness_x // 2 - max_y_label_width // 2, y - font_size // 2), label, fill=label_color, font=font
-        )
-        # Right frame
-        draw.text(
-            (width + frame_thickness_x, y - font_size // 2), label, fill=label_color, font=font
-        )
+#     # Label Y-coordinates on the left and right frame
+#     for j in range(num_horizontal_lines + 2):
+#         y = j * step_y + frame_thickness_y
+#         label = f"{j * step_y + offset_y}"
+#         # Left frame
+#         draw.text(
+#             (frame_thickness_x // 2 - max_y_label_width // 2, y - font_size // 2), label, fill=label_color, font=font
+#         )
+#         # Right frame
+#         draw.text(
+#             (width + frame_thickness_x, y - font_size // 2), label, fill=label_color, font=font
+#         )
 
-    return new_img
+#     return new_img
 
 @update_pwd_decorator
 def take_screenshot(command: str | None = None, top_left: tuple | None = None, length: int | None = None) -> str:
@@ -1731,10 +1732,10 @@ def take_screenshot(command: str | None = None, top_left: tuple | None = None, l
         # safe_command = re.sub(r'[^\w\s-]', '_', command)  # FIXME: iGnore this for now
         # safe_command = re.sub(r'\s+', '_', safe_command)  
         screenshot_path = f"{screenshot_dir}/{timestamp}.png"
-        labeled_screenshot_path = f"{screenshot_dir}/{timestamp}_label.png"
+        # labeled_screenshot_path = f"{screenshot_dir}/{timestamp}_label.png"
     else:
         screenshot_path = f"{screenshot_dir}/{timestamp}_screenshot.png"
-        labeled_screenshot_path = f"{screenshot_dir}/{timestamp}_screenshot_label.png"
+        # labeled_screenshot_path = f"{screenshot_dir}/{timestamp}_screenshot_label.png"
 
     # Get screen resolution
     screen_width, screen_height = ImageGrab.grab().size
@@ -1761,12 +1762,12 @@ def take_screenshot(command: str | None = None, top_left: tuple | None = None, l
         print(f"<Screenshot saved at> {screenshot_path}")
         length = screen_width
         
-    new_img = draw_grid(img, length=length, offset=top_left)
+    # new_img = draw_grid(img, length=length, offset=top_left)
 
-    # Save the labeled image
-    new_img.save(labeled_screenshot_path)
-    time.sleep(2)
-    print(f"<Screenshot saved at> {labeled_screenshot_path}")
+    # # Save the labeled image
+    # new_img.save(labeled_screenshot_path)
+    # time.sleep(2)
+    # print(f"<Screenshot saved at> {labeled_screenshot_path}")
 
 @update_pwd_decorator
 def mouse_left_click(x, y, button="left"):
@@ -1828,7 +1829,7 @@ def mouse_scroll(direction="up", amount=1):
     button_code = 4 if direction == "up" else 5
     for _ in range(amount):
         subprocess.run(f"xdotool click {button_code}", shell=True)
-        time.sleep(0.1)
+        time.sleep(1)
     take_screenshot(f'mouse_scroll({direction}, {amount})')
 
 @update_pwd_decorator
@@ -1859,9 +1860,10 @@ def open_application(app_name):
     """
     # Simulate pressing the "Super" key to open the application launcher
     subprocess.run("xdotool key super", shell=True)
+    time.sleep(1)
     # Type the application name in the search bar
     subprocess.run(f"xdotool type '{app_name}'", shell=True)
-
+    time.sleep(1)
     # Press "Enter" to open the application
     subprocess.run("xdotool key Return", shell=True)
     print(f"Opening {app_name}...")
@@ -1996,8 +1998,6 @@ __all__ = [
     'mouse_drag',
     'mouse_right_click',
     'localization',
-    'draw_rectangle',
-    'draw_dot',
 ]
 
 if OPENAI_API_KEY and OPENAI_BASE_URL:

@@ -70,6 +70,7 @@ class Sandbox:
         self.user_id = config.sandbox_user_id
         self.sandbox_user_id = config.sandbox_user_id
         self.run_as_infant = config.run_as_infant
+        self.intermediate_results_dir = config.intermediate_results_dir
         self.sandbox_workspace_dir = config.workspace_mount_path_in_sandbox
         self.ssh_hostname = config.ssh_hostname
         self.use_host_network = config.use_host_network
@@ -436,18 +437,19 @@ class Sandbox:
         self.execute("source ~/.bashrc")
         
         time.sleep(2) # wait for the installation to finish
-        # Fix lagging issue
-        self.execute("sudo pkill Xvfb")
-        self.execute("sudo systemctl stop gdm3")
-        self.execute("export DISPLAY=:0")
-        self.execute("unset LD_PRELOAD")
-        self.execute("Xvfb :0 -screen 0 1920x1080x24 &")
-        self.execute("gnome-session &")
         logger.info(f"Please check the details at: 'https://localhost:{self.gui_port}'")
         logger.info(f"For first-time users, please go to https://localhost:{self.gui_port} to set up and skip unnecessary steps.")
         try:
             # time.sleep(5000) # DEBUG: Check the nomachine login
             if initial_session:
+                self.execute("sudo pkill Xvfb")
+                self.execute("sudo systemctl stop gdm3")
+                self.execute("export DISPLAY=:0")
+                self.execute("unset LD_PRELOAD")
+                self.execute("nohup Xvfb :0 -screen 0 1920x1080x24 &")
+                self.execute("nohup gnome-session &")
+                self.execute("cd /home/infant")
+                time.sleep(10) # wait for the nomachine to start
                 input("When the computer setup is complete, press Enter to continue") # For setting up the first-time user
         except Exception as e:
             print(f"An error occurred: {e}")
