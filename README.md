@@ -33,7 +33,7 @@ python infant/main.py
 
 ## Demo
 
-Need a Demo here
+[A simple demo](https://github.com/user-attachments/assets/6a3fffc6-1cc4-4efd-906a-450f5ed534c8)
 
 ## TODO
 
