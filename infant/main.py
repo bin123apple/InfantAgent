@@ -5,15 +5,13 @@ import traceback
 from datetime import datetime
 from infant.config import config
 from infant.agent.agent import Agent
-from infant.sandbox.sandbox import Sandbox
+from infant.computer.computer import Computer
 from infant.agent.memory.memory import Finish
 from infant.llm.llm_api_base import LLM_API_BASED
 from infant.llm.llm_oss_base import LLM_OSS_BASED
 from infant.agent.memory.memory import Userrequest
 from infant.util.logger import infant_logger as logger
 from infant.util.save_dataset import save_to_dataset
-from infant.sandbox.plugins.jupyter import JupyterRequirement
-from infant.sandbox.plugins.agent_skills import AgentSkillsRequirement
 
 """
 async def monitor_agent_state(agent: Agent):
@@ -64,14 +62,13 @@ async def main(config=config):
         else:
             oss_llm = None
 
-        # Initialize the sandbox
-        sandbox_parameter = config.get_sandbox_params()
+        # Initialize the computer
+        computer_parameter = config.get_computer_params()
         sid = str(uuid.uuid4())
-        sandbox = Sandbox(sandbox_parameter, sid = sid, 
-                        sandbox_plugins=[AgentSkillsRequirement(), JupyterRequirement()])
+        computer = Computer(computer_parameter, sid = sid)
         
         # cd to the workspace/clear the workspace/activate conda
-        exit_code, output = sandbox.execute(f'cd /workspace && rm -rf *')
+        exit_code, output = computer.execute(f'cd /workspace && rm -rf *')
         if exit_code != 0:
             logger.error(f'Failed to clear the workspace directory: {output}')
             sys.exit(1)
@@ -79,25 +76,28 @@ async def main(config=config):
             logger.info("Workspace directory has been cleared successfully.")
         
         # # activate conda
-        # exit_code, output = sandbox.execute(f'source /infant/miniforge3/etc/profile.d/conda.sh')
-        # exit_code, output = sandbox.execute(f'conda activate base')
+        # exit_code, output = computer.execute(f'source /infant/miniforge3/etc/profile.d/conda.sh')
+        # exit_code, output = computer.execute(f'conda activate base')
         # logger.info(f'Conda environment activated successfully.')
 
         # git initial commit 
-        exit_code, output = sandbox.execute(f'git init') # initialize git
-        exit_code, output = sandbox.execute('git config --global core.pager ""')
-        exit_code, output = sandbox.execute(f'git add .') # initial add
-        exit_code, output = sandbox.execute(f'git commit -m "base commit"') # initial add
+        exit_code, output = computer.execute(f'git init') # initialize git
+        exit_code, output = computer.execute('git config --global core.pager ""')
+        exit_code, output = computer.execute(f'git add .') # initial add
+        exit_code, output = computer.execute(f'git commit -m "base commit"') # initial add
         logger.info(f'Git initialized successfully.')
         
         # Initialize the Agent
         agent_parameter = config.get_agent_params()
-        agent = Agent(agent_parameter, api_llm, oss_llm, sandbox)
+        agent = Agent(agent_parameter, api_llm, oss_llm, computer)
         logger.info(f'Agent initialized successfully.')
         
         # Run the agent
         while True:
             try:
+                exit_code, output = computer.execute(f'pwd')
+                logger.info(f'Current working directory: {output}')
+                exit_code, output = computer.execute(f'cd /workspace && rm -rf *')
                 user_request = input("Input your request or use type exit to refresh the agent: ")
                 if user_request.lower() == 'exit':
                     agent.state.reset()
@@ -118,16 +118,16 @@ async def main(config=config):
     except KeyboardInterrupt:
         logger.warning('KeyboardInterrupt in main')
     finally:
-        await cleanup(agent=agent, sandbox=sandbox)
+        await cleanup(agent=agent, computer=computer)
 
-async def cleanup(agent: None | Agent = None, sandbox: None | Sandbox = None):
+async def cleanup(agent: None | Agent = None, computer: None | Computer = None):
     
     # Handle the screenshots
     screenshots_dir = "/workspace/screenshots/"
     end_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     log_folder = f"/workspace/log_{end_time}_screenshots"
 
-    exit_code, output = sandbox.execute(f'[ -d {screenshots_dir} ] && mv {screenshots_dir} {log_folder}')
+    exit_code, output = computer.execute(f'[ -d {screenshots_dir} ] && mv {screenshots_dir} {log_folder}')
     if exit_code == 0:
         logger.info(f"Screenshots moved successfully to: {log_folder}")
     else:

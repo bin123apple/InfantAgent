@@ -35,7 +35,7 @@ class AgentNotRegisteredError(Exception):
         super().__init__(message)
 
 
-class SandboxInvalidBackgroundCommandError(Exception):
+class ComputerInvalidBackgroundCommandError(Exception):
     def __init__(self, id=None):
         if id is not None:
             message = f'Invalid background command id {id}'

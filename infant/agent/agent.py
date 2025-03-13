@@ -6,7 +6,7 @@ from infant.agent.parser import parse
 from infant.config import AgentParams
 from infant.llm.llm_api_base import LLM_API_BASED
 from infant.llm.llm_oss_base import LLM_OSS_BASED
-from infant.sandbox.sandbox import Sandbox
+from infant.computer.computer import Computer
 from infant.util.debug import print_messages
 from infant.agent.state.state import State, AgentState
 from infant.agent.memory.memory import ( 
@@ -88,7 +88,7 @@ class Agent:
                  agent_config: AgentParams, 
                  api_llm: LLM_API_BASED | None = None, 
                  oss_llm: LLM_OSS_BASED | None = None, 
-                 sandbox: Sandbox | None = None,
+                 computer: Computer | None = None,
         ) -> None:
         """
         Initializes a new instance of the Agent.
@@ -101,7 +101,7 @@ class Agent:
             self.llm = oss_llm
         else:
             self.llm = api_llm
-        self.sandbox = sandbox
+        self.computer = computer
         self.agent_config = agent_config
         self.state = State()
         self.state_updated_event = asyncio.Event()
@@ -144,7 +144,7 @@ class Agent:
                     await self.summarize() 
                 
                 # upload to git
-                git_add_or_not(user_response=True, sandbox=self.sandbox)
+                git_add_or_not(user_response=True, computer=self.computer)
                 await asyncio.sleep(1)
             except Exception as e:
                 logger.error(f"Error in agent step: {e}\n{traceback.format_exc()}")
@@ -219,9 +219,9 @@ class Agent:
                 if hasattr(memory, 'code') and memory.code:
                     tmp_code = memory.code
                     
-                memory = await localizaiton(self, self.sandbox, memory) # convert the image description to coordinate for accurate mouse click   
+                memory = await localizaiton(self, self.computer, memory) # convert the image description to coordinate for accurate mouse click   
                                                
-                method = getattr(self.sandbox, memory.action)
+                method = getattr(self.computer, memory.action)
                 result = await method(memory)
                 memory.result = truncate_output(output = result)
                 
@@ -267,7 +267,7 @@ class Agent:
         assert isinstance(self.state.memory_list[-1], Critic)
         task_critic_result = self.state.memory_list[-1].critic_result
         reason = self.state.memory_list[-1].reason
-        git_diff = get_diff_patch(self.sandbox)
+        git_diff = get_diff_patch(self.computer)
         messages = await self.memory_to_input(
             "summary_true" if task_critic_result else "summary_false",
             self.state.memory_list,
@@ -410,7 +410,7 @@ class Agent:
     #             # Take a screenshot
     #             action = match.group(1)
     #             scr_memory = IPythonRun(code=f'take_screenshot()')
-    #             method = getattr(self.sandbox, scr_memory.action)
+    #             method = getattr(self.computer, scr_memory.action)
     #             result = await method(scr_memory)
     #             memory.result = result
     #             logger.info(memory, extra={'msg_type': 'Execution Result'})
@@ -456,7 +456,7 @@ class Agent:
     #                                                localization_memory_block,)
             
     #         if memory.runnable:
-    #             method = getattr(self.sandbox, memory.action)
+    #             method = getattr(self.computer, memory.action)
     #             result = await method(memory)
     #             memory.result = result
     #             logger.info(memory, extra={'msg_type': 'Execution Result'})
@@ -518,7 +518,7 @@ class Agent:
     #             # draw a red dot if this is the last step
     #             draw_dot = IPythonRun(code=f'draw_dot({last_top_left}, {last_length}, {coordination})')
     #             print(f'draw_dot: {draw_dot}')
-    #             method = getattr(self.sandbox, draw_dot.action)
+    #             method = getattr(self.computer, draw_dot.action)
     #             result = await method(draw_dot)
     #             print(f'draw_dot result: {result}')
     #             if 'Screenshot saved at' in result:
@@ -560,7 +560,7 @@ class Agent:
     #                         length = int(match[1])
     #                 draw_rectangle = IPythonRun(code=f'draw_rectangle({last_top_left}, {last_length}, {top_left}, {length})')
     #                 print(f'draw_rectangle: {draw_rectangle}')
-    #                 method = getattr(self.sandbox, draw_rectangle.action)
+    #                 method = getattr(self.computer, draw_rectangle.action)
     #                 result = await method(draw_rectangle)
     #                 print(f'draw_rectangle result: {result}')
     #                 if 'Screenshot saved at' in result:

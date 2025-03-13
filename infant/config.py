@@ -71,22 +71,22 @@ class Config:
     debug: Whether to enable debugging.
     enable_auto_lint: Whether to enable auto linting. This is False by default, for regular runs of the app. For evaluation, please set this to True.
     
-    ### Sandbox Attributes: # for sandbox ###
+    ### Computer Attributes: # for computer ###
     runtime: The runtime environment.
     file_store: The file store to use.
     file_store_path: The path to the file store.
     workspace_base: The base path for the workspace. Defaults to ./workspace as an absolute path.
     workspace_mount_path: The path to mount the workspace. This is set to the workspace base by default.
-    workspace_mount_path_in_sandbox: The path to mount the workspace in the sandbox. Defaults to /workspace.
+    workspace_mount_path_in_computer: The path to mount the workspace in the computer. Defaults to /workspace.
     workspace_mount_rewrite: The path to rewrite the workspace mount path to.
     cache_dir: The path to the cache directory. Defaults to /tmp/cache.
-    sandbox_container_image: The container image to use for the sandbox.
-    sandbox_type: The type of sandbox to use. Options are: ssh, exec, e2b, local.
+    computer_container_image: The container image to use for the computer.
+    computer_type: The type of computer to use. Options are: ssh, exec, e2b, local.
     use_host_network: Whether to use the host network.
     ssh_hostname: The SSH hostname.
     disable_color: Whether to disable color. For terminals that don't support color.
-    sandbox_user_id: The user ID for the sandbox.
-    sandbox_timeout: The timeout for the sandbox.
+    computer_user_id: The user ID for the computer.
+    computer_timeout: The timeout for the computer.
     """
     
     ## litellm Attributes
@@ -161,26 +161,26 @@ class Config:
     use_oss_llm = False # whether to use OSS LLM (Need GPU!)
     verify_step_by_step: bool = True
     
-    # Sandbox Attributes 
+    # Computer Attributes 
     runtime: str = 'server'
     file_store: str = 'memory'
     file_store_path: str = '/tmp/file_store'
     instance_id: str = '123'
     gui_port: str = '4443'
-    workspace_git_path: str = '/workspace' # The path to the git repo in the sandbox
+    workspace_git_path: str = '/workspace' # The path to the git repo in the computer
     workspace_base: str = os.path.join(os.getcwd(), 'workspace')
     workspace_mount_path: str = 'undefined'
-    workspace_mount_path_in_sandbox: str = '/workspace'
+    workspace_mount_path_in_computer: str = '/workspace'
     workspace_mount_rewrite: str | None = None
     cache_dir: str = '/tmp/cache'
-    sandbox_container_image: str = 'ubuntu-gnome-nomachine:22.04' # FIXME: change to a general image name    
+    computer_container_image: str = 'ubuntu-gnome-nomachine:22.04' # FIXME: change to a general image name    
     e2b_api_key: str = ''
-    sandbox_type: str = 'ssh'  # Can be 'ssh', 'exec', or 'e2b'
+    computer_type: str = 'ssh'  # Can be 'ssh', 'exec', or 'e2b'
     use_host_network: bool = False
     ssh_hostname: str = 'localhost'
     disable_color: bool = False
-    sandbox_user_id: int = os.getuid() if hasattr(os, 'getuid') else 1000
-    sandbox_timeout: int = 120
+    computer_user_id: int = os.getuid() if hasattr(os, 'getuid') else 1000
+    computer_timeout: int = 120
     initialize_plugins: bool = True
     ssh_port: int = 63710
     ssh_password: str | None = "123"
@@ -192,7 +192,7 @@ class Config:
     nvidia_visible_devices: str = '0'
     ssh_bind_port: int = 22222
     nomachine_bind_port: int = 23333
-    consistant_sandbox: bool = True # whether to use the same sandbox for the same user
+    consistant_computer: bool = True # whether to use the same computer for the same user
     text_only_docker: bool = False # whether to use a text-only docker image
     intermediate_results_dir: str = os.path.join(os.getcwd(), 'workspace')
     
@@ -201,7 +201,7 @@ class Config:
             ("### litellm Attributes ###", self.get_litellm_params()),
             ("### vllm Attributes ###", self.get_vllm_params()),
             ("### agent Attributes ###", self.get_agent_params()),
-            ("### Sandbox Attributes ###", self.get_sandbox_params()),
+            ("### Computer Attributes ###", self.get_computer_params()),
         ]
 
         # Format each section
@@ -219,9 +219,9 @@ class Config:
             os.makedirs(self.workspace_mount_path, exist_ok=True)
         self.workspace_base = os.path.abspath(self.workspace_base)
 
-        # In local there is no sandbox, the workspace will have the same pwd as the host
-        if self.sandbox_type == 'local':
-            self.workspace_mount_path_in_sandbox = self.workspace_mount_path
+        # In local there is no computer, the workspace will have the same pwd as the host
+        if self.computer_type == 'local':
+            self.workspace_mount_path_in_computer = self.workspace_mount_path
 
         if self.workspace_mount_rewrite: 
             base = self.workspace_base or os.getcwd()
@@ -305,8 +305,8 @@ class Config:
             debug=self.debug,
         )
     
-    def get_sandbox_params(self):
-        return SandboxParams(
+    def get_computer_params(self):
+        return ComputerParams(
             runtime=self.runtime,
             file_store=self.file_store,
             file_store_path=self.file_store_path,
@@ -315,16 +315,16 @@ class Config:
             workspace_git_path = self.workspace_git_path,
             workspace_base=self.workspace_base,
             workspace_mount_path=self.workspace_mount_path,
-            workspace_mount_path_in_sandbox=self.workspace_mount_path_in_sandbox,
+            workspace_mount_path_in_computer=self.workspace_mount_path_in_computer,
             workspace_mount_rewrite=self.workspace_mount_rewrite,
             cache_dir=self.cache_dir,
-            sandbox_container_image=self.sandbox_container_image,
-            sandbox_type=self.sandbox_type,
+            computer_container_image=self.computer_container_image,
+            computer_type=self.computer_type,
             use_host_network=self.use_host_network,
             ssh_hostname=self.ssh_hostname,
             disable_color=self.disable_color,
-            sandbox_user_id=self.sandbox_user_id,
-            sandbox_timeout=self.sandbox_timeout,
+            computer_user_id=self.computer_user_id,
+            computer_timeout=self.computer_timeout,
             enable_auto_lint=self.enable_auto_lint,
             run_as_infant=self.run_as_infant,
             ssh_password = self.ssh_password,
@@ -334,12 +334,12 @@ class Config:
             nvidia_visible_devices = self.nvidia_visible_devices,
             ssh_bind_port = self.ssh_port,
             nomachine_bind_port = self.nomachine_bind_port,
-            consistant_sandbox = self.consistant_sandbox,
+            consistant_computer = self.consistant_computer,
             text_only_docker = self.text_only_docker,
             intermediate_results_dir = self.intermediate_results_dir
         )
 
-class SandboxParams:
+class ComputerParams:
     def __init__(
         self,
         runtime,
@@ -351,16 +351,16 @@ class SandboxParams:
         workspace_git_path,
         workspace_base,
         workspace_mount_path,
-        workspace_mount_path_in_sandbox,
+        workspace_mount_path_in_computer,
         workspace_mount_rewrite,
         cache_dir,
-        sandbox_container_image,
-        sandbox_type,
+        computer_container_image,
+        computer_type,
         use_host_network,
         ssh_hostname,
         disable_color,
-        sandbox_user_id,
-        sandbox_timeout,
+        computer_user_id,
+        computer_timeout,
         enable_auto_lint,
         run_as_infant,
         ssh_password,
@@ -370,7 +370,7 @@ class SandboxParams:
         nvidia_visible_devices,
         ssh_bind_port,
         nomachine_bind_port,
-        consistant_sandbox,
+        consistant_computer,
         intermediate_results_dir
     ):
         self.runtime = runtime
@@ -382,16 +382,16 @@ class SandboxParams:
         self.workspace_base = workspace_base
         self.text_only_docker = text_only_docker
         self.workspace_mount_path = workspace_mount_path
-        self.workspace_mount_path_in_sandbox = workspace_mount_path_in_sandbox
+        self.workspace_mount_path_in_computer = workspace_mount_path_in_computer
         self.workspace_mount_rewrite = workspace_mount_rewrite
         self.cache_dir = cache_dir
-        self.sandbox_container_image = sandbox_container_image
-        self.sandbox_type = sandbox_type
+        self.computer_container_image = computer_container_image
+        self.computer_type = computer_type
         self.use_host_network = use_host_network
         self.ssh_hostname = ssh_hostname
         self.disable_color = disable_color
-        self.sandbox_user_id = sandbox_user_id
-        self.sandbox_timeout = sandbox_timeout
+        self.computer_user_id = computer_user_id
+        self.computer_timeout = computer_timeout
         self.enable_auto_lint = enable_auto_lint
         self.run_as_infant = run_as_infant
         self.ssh_password = ssh_password
@@ -401,7 +401,7 @@ class SandboxParams:
         self.nvidia_visible_devices = nvidia_visible_devices
         self.ssh_bind_port = ssh_bind_port
         self.nomachine_bind_port = nomachine_bind_port
-        self.consistant_sandbox = consistant_sandbox
+        self.consistant_computer = consistant_computer
         self.intermediate_results_dir = intermediate_results_dir
 
 class LitellmParams:

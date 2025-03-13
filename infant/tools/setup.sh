@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -e
+
 export PATH=/infant/miniforge3/bin:$PATH
 # Hardcoded to use the Python interpreter from the Infant runtime client
 INFANT_PYTHON_INTERPRETER=/infant/miniforge3/bin/python
@@ -13,11 +14,32 @@ fi
 # Install dependencies
 $INFANT_PYTHON_INTERPRETER -m pip install jupyterlab notebook jupyter_kernel_gateway
 
+# add agent_skills to PATH
+echo 'export PATH=/:$PATH' >> ~/.bashrc
+echo 'export PATH=/infant:$PATH' >> ~/.bashrc
+echo 'export PATH=/infant/tools:$PATH' >> ~/.bashrc
+echo 'export PATH=/infant/tools/computer_use:$PATH' >> ~/.bashrc
+echo 'export PATH=/infant/tools/file_editor:$PATH' >> ~/.bashrc
+echo 'export PATH=/infant/tools/file_reader:$PATH' >> ~/.bashrc
+echo 'export PATH=/infant/tools/file_searcher:$PATH' >> ~/.bashrc
+echo 'export PATH=/infant/tools/web_browser:$PATH' >> ~/.bashrc
+
+# add agent_skills to PYTHONPATH
+echo 'export PYTHONPATH=/:$PYTHONPATH' >> ~/.bashrc
+echo 'export PYTHONPATH=/infant:$PYTHONPATH' >> ~/.bashrc
+echo 'export PYTHONPATH=/infant/tools:$PYTHONPATH' >> ~/.bashrc
+echo 'export PYTHONPATH=/infant/tools/computer_use:$PYTHONPATH' >> ~/.bashrc
+echo 'export PYTHONPATH=/infant/tools/file_editor:$PYTHONPATH' >> ~/.bashrc
+echo 'export PYTHONPATH=/infant/tools/file_reader:$PYTHONPATH' >> ~/.bashrc
+echo 'export PYTHONPATH=/infant/tools/file_searcher:$PYTHONPATH' >> ~/.bashrc
+echo 'export PYTHONPATH=/infant/tools/web_browser:$PYTHONPATH' >> ~/.bashrc
+
 source ~/.bashrc
-# ADD /infant/plugins to PATH to make `jupyter_cli` available
-echo 'export PATH=$PATH:/infant/plugins/jupyter' >> ~/.bashrc
+
+# ADD /infant/tools to PATH to make `jupyter_cli` available
+echo 'export PATH=$PATH:/infant/tools/code_execute' >> ~/.bashrc
 echo 'export DISPLAY=:0' >> ~/.bashrc
-export PATH=/infant/plugins/jupyter:$PATH
+export PATH=/infant/tools/code_execute:$PATH
 
 # if user name is `infant`, add '/home/infant/.local/bin' to PATH
 if [ "$USER" = "infant" ]; then
@@ -66,7 +88,7 @@ echo "JupyterKernelGateway started with PID: $JUPYTER_GATEWAY_PID"
 export JUPYTER_EXEC_SERVER_PORT=$(find_free_port 30000 40000)
 echo "JUPYTER_EXEC_SERVER_PORT: $JUPYTER_EXEC_SERVER_PORT"
 echo "export JUPYTER_EXEC_SERVER_PORT=$JUPYTER_EXEC_SERVER_PORT" >> ~/.bashrc
-$INFANT_PYTHON_INTERPRETER /infant/plugins/jupyter/execute_server > /infant/logs/jupyter_execute_server.log 2>&1 &
+$INFANT_PYTHON_INTERPRETER /infant/tools/code_execute/execute_server.py > /infant/logs/jupyter_execute_server.log 2>&1 &
 export JUPYTER_EXEC_SERVER_PID=$!
 echo "export JUPYTER_EXEC_SERVER_PID=$JUPYTER_EXEC_SERVER_PID" >> ~/.bashrc
 echo "Execution server started with PID: $JUPYTER_EXEC_SERVER_PID"
@@ -84,3 +106,7 @@ done
 echo "Jupyter kernel ready."
 echo "JUPYTER_GATEWAY_PORT: $JUPYTER_GATEWAY_PORT"
 echo "JUPYTER_EXEC_SERVER_PORT: $JUPYTER_EXEC_SERVER_PORT"
+
+source ~/.bashrc
+
+$INFANT_PYTHON_INTERPRETER -m pip install flake8 python-docx pypdf python-pptx pylatexenc openai opencv-python chardet pandas

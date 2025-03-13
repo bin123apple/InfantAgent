@@ -21,7 +21,7 @@ poetry install
 
 2. Build Docker 
 ```
-cd sandbox
+cd computer
 docker build -t ubuntu-gnome-nomachine:22.04 -f Dockerfile .
 ```
 

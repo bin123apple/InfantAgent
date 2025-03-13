@@ -1,15 +1,15 @@
 import re
-from infant.sandbox.sandbox import Sandbox
+from infant.computer.computer import Computer
 from infant.util.logger import infant_logger as logger
 
-def get_diff_patch(sandbox: Sandbox):
+def get_diff_patch(computer: Computer):
     
-    exit_code, output = sandbox.execute(f'cd {sandbox.workspace_git_path}')
+    exit_code, output = computer.execute(f'cd {computer.workspace_git_path}')
 
-    exit_code, output = sandbox.execute('git config --global core.pager ""')
+    exit_code, output = computer.execute('git config --global core.pager ""')
     
     # check the modified files
-    exit_code, output = sandbox.execute('git -c color.status=false status -s')
+    exit_code, output = computer.execute('git -c color.status=false status -s')
     if exit_code != 0:
         logger.error('Failed to get the status of files')
         return ''
@@ -32,13 +32,13 @@ def get_diff_patch(sandbox: Sandbox):
         if 'color.status=false status -s' in file:
             continue
         logger.info(f"Executing `git add {file}`")
-        exit_code, output = sandbox.execute(f'git add {file}')
+        exit_code, output = computer.execute(f'git add {file}')
         if exit_code != 0:
             logger.error(f'Failed to add file to index: {file}')
             return ''
         
     # get the git diff
-    exit_code, git_patch = sandbox.execute(
+    exit_code, git_patch = computer.execute(
         f'git diff --no-color --cached'
     , timeout=30)
     if exit_code != 0:
@@ -57,14 +57,14 @@ def get_diff_patch(sandbox: Sandbox):
     return cleaned_git_patch
 
 
-def git_add_or_not(user_response, sandbox: Sandbox):
+def git_add_or_not(user_response, computer: Computer):
     """
     This function is used to add the modified files to the git repo and get the git diff.
     If the user approves the patch, it will commit the changes.
     If the user rejects the patch, it will undo the last git add.
     """
     # git add
-    diff_patch = get_diff_patch(sandbox)
+    diff_patch = get_diff_patch(computer)
     
     # git commit 
     if user_response:
@@ -76,7 +76,7 @@ def git_add_or_not(user_response, sandbox: Sandbox):
             logger.info('No changes to commit')
             return 'No changes to commit.'
         else:
-            exit_code, output = sandbox.execute(f'git commit -m "{commit_msg}"')
+            exit_code, output = computer.execute(f'git commit -m "{commit_msg}"')
             if exit_code != 0:
                 logger.error(f'Failed to commit the changes: {output}')
                 return 'Error: Failed to commit the changes.'
@@ -86,7 +86,7 @@ def git_add_or_not(user_response, sandbox: Sandbox):
     else:
         # User rejected the patch, undo the last git add
         logger.info("User rejected the patch, resetting the last git add.")
-        exit_code, output = sandbox.execute(f'git reset && git clean -f')
+        exit_code, output = computer.execute(f'git reset && git clean -f')
         if exit_code != 0:
             logger.error(f'Failed to reset the git add: {output}')
             return 'Error: Failed to reset git add.'
@@ -95,8 +95,8 @@ def git_add_or_not(user_response, sandbox: Sandbox):
             return 'Patch rejected, git add reset successfully.'
         
         
-def get_final_git_diff(sandbox: Sandbox):      
-    exit_code, output = sandbox.execute(f'git log --pretty=format:%H -n 1 --grep="base commit"')
+def get_final_git_diff(computer: Computer):      
+    exit_code, output = computer.execute(f'git log --pretty=format:%H -n 1 --grep="base commit"')
 
     if exit_code == 0:
         base_commit_hash = output.strip()
@@ -104,8 +104,8 @@ def get_final_git_diff(sandbox: Sandbox):
     else:
         return f'Failed to find base commit: {output}'
 
-    exit_code, output = sandbox.execute(f'cd /workspace')
-    exit_code, output = sandbox.execute(f'git diff {base_commit_hash}')
+    exit_code, output = computer.execute(f'cd /workspace')
+    exit_code, output = computer.execute(f'git diff {base_commit_hash}')
 
     if exit_code == 0:
         return f'Git diff with base commit:\n{output}'
@@ -113,8 +113,8 @@ def get_final_git_diff(sandbox: Sandbox):
         return f'Failed to get git diff with base commit: {output}'
     
     
-def get_reset_to_base_commit(sandbox):      
-    exit_code, output = sandbox.execute(f'git log --pretty=format:%H -n 1 --grep="base commit"')
+def get_reset_to_base_commit(computer):      
+    exit_code, output = computer.execute(f'git log --pretty=format:%H -n 1 --grep="base commit"')
 
     if exit_code == 0:
         base_commit_hash = output.strip()
@@ -122,8 +122,8 @@ def get_reset_to_base_commit(sandbox):
     else:
         logger.info(f'Failed to find base commit: {output}')
 
-    exit_code, output = sandbox.execute(f'cd /workspace')
-    exit_code, output = sandbox.execute(f'git reset --hard {base_commit_hash}')
+    exit_code, output = computer.execute(f'cd /workspace')
+    exit_code, output = computer.execute(f'git reset --hard {base_commit_hash}')
 
     if exit_code == 0:
         logger.info(f'Finished resetting to base commit')

@@ -1,5 +1,5 @@
 '''
-The visual helper functions are used to help the sandbox to 
+The visual helper functions are used to help the computer to 
 localize the image description to the coordinate for accurate mouse click.
 The LVM localization ability is not that good.
 '''
@@ -15,7 +15,7 @@ from math import sqrt
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from infant.agent.agent import Agent
-from infant.sandbox.sandbox import Sandbox
+from infant.computer.computer import Computer
 from PIL import Image, ImageDraw, ImageFont
 
 from infant.config import config
@@ -575,11 +575,11 @@ def draw_grid(img, length, offset=(0, 0), draw_type="rectangle"):
     
     return new_img, x_range, y_range
 
-async def localizaiton(agent: Agent, sandbox: Sandbox, memory: Memory):
+async def localizaiton(agent: Agent, computer: Computer, memory: Memory):
     '''
     Localize the image description to the coordinate for accurate mouse click.
     Args:
-        sandbox (Sandbox): The sandbox object. For some basic operations.
+        computer (Computer): The computer object. For some basic operations.
         memory (Memory): The memory object. The memory object to be updated.
     Returns:
         Memory: The updated memory object.
@@ -596,7 +596,7 @@ async def localizaiton(agent: Agent, sandbox: Sandbox, memory: Memory):
                 return memory
             logger.info(f"Icon: {icon}, Desc: {desc}")
             screenshot_action = IPythonRun(code="take_screenshot()")
-            image_path_output = await sandbox.run_ipython(screenshot_action)
+            image_path_output = await computer.run_ipython(screenshot_action)
             image_path = extract_image_path_from_output(image_path_output)
             if not image_path:
                 logger.error("Failed to take screenshot.")
@@ -605,13 +605,13 @@ async def localizaiton(agent: Agent, sandbox: Sandbox, memory: Memory):
             
             # Add grid to the image
             img = Image.open(image_path)
-            sandbox.screen_width = img.size[0]
-            sandbox.screen_height = img.size[1]
-            grid_image , x_range, y_range = process_image_and_draw_grid(sandbox.intermediate_results_dir, 
-                                                        img, sandbox.screen_width, grid_offset=(0, 0)) 
+            computer.screen_width = img.size[0]
+            computer.screen_height = img.size[1]
+            grid_image , x_range, y_range = process_image_and_draw_grid(computer.intermediate_results_dir, 
+                                                        img, computer.screen_width, grid_offset=(0, 0)) 
             
             # Find the coordination
-            coordination = await image_description_to_coordinate(agent, sandbox, icon, desc, grid_image, x_range, y_range)
+            coordination = await image_description_to_coordinate(agent, computer, icon, desc, grid_image, x_range, y_range)
             logger.info(f"Coordination: {coordination}")
             
             try: 
@@ -627,7 +627,7 @@ async def localizaiton(agent: Agent, sandbox: Sandbox, memory: Memory):
                 logger.error(f"Failed to parse coordination: {coordination}. Error: {e}")  
     return memory
 
-async def image_description_to_coordinate(agent: Agent, sandbox: Sandbox, icon: str, desc: str, grid_image,
+async def image_description_to_coordinate(agent: Agent, computer: Computer, icon: str, desc: str, grid_image,
                                         x_range: int, y_range: int):
     """
     Convert the image description to coordinate for accurate mouse click.
@@ -663,15 +663,15 @@ async def image_description_to_coordinate(agent: Agent, sandbox: Sandbox, icon: 
             response,_ = agent.llm.completion(messages=messages, stop=['</localize>'])
             logger.info(f"Response in image_description_to_coordinate: {response}")
         except Exception as e:
-            logger.error("Failed to call" + sandbox.model + ", Error: " + str(e))
+            logger.error("Failed to call" + computer.model + ", Error: " + str(e))
             response = ""
         if 'localization(' in response or 'localization_done' in response:
-            localization_action = await localizaiton_correction(agent, sandbox, response, last_response, messages, 
+            localization_action = await localizaiton_correction(agent, computer, response, last_response, messages, 
                                                                 item_to_click=icon, Location=desc, 
                                                                 x_range=x_range, y_range=y_range) 
             action = localization_action # e.g. localization(top_left=0,0),length=SCREEN_WIDTH
         else: # The answer is not a localization command
-            localization_action = f'localization(top_left=(0, 0), length={sandbox.screen_width})' # use the full screen
+            localization_action = f'localization(top_left=(0, 0), length={computer.screen_width})' # use the full screen
             action = localization_action
         logger.info(f"Action in image_description_to_coordinate: {action}")
         if any(f'<localize>{localization_action}</localize>' in message['content'] for message in messages if 'content' in message): # for repeat commands
@@ -683,12 +683,12 @@ async def image_description_to_coordinate(agent: Agent, sandbox: Sandbox, icon: 
                 last_response = f'<localize>{action}</localize>'
                 messages.append({"role": "assistant","content":f'<localize>{action}</localize>'})
                 screenshot_action = IPythonRun(code="take_screenshot()")
-                image_path_output = await sandbox.run_ipython(screenshot_action)
+                image_path_output = await computer.run_ipython(screenshot_action)
                 image_path = extract_image_path_from_output(image_path_output)
 
                 cropped_img, top_left_x, top_left_y, length = crop_screenshot(image_path, action)
                 if cropped_img:
-                    grid_image, x_range, y_range = process_image_and_draw_grid(sandbox.intermediate_results_dir,
+                    grid_image, x_range, y_range = process_image_and_draw_grid(computer.intermediate_results_dir,
                                                             cropped_img, length,
                                                             grid_offset=(top_left_x, top_left_y))
                 else:
@@ -719,7 +719,7 @@ async def image_description_to_coordinate(agent: Agent, sandbox: Sandbox, icon: 
                 messages.append({"role": "user","content":action})
         iterations += 1
 
-async def localizaiton_correction(agent: Agent, sandbox: Sandbox, response: str, last_response: str, messages: list, 
+async def localizaiton_correction(agent: Agent, computer: Computer, response: str, last_response: str, messages: list, 
                             item_to_click: str, Location: str, x_range: int, y_range: int):
     '''
     Try single turn dialogues to correct the localization command.
@@ -747,7 +747,7 @@ async def localizaiton_correction(agent: Agent, sandbox: Sandbox, response: str,
                 last_length = int(match[1])
     else: # Use full screen as the default value
         last_top_left = (0, 0)
-        last_length = sandbox.screen_width
+        last_length = computer.screen_width
     
     localization_action = parse_action(response)
     
@@ -762,16 +762,16 @@ async def localizaiton_correction(agent: Agent, sandbox: Sandbox, response: str,
                 
         coordination = extract_coordination(localization_action)
         screenshot_action = IPythonRun(code="take_screenshot()")
-        image_path_output = await sandbox.run_ipython(screenshot_action)
+        image_path_output = await computer.run_ipython(screenshot_action)
         image_path = extract_image_path_from_output(image_path_output)
         screenshot = Image.open(image_path)
         cropped_img_dot, edge_distances, actual_coordination = draw_dot(screenshot, last_top_left, last_length, coordination, 
-                                    sandbox.screen_width, sandbox.screen_height)
+                                    computer.screen_width, computer.screen_height)
         if cropped_img_dot:
             if isinstance(cropped_img_dot, str): # initial cropped_img_dot is a str
                 return cropped_img_dot
             else: # cropped_img_dot is an image
-                cropped_img_dot, x_range, y_range = process_image_and_draw_grid(sandbox.intermediate_results_dir, 
+                cropped_img_dot, x_range, y_range = process_image_and_draw_grid(computer.intermediate_results_dir, 
                                                             cropped_img_dot, last_length, 
                                                             grid_offset=last_top_left, draw_type="dot") 
                 logger.info(f'x_range: {x_range}, y_range: {y_range}')
@@ -811,16 +811,16 @@ async def localizaiton_correction(agent: Agent, sandbox: Sandbox, response: str,
             if match[1]:  # Matches length
                 length = int(match[1])
         screenshot_action = IPythonRun(code="take_screenshot()")
-        image_path_output = await sandbox.run_ipython(screenshot_action)
+        image_path_output = await computer.run_ipython(screenshot_action)
         image_path = extract_image_path_from_output(image_path_output)
         screenshot = Image.open(image_path)
         cropped_img_rectangle, edge_distances, actual_rect_top_left = draw_rectangle(screenshot, last_top_left, last_length, top_left, length, 
-                                                sandbox.screen_width, sandbox.screen_height)
+                                                computer.screen_width, computer.screen_height)
         if cropped_img_rectangle:
             if isinstance(cropped_img_rectangle, str): # Initial cropped_img_dot is a str
                 return cropped_img_rectangle
             else:
-                cropped_img_rectangle, x_range, y_range = process_image_and_draw_grid(sandbox.intermediate_results_dir,
+                cropped_img_rectangle, x_range, y_range = process_image_and_draw_grid(computer.intermediate_results_dir,
                                     cropped_img_rectangle, last_length,
                                     grid_offset=last_top_left)
                 logger.info(f'x_range: {x_range}, y_range: {y_range}')
@@ -878,20 +878,20 @@ async def localizaiton_correction(agent: Agent, sandbox: Sandbox, response: str,
         if whether_move:
             if draw_type == "dot":
                 screenshot_action = IPythonRun(code="take_screenshot()")
-                image_path_output = await sandbox.run_ipython(screenshot_action)
+                image_path_output = await computer.run_ipython(screenshot_action)
                 image_path = extract_image_path_from_output(image_path_output)
                 screenshot = Image.open(image_path)
                 original_coordination = coordination
                 coordination = (coordination[0] + dx, coordination[1] + dy)
                 cropped_img_dot, edge_distances, actual_coordination = draw_dot(screenshot, last_top_left, last_length, coordination, 
-                                            sandbox.screen_width, sandbox.screen_height)
+                                            computer.screen_width, computer.screen_height)
                 if cropped_img_dot:
                     if isinstance(cropped_img_dot, str):
                         dc_messages.append({'role': 'user',
                         'content': cropped_img_dot})
                         coordination = original_coordination # reset the coordination, because the action is not valid
                     else:
-                        cropped_img_dot, x_range, y_range = process_image_and_draw_grid(sandbox.intermediate_results_dir, 
+                        cropped_img_dot, x_range, y_range = process_image_and_draw_grid(computer.intermediate_results_dir, 
                                         cropped_img_dot, last_length, 
                                         grid_offset=last_top_left, draw_type="dot") 
                         image_url = encode_image(cropped_img_dot)
@@ -913,20 +913,20 @@ async def localizaiton_correction(agent: Agent, sandbox: Sandbox, response: str,
                         current_action = f'localization_done({int(actual_coordination[0])},{int(actual_coordination[1])})' 
             elif draw_type == "rectangle":
                 screenshot_action = IPythonRun(code="take_screenshot()")
-                image_path_output = await sandbox.run_ipython(screenshot_action)
+                image_path_output = await computer.run_ipython(screenshot_action)
                 image_path = extract_image_path_from_output(image_path_output)
                 screenshot = Image.open(image_path)
                 original_top_left = top_left
                 top_left = (top_left[0] + dx, top_left[1] + dy)
                 cropped_img_rectangle, edge_distances, actual_rect_top_left = draw_rectangle(screenshot, last_top_left, last_length, top_left, 
-                                                    length, sandbox.screen_width, sandbox.screen_height)
+                                                    length, computer.screen_width, computer.screen_height)
                 if cropped_img_rectangle:
                     if isinstance(cropped_img_rectangle, str): # cropped_img_dot is a str
                         dc_messages.append({'role': 'user',
                         'content': cropped_img_rectangle})
                         top_left = original_top_left # reset the top_left, because the action is not valid
                     else:
-                        cropped_img_rectangle, x_range, y_range = process_image_and_draw_grid(sandbox.intermediate_results_dir,
+                        cropped_img_rectangle, x_range, y_range = process_image_and_draw_grid(computer.intermediate_results_dir,
                                             cropped_img_rectangle, last_length,
                                             grid_offset=last_top_left)
                         logger.info(f'x_range: {x_range}, y_range: {y_range}')

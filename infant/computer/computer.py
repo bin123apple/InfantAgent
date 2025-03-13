@@ -15,11 +15,11 @@ import subprocess
 from glob import glob
 from pexpect import pxssh
 from typing import Optional, Dict, Any
-from infant.sandbox.plugins.requirement import PluginRequirement
+from infant.tools.requirement import PluginRequirement
 from tenacity import retry, stop_after_attempt, wait_fixed
-from infant.util.exceptions import SandboxInvalidBackgroundCommandError
+from infant.util.exceptions import ComputerInvalidBackgroundCommandError
 from infant.util.logger import infant_logger as logger
-from infant.config import SandboxParams
+from infant.config import ComputerParams
 from infant.prompt.tools_prompt import tool_trace_code, tool_filter_bash_code
 from infant.agent.memory.memory import IPythonRun, CmdRun
 
@@ -31,10 +31,10 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.chrome.options import Options
 
-class Sandbox:
+class Computer:
     instance_id: str
     container_image: str
-    container_name_prefix = 'infant-sandbox-'
+    container_name_prefix = 'infant-computer-'
     container_name: str
     container: docker.models.containers.Container
     docker_client: docker.DockerClient
@@ -48,30 +48,28 @@ class Sandbox:
 
     def __init__(
         self,
-        config: SandboxParams,
+        config: ComputerParams,
         sid: str | None = None,
-        sandbox_plugins: list[PluginRequirement] = [],
     ):
 
-        # Initialize the sandbox properties
+        # Initialize the computer properties
         self.trace = False # Whether to trace the code execution, there might be some bugs. No time to fix this for now.
-        self.timeout = config.sandbox_timeout
+        self.timeout = config.computer_timeout
         # self.instance_id = (sid or '') + str(uuid.uuid4())
-        self.consistant_sandbox = config.consistant_sandbox
+        self.consistant_computer = config.consistant_computer
         self.instance_id = config.instance_id # Try constant instance_id
-        self.container_image = config.sandbox_container_image
+        self.container_image = config.computer_container_image
         self.workspace_git_path = config.workspace_git_path
         self.container_name = self.container_name_prefix + self.instance_id
         self.gui_port = config.gui_port if config.gui_port else self.find_available_tcp_port()
-        self.sandbox_plugins = sandbox_plugins
         self.nvidia_driver = config.nvidia_driver
         self._ssh_password = config.ssh_password
-        self._ssh_port = 58673 if self.consistant_sandbox else self.find_available_tcp_port()
-        self.user_id = config.sandbox_user_id
-        self.sandbox_user_id = config.sandbox_user_id
+        self._ssh_port = 58673 if self.consistant_computer else self.find_available_tcp_port()
+        self.user_id = config.computer_user_id
+        self.computer_user_id = config.computer_user_id
         self.run_as_infant = config.run_as_infant
         self.intermediate_results_dir = config.intermediate_results_dir
-        self.sandbox_workspace_dir = config.workspace_mount_path_in_sandbox
+        self.computer_workspace_dir = config.workspace_mount_path_in_computer
         self.ssh_hostname = config.ssh_hostname
         self.use_host_network = config.use_host_network
         self.workspace_mount_path = config.workspace_mount_path
@@ -82,7 +80,7 @@ class Sandbox:
         self.nvidia_visible_devices = config.nvidia_visible_devices
         self.text_only_docker = config.text_only_docker
         self.volumes = self.set_volumes()
-        logger.info(f'SSHBox is running as {"infant" if self.run_as_infant else "root"} user with USER_ID={self.user_id} in the sandbox')
+        logger.info(f'SSHBox is running as {"infant" if self.run_as_infant else "root"} user with USER_ID={self.user_id} in the computer')
         params = {
             'text_only_docker': self.text_only_docker,
             'trace': self.trace,
@@ -90,7 +88,7 @@ class Sandbox:
             'container_image': self.container_image,
             'container_name': self.container_name,
             'gui_port': self.gui_port,
-            'sandbox_workspace_dir': self.sandbox_workspace_dir,
+            'computer_workspace_dir': self.computer_workspace_dir,
             'ssh_hostname': self.ssh_hostname,
             'ssh_port': self._ssh_port,
             'ssh_password': self._ssh_password,
@@ -101,15 +99,15 @@ class Sandbox:
             'cache_dir': self.cache_dir,
             'render_type': self.render_type,
             'nvidia_visible_devices': self.nvidia_visible_devices,
-            'sandbox_user_id': self.sandbox_user_id,
-            'sandbox_workspace_dir': self.sandbox_workspace_dir,
-            'sandbox_container_image': self.container_image,
-            'sandbox_container_name': self.container_name,
-            'sandbox_container_name_prefix': self.container_name_prefix,
+            'computer_user_id': self.computer_user_id,
+            'computer_workspace_dir': self.computer_workspace_dir,
+            'computer_container_image': self.container_image,
+            'computer_container_name': self.container_name,
+            'computer_container_name_prefix': self.container_name_prefix,
             'text_only_docker': self.text_only_docker,
         }
         # Create a string of non-None parameters for logging
-        logger.info(f'Initializing the Sandbox with the following parameters:')
+        logger.info(f'Initializing the Computer with the following parameters:')
         for key in params:
             logger.info(f"{key}: {params[key]}")
         
@@ -159,8 +157,8 @@ class Sandbox:
             # set up the environment variables
             for key in os.environ:
                 if key.startswith('SANDBOX_ENV_'):
-                    sandbox_key = key.removeprefix('SANDBOX_ENV_')
-                    self.add_to_env(sandbox_key, os.environ[key])
+                    computer_key = key.removeprefix('SANDBOX_ENV_')
+                    self.add_to_env(computer_key, os.environ[key])
             if config.enable_auto_lint:
                 self.add_to_env('ENABLE_AUTO_LINT', 'true')
                 
@@ -169,7 +167,7 @@ class Sandbox:
             logger.info(f'Current user: {output}') # DEBUG: Check current user
             self.initialize_plugins: bool = config.initialize_plugins
             if self.initialize_plugins: # Initialize plugins & Tools
-                self.init_plugins(sandbox_plugins)
+                self.init_plugins()
             
             # GPU driver initialization # Move to the dockerfile
             if self.nvidia_driver == "Tesla":
@@ -199,51 +197,96 @@ class Sandbox:
 
         # auto login to the nomachine
         self.automate_nomachine_login(initial_session = self.is_initial_session)
-
-    def init_plugins(self, requirements: list[PluginRequirement]):
-        """Load a plugin into the sandbox."""
+        
+    def init_plugins(self):
+        """Load a plugin into the computer."""
 
         if hasattr(self, 'plugin_initialized') and self.plugin_initialized:
             return
 
         if self.initialize_plugins:
-            logger.info('Initializing plugins in the sandbox')
+            logger.info('Initializing plugins in the computer')
 
             # clean-up ~/.bashrc and touch ~/.bashrc
             exit_code, output = self.execute('rm -f ~/.bashrc && touch ~/.bashrc')
-            # print(f'requirements: {requirements}')
-            for requirement in requirements:
-                # source bashrc file when plugin loads
-                self._source_bashrc()
 
-                # copy over the files
-                self.copy_to(
-                    requirement.host_src, requirement.sandbox_dest, recursive=True
-                )
-                logger.info(
-                    f'Copied files from [{requirement.host_src}] to [{requirement.sandbox_dest}] inside sandbox.'
-                )
-
-                # Execute the bash script
-                abs_path_to_bash_script = os.path.join(
-                    requirement.sandbox_dest, requirement.bash_script_path
-                )
-                logger.info(
-                    f'Initializing plugin [{requirement.name}] by executing [{abs_path_to_bash_script}] in the sandbox.'
-                )
-                exit_code, output = self.execute(abs_path_to_bash_script, stream=True)
-                if exit_code != 0:
-                    raise RuntimeError(
-                        f'Failed to initialize plugin {requirement.name} with exit code {exit_code} and output: {output}'
-                    )
-                logger.info(f'Plugin {requirement.name} initialized successfully.')
-        else:
-            logger.info('Skipping plugin initialization in the sandbox')
-
-        if len(requirements) > 0:
             self._source_bashrc()
 
+            # copy over the files
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            parent_dir = os.path.dirname(current_dir)
+            tools_path = os.path.join(parent_dir, 'tools')
+            self.copy_to(
+                tools_path, '/infant/tools', recursive=True
+            )
+            logger.info(
+                f'Copied files from [{tools_path}] to "/infant/tools" inside computer.'
+            )
+
+            # Execute the bash script
+            abs_path_to_bash_script = os.path.join(
+                '/infant/tools', 'setup.sh'
+            )
+            logger.info(
+                f'Initializing tools by executing [{abs_path_to_bash_script}] in the computer.'
+            )
+            exit_code, output = self.execute(abs_path_to_bash_script, stream=True)
+            if exit_code != 0:
+                raise RuntimeError(
+                    f'Failed to initialize tools with exit code {exit_code} and output: {output}'
+                )
+            logger.info(f'Tools initialized successfully.')
+        else:
+            logger.info('Skipping plugin initialization in the computer')
+
+        self._source_bashrc()
+
         self.plugin_initialized = True
+
+    # def init_plugins(self, requirements: list[PluginRequirement]):
+    #     """Load a plugin into the computer."""
+
+    #     if hasattr(self, 'plugin_initialized') and self.plugin_initialized:
+    #         return
+
+    #     if self.initialize_plugins:
+    #         logger.info('Initializing plugins in the computer')
+
+    #         # clean-up ~/.bashrc and touch ~/.bashrc
+    #         exit_code, output = self.execute('rm -f ~/.bashrc && touch ~/.bashrc')
+    #         # print(f'requirements: {requirements}')
+    #         for requirement in requirements:
+    #             # source bashrc file when plugin loads
+    #             self._source_bashrc()
+
+    #             # copy over the files
+    #             self.copy_to(
+    #                 requirement.host_src, requirement.computer_dest, recursive=True
+    #             )
+    #             logger.info(
+    #                 f'Copied files from [{requirement.host_src}] to [{requirement.computer_dest}] inside computer.'
+    #             )
+
+    #             # Execute the bash script
+    #             abs_path_to_bash_script = os.path.join(
+    #                 requirement.computer_dest, requirement.bash_script_path
+    #             )
+    #             logger.info(
+    #                 f'Initializing plugin [{requirement.name}] by executing [{abs_path_to_bash_script}] in the computer.'
+    #             )
+    #             exit_code, output = self.execute(abs_path_to_bash_script, stream=True)
+    #             if exit_code != 0:
+    #                 raise RuntimeError(
+    #                     f'Failed to initialize plugin {requirement.name} with exit code {exit_code} and output: {output}'
+    #                 )
+    #             logger.info(f'Plugin {requirement.name} initialized successfully.')
+    #     else:
+    #         logger.info('Skipping plugin initialization in the computer')
+
+    #     if len(requirements) > 0:
+    #         self._source_bashrc()
+
+    #     self.plugin_initialized = True
 
     def add_to_env(self, key: str, value: str):
         self._env[key] = value
@@ -252,32 +295,32 @@ class Sandbox:
 
     def setup_user(self):
         # Make users sudoers passwordless
-        # TODO(sandbox): add this line in the Dockerfile for next minor version of docker image
+        # TODO(computer): add this line in the Dockerfile for next minor version of docker image
         exit_code, logs = self.container.exec_run(
             ['/bin/bash', '-c', r"echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers"],
-            workdir=self.sandbox_workspace_dir,
+            workdir=self.computer_workspace_dir,
             environment=self._env,
         )
         if exit_code != 0:
             raise Exception(
-                f'Failed to make all users passwordless sudoers in sandbox: {logs}'
+                f'Failed to make all users passwordless sudoers in computer: {logs}'
             )
 
         # Check if the infant user exists
         exit_code, logs = self.container.exec_run(
             ['/bin/bash', '-c', 'id -u infant'],
-            workdir=self.sandbox_workspace_dir,
+            workdir=self.computer_workspace_dir,
             environment=self._env,
         )
         if exit_code == 0:
             # User exists, delete it
             exit_code, logs = self.container.exec_run(
                 ['/bin/bash', '-c', 'userdel -r infant'],
-                workdir=self.sandbox_workspace_dir,
+                workdir=self.computer_workspace_dir,
                 environment=self._env,
             )
             if exit_code != 0:
-                raise Exception(f'Failed to remove infant user in sandbox: {logs}')
+                raise Exception(f'Failed to remove infant user in computer: {logs}')
 
         if self.run_as_infant:
             # Create the infant user
@@ -287,37 +330,37 @@ class Sandbox:
                     '-c',
                     f'useradd -rm -d /home/infant -s /bin/bash -g root -G sudo -u {self.user_id} infant',
                 ],
-                workdir=self.sandbox_workspace_dir,
+                workdir=self.computer_workspace_dir,
                 environment=self._env,
             )
             if exit_code != 0:
-                raise Exception(f'Failed to create infant user in sandbox: {logs}')
+                raise Exception(f'Failed to create infant user in computer: {logs}')
             exit_code, logs = self.container.exec_run(
                 [
                     '/bin/bash',
                     '-c',
                     f"echo 'infant:{self._ssh_password}' | chpasswd",
                 ],
-                workdir=self.sandbox_workspace_dir,
+                workdir=self.computer_workspace_dir,
                 environment=self._env,
             )
             if exit_code != 0:
-                raise Exception(f'Failed to set password in sandbox: {logs}')
+                raise Exception(f'Failed to set password in computer: {logs}')
 
             # chown the home directory
             exit_code, logs = self.container.exec_run(
                 ['/bin/bash', '-c', 'chown infant:root /home/infant'],
-                workdir=self.sandbox_workspace_dir,
+                workdir=self.computer_workspace_dir,
                 environment=self._env,
             )
             if exit_code != 0:
                 raise Exception(
-                    f'Failed to chown home directory for infant in sandbox: {logs}'
+                    f'Failed to chown home directory for infant in computer: {logs}'
                 )
             # check the miniforge3 directory exist
             exit_code, logs = self.container.exec_run(
                 ['/bin/bash', '-c', '[ -d "/infant/miniforge3" ] && exit 0 || exit 1'],
-                workdir=self.sandbox_workspace_dir,
+                workdir=self.computer_workspace_dir,
                 environment=self._env,
             )
             if exit_code != 0:
@@ -327,45 +370,45 @@ class Sandbox:
             # chown the miniforge3
             exit_code, logs = self.container.exec_run(
                 ['/bin/bash', '-c', 'chown -R infant:root /infant/miniforge3'],
-                workdir=self.sandbox_workspace_dir,
+                workdir=self.computer_workspace_dir,
                 environment=self._env,
             )
             if exit_code != 0:
                 raise Exception(
-                    f'Failed to chown miniforge3 directory for infant in sandbox: {logs}'
+                    f'Failed to chown miniforge3 directory for infant in computer: {logs}'
                 )
             exit_code, logs = self.container.exec_run(
                 [
                     '/bin/bash',
                     '-c',
-                    f'chown infant:root {self.sandbox_workspace_dir}',
+                    f'chown infant:root {self.computer_workspace_dir}',
                 ],
-                workdir=self.sandbox_workspace_dir,
+                workdir=self.computer_workspace_dir,
                 environment=self._env,
             )
             if exit_code != 0:
                 # This is not a fatal error, just a warning
                 logger.warning(
-                    f'Failed to chown workspace directory for infant in sandbox: {logs}. But this should be fine if the {self.sandbox_workspace_dir=} is mounted by the app docker container.'
+                    f'Failed to chown workspace directory for infant in computer: {logs}. But this should be fine if the {self.computer_workspace_dir=} is mounted by the app docker container.'
                 )
         else:
             exit_code, logs = self.container.exec_run(
                 # change password for root
                 ['/bin/bash', '-c', f"echo 'root:{self._ssh_password}' | chpasswd"],
-                workdir=self.sandbox_workspace_dir,
+                workdir=self.computer_workspace_dir,
                 environment=self._env,
             )
             if exit_code != 0:
-                raise Exception(f'Failed to set password for root in sandbox: {logs}')
+                raise Exception(f'Failed to set password for root in computer: {logs}')
         exit_code, logs = self.container.exec_run(
-            ['/bin/bash', '-c', "echo 'infant-sandbox' > /etc/hostname"],
-            workdir=self.sandbox_workspace_dir,
+            ['/bin/bash', '-c', "echo 'infant-computer' > /etc/hostname"],
+            workdir=self.computer_workspace_dir,
             environment=self._env,
         )
         
         exit_code, logs = self.container.exec_run("sed -i '$a\\PermitRootLogin yes' /etc/ssh/sshd_config")
         if exit_code != 0:
-            raise Exception(f'Failed to set PermitRootLogin in sandbox: {logs}')
+            raise Exception(f'Failed to set PermitRootLogin in computer: {logs}')
 
     def remove_known_host_entry(self, port, hostname):
         command = f'ssh-keygen -f "/home/uconn/.ssh/known_hosts" -R "[localhost]:{port}"'
@@ -422,7 +465,7 @@ class Sandbox:
         self.ssh.prompt()
         
         # cd to workspace
-        self.ssh.sendline(f'cd {self.sandbox_workspace_dir}')
+        self.ssh.sendline(f'cd {self.computer_workspace_dir}')
         self.ssh.prompt()
 
     def automate_nomachine_login(self, initial_session: bool = False):
@@ -448,7 +491,6 @@ class Sandbox:
                 self.execute("unset LD_PRELOAD")
                 self.execute("nohup Xvfb :0 -screen 0 1920x1080x24 &")
                 self.execute("nohup gnome-session &")
-                self.execute("cd /home/infant")
                 time.sleep(10) # wait for the nomachine to start
                 input("When the computer setup is complete, press Enter to continue") # For setting up the first-time user
         except Exception as e:
@@ -474,7 +516,7 @@ class Sandbox:
 
     def read_logs(self, id) -> str:
         if id not in self.background_commands:
-            raise SandboxInvalidBackgroundCommandError()
+            raise ComputerInvalidBackgroundCommandError()
         bg_cmd = self.background_commands[id]
         return bg_cmd.read_logs()
 
@@ -653,16 +695,16 @@ class Sandbox:
             
         return exit_code, command_output
 
-    def copy_to(self, host_src: str, sandbox_dest: str, recursive: bool = False):
-        # mkdir -p sandbox_dest if it doesn't exist
+    def copy_to(self, host_src: str, computer_dest: str, recursive: bool = False):
+        # mkdir -p computer_dest if it doesn't exist
         exit_code, logs = self.container.exec_run(
-            ['/bin/bash', '-c', f'mkdir -p {sandbox_dest}'],
-            workdir=self.sandbox_workspace_dir,
+            ['/bin/bash', '-c', f'mkdir -p {computer_dest}'],
+            workdir=self.computer_workspace_dir,
             environment=self._env,
         )
         if exit_code != 0:
             raise Exception(
-                f'Failed to create directory {sandbox_dest} in sandbox: {logs}'
+                f'Failed to create directory {computer_dest} in computer: {logs}'
             )
 
         # use temp directory to store the tar file to avoid
@@ -692,7 +734,7 @@ class Sandbox:
 
             with open(tar_filename, 'rb') as f:
                 data = f.read()
-            self.container.put_archive(os.path.dirname(sandbox_dest), data)
+            self.container.put_archive(os.path.dirname(computer_dest), data)
 
     def get_pid(self, cmd):
         exec_result = self.container.exec_run('ps aux', environment=self._env)
@@ -795,7 +837,7 @@ class Sandbox:
                     # allow root login
                     command=f"/usr/sbin/sshd -D -p {self._ssh_port} -o 'PermitRootLogin=yes'",
                     **network_kwargs,
-                    working_dir=self.sandbox_workspace_dir,
+                    working_dir=self.computer_workspace_dir,
                     name=self.container_name,
                     detach=True,
                     volumes=self.volumes,
@@ -875,7 +917,7 @@ class Sandbox:
         logger.info(f'Mounting workspace directory: {mount_dir}')
         return {
             '/sys/fs/cgroup': {'bind': '/sys/fs/cgroup', 'mode': 'rw'},
-            mount_dir: {'bind': self.sandbox_workspace_dir, 'mode': 'rw'},
+            mount_dir: {'bind': self.computer_workspace_dir, 'mode': 'rw'},
             self.cache_dir: {'bind': ('/home/infant/.cache' if self.run_as_infant else '/root/.cache'),'mode': 'rw',},
         }
 
@@ -885,14 +927,14 @@ class Sandbox:
         for container in containers:
             try:
                 if container.name.startswith(self.container_name):
-                    if self.consistant_sandbox:
+                    if self.consistant_computer:
                         continue
                     container.remove(force=True)
             except docker.errors.NotFound:
                 pass
         self.docker_client.close()
 
-    # Run command in the sandbox
+    # Run command in the computer
     def split_commands_by_and(self, commands):
         split_commands = []
         commands = self.split_bash_commands(commands)
@@ -954,7 +996,7 @@ class Sandbox:
                             if debug_exit_code != 0:
                                 mv_switch = False                               
                         
-                        # Add the filter_bash_code to the sandbox
+                        # Add the filter_bash_code to the computer
                         if mv_switch == True:
                             add_filter_bash_command = f"cat << 'EOF' > /tmp/temp.sh\n{filter_bash_code}\nEOF"
                             self.execute(add_filter_bash_command)
@@ -1019,14 +1061,22 @@ class Sandbox:
         return self._run_immediately(command)
     
     async def run_ipython(self, memory: IPythonRun) -> str:
-        
+                
+        import_files = (
+            "from computer_use import *\n"
+            "from file_editor import *\n"
+            "from file_searcher import *\n"
+            "from file_reader import *\n"
+            "from web_browser import *\n"
+        )
+
         # The real output from the code.
         obs = self._run_command(
-            ("cat > /tmp/infant_jupyter_temp.py <<'EOL'\n" f'from agentskills import *\n{memory.code}\n' 'EOL'),
+            ("cat > /tmp/infant_jupyter_temp.py <<'EOL'\n" f'{import_files}{memory.code}\n' 'EOL'),
         )
         # run the code
         obs = self._run_command(
-            ('cat /tmp/infant_jupyter_temp.py | execute_cli'), 
+            ('cat /tmp/infant_jupyter_temp.py | execute_cli.sh'), 
         )
         output = obs
         
@@ -1071,19 +1121,6 @@ class Sandbox:
             return f'{output}'
         return f'{output}'
 
-    def run_python(self, code: str) -> str:
-        
-        # The real output from the code.
-        obs = self._run_command(
-            ("cat > /tmp/infant_jupyter_temp.py <<'EOL'\n" f'from agentskills import *\n{code}\n' 'EOL'),
-        )
-        # run the code
-        obs = self._run_command(
-            ('cat /tmp/infant_jupyter_temp.py | execute_cli'), 
-        )
-        output = obs
-        
-        return f'{output}'
 
     def get_file(self, file_path: str) -> Optional[bytes]:
         """

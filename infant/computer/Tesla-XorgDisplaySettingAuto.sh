@@ -1,6 +1,6 @@
 #!/bin/bash
 # set up user
-echo "127.0.0.1    infant-sandbox" | sudo tee -a /etc/hosts
+echo "127.0.0.1    infant-computer" | sudo tee -a /etc/hosts
 echo "Please set $CreateUserAccount password:"
 sudo adduser $CreateUserAccount
 # Add user to nopasswdlogin
