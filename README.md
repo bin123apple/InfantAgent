@@ -37,13 +37,12 @@ python infant/main.py
 
 ## TODO
 
-- [x] BUG: Sometimes the VM is laggy, it will hinder the normal process.
-- [ ] BUG: Open_application() command waiting time too long
-- [ ] Add: A demo.
+- [ ] Add: Credits.md.
+- [ ] Add: Add RL training code.
+- [x] Add: Add more web-browser tool.
+- [ ] FIX: web-browser tool related prompts.
 - [ ] Add waiting for user input state.
-- [ ] Add: Credits.md
-- [ ] BUG: Move the localization function to here
-- [ ] Add: evaluation in swe-bench/osworld/GAIA/GPQA...
 - [ ] Add: More emoj/user friendly front end.
+- [ ] Add: evaluation in swe-bench/osworld/GAIA/GPQA...
 
 

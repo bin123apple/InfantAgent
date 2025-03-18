@@ -9,7 +9,7 @@ echo "Install NVIDIA Driver"
 sudo /etc/init.d/lightdm stop
 # Install NVIDIA drivers, including X graphic drivers by omitting --x-{prefix,module-path,library-path,sysconfig-path}
 if ! command -v nvidia-xconfig &> /dev/null; then
-  export DRIVER_VERSION=$(head -n1 </proc/driver/nvidia/version | awk '{print $8}')
+  export DRIVER_VERSION=$(head -n1 </proc/driver/nvidia/version | awk '{print $10}')
   BASE_URL=https://cn.download.nvidia.com/tesla
   cd /tmp
   sudo curl -fsSL -O $BASE_URL/$DRIVER_VERSION/NVIDIA-Linux-x86_64-$DRIVER_VERSION.run
