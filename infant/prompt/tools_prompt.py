@@ -254,7 +254,99 @@ exit
 '''
 
 tool_web_browse = '''
+You can use the following functions to interact with the browser.
+- open_browser(): Open the browser in headless mode.
+- navigate_to(url: str) : Navigate to the specified URL.
+- refresh_page(): Refresh the current page.
+- go_back(): Go back to the previous page.
+- go_forward(): Go forward to the next page.
+- close_current_tab(): Close the current tab.
+- execute_javascript(script: str): Execute the specified JavaScript code.
+- switch_to_tab(page_id: int): Switch to the tab at the specified index.
+- create_new_tab(url: str): Open a new tab with the specified URL.
+- save_cookies(): Save the current cookies.
+- select_dropdown_option(index: int, option: int): Select the specified option from the dropdown menu. index: selector index. option: Index of the option to select.
+- mouse_left_click(item: str, description: str): Left mouse click at the specified position. For example: mouse_left_click('search bar', 'It is located near the top center of the Google Chrome browser window. It is a long, rectangular input field with rounded edges. The search bar spans almost the entire width of the browser window and sits directly below the browser's tab row. It has placeholder text that reads "Search Google or type a URL." The search bar is centrally aligned, making it easy to spot above the main content area of the browser.')
+- mouse_double_click(item: str, description: str): Double-click at the specified position. For example: mouse_double_click('The VSCode icon', 'It is located in the sidebar (Launcher) on the left side of the screen. It is the first icon from the top in the vertical arrangement. The icon has a blue background with a white folded "V"-shaped design in the center. The sidebar is aligned along the leftmost edge of the screen, adjacent to the desktop background on its right side.')
+- mouse_right_click(item: str, description: str): Right mouse click at the specified position. For example: mouse_right_click('The refresh button', 'It is located at the top-left corner of the Google Chrome browser window, inside the address bar. It is a circular arrow icon situated next to the left and right navigation arrows (back and forward buttons). The refresh button is just to the left of the search bar. Click it to refresh the current page.')
+- type_text(text: str): Type the given text. text: The text to type.
+- press_key(key: str): Presses the specified key. key: The key or key combination to press (e.g., "Return", "Ctrl+c").
+- press_key_combination(keys: List[str]): Presses the specified key combination.
+- mouse_drag(x_start: int, y_start: int, x_end: int, y_end: int): Drag the mouse from one position to another. x_start: Starting x-coordinate. y_start: Starting y-coordinate. x_end: Ending x-coordinate. y_end: Ending y-coordinate.
+- mouse_box_select(x_start: int, y_start: int, x_end: int, y_end: int): Selects a box by dragging the mouse from one position to another. x_start: Starting x-coordinate. y_start: Starting y-coordinate. x_end: Ending x-coordinate. y_end: Ending y-coordinate.
+- close(): Close the browser.
 '''
+
+tool_web_browse_one_shot = '''
+Here is an example:
+Current Task: Open Wikipedia and search for "Artificial Intelligence".
+Assistant: 
+Open the chrome.
+<execute_ipython>
+open_browser()
+</execute_ipython>
+
+User:
+Screenshot of the chrome opened.
+
+Assistant: 
+Open a new tab in the browser and navigate to Wikipedia.
+<execute_ipython>
+create_new_tab("https://www.wikipedia.org/")
+</execute_ipython>
+
+User:
+Screenshot of the Wikipedia homepage opened.
+All DOMElementNodes have been highlighted and numbered in the screenshot.
+
+Assistant:
+Click on the search bar.
+<execute_ipython>
+mouse_left_click(item='search bar', description='It is located near the top center of the Wikipedia homepage. It is a rectangular input field with placeholder text "Search Wikipedia".')
+</execute_ipython>
+
+User:
+Screenshot of the search bar clicked.
+All DOMElementNodes have been highlighted and numbered in the screenshot.
+
+Assistant:
+Type "Artificial Intelligence" in the search bar.
+<execute_ipython>
+type_text("Artificial Intelligence")
+</execute_ipython>
+
+User:
+Screenshot of the search term "Artificial Intelligence" entered.
+All DOMElementNodes have been highlighted and numbered in the screenshot.
+
+Assistant:
+Press the "Enter" key to perform the search.
+<execute_ipython>
+press_key("Return")
+</execute_ipython>
+
+User:
+Screenshot of the Wikipedia search results for "Artificial Intelligence".
+
+Assistant:
+Click on the first search result.
+<execute_ipython>
+mouse_left_click(item='the first search result', description='It is located near the top right of the homepage.')
+</execute_ipython>
+
+User:
+Screenshot of the Wikipedia page for "Artificial Intelligence".
+
+Assistant:
+The task is complete. You can now view the Wikipedia page for "Artificial Intelligence".
+
+<task_finish>exit</task_finish>
+'''
+
+tool_web_browse_note = '''**NOTE:**
+When using a browser, if a dropdown menu appears, you need to first select the correct option from the menu before proceeding with the next steps. If the dropdown menu does not contain the content you need, click on any blank area to dismiss it.
+'''
+
 
 tool_mk_operation = '''
 You can use the following functions to perform various mouse and keyboard operations.
@@ -341,15 +433,22 @@ tool_document = {
 tool_example = {
     "code_exec": '',
     "file_edit": tool_file_edit_one_shot,
-    "web_browse": '',
+    "web_browse": tool_web_browse_one_shot,
     "computer_interaction": tool_mk_one_shot
 }
 
 tool_stop = {
     "code_exec": '</execute_bash>',
     "file_edit": '</execute_ipython>',
-    "web_browse": '',
+    "web_browse": '</execute_ipython>',
     "computer_interaction": '</execute_ipython>'
+}
+
+tool_note = {
+    "code_exec": '',
+    "file_edit": '',
+    "web_browse": tool_web_browse_note,
+    "computer_interaction": ''
 }
 
 tool_trace_code = '''import sys

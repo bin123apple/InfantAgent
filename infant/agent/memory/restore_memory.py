@@ -51,7 +51,7 @@ from infant.prompt.execution_prompt import (
 )
 
 from infant.prompt.localization_prompt import localization_prompt, localization_user_initial_prompt
-from infant.prompt.tools_prompt import tool_document, tool_sys_msg, tool_example
+from infant.prompt.tools_prompt import tool_document, tool_sys_msg, tool_example, tool_note
 from infant.agent.memory.retrieve_memory import (
     execution_memory_rtve, 
     retrieve_memory_further, 
@@ -231,6 +231,7 @@ def execution_memory_to_diag(memory_block: list[Memory], cmd_set, end_prompt):
         if cmd in tool_document:
             tools_instructions = tools_instructions + tool_document[cmd] + '\n'
             example = tool_example[cmd] + '\n'
+            note = tool_note[cmd] + '\n'
     messages.append({'role': 'user',
                      'content': tool_sys_msg.format(tools = tools_instructions, one_shot = example)})  
     # find the last Task in the memory block
@@ -270,8 +271,18 @@ def execution_memory_to_diag(memory_block: list[Memory], cmd_set, end_prompt):
             
         if hasattr(memory, 'result') and memory.result: 
             if '<Screenshot saved at>' in memory.result: # image situation
-                screenshot_path = memory.result.split('<Screenshot saved at>')[-1].strip()
-                mount_path = config.workspace_mount_path
+                # 先按行分割字符串
+                lines = memory.result.splitlines()
+                # 反向查找最后一行包含 '<Screenshot saved at>' 的行
+                last_line = None
+                for line in reversed(lines):
+                    if '<Screenshot saved at>' in line:
+                        last_line = line
+                        break
+                # 如果找到了该行，则提取路径
+                if last_line is not None:
+                    screenshot_path = last_line.split('<Screenshot saved at>')[-1].strip()
+                    mount_path = config.workspace_mount_path
                 # print(f"mount_path: {mount_path}")
                 if screenshot_path.startswith("/workspace"):
                     image_path = screenshot_path.replace("/workspace", mount_path, 1)
@@ -287,7 +298,7 @@ def execution_memory_to_diag(memory_block: list[Memory], cmd_set, end_prompt):
                 messages.append({'role': 'user',
                     'content': memory.result})      
     messages.append({'role': 'user',
-                    'content': end_prompt})         
+                    'content': end_prompt.format(note = note)})         
     return messages
 
 def localization_memory_to_diag(memory_block: list[Memory]):

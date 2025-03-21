@@ -6,20 +6,19 @@ from datetime import datetime
 from infant.config import config
 from infant.agent.agent import Agent
 from infant.computer.computer import Computer
-from infant.agent.memory.memory import Finish
 from infant.llm.llm_api_base import LLM_API_BASED
 from infant.llm.llm_oss_base import LLM_OSS_BASED
 from infant.agent.memory.memory import Userrequest
 from infant.util.logger import infant_logger as logger
 from infant.util.save_dataset import save_to_dataset
+from infant.agent.memory.memory import Finish, IPythonRun
 
-"""
-async def monitor_agent_state(agent: Agent):
-    while True:
-        await asyncio.sleep(0.1)  # Adjust the interval as needed for responsiveness
-        if agent.state.agent_state == 'finish' or agent.state.agent_state == 'error':
-            break
-"""
+IMPORTS = '''import sys
+from computer_use.computeruse import *
+from file_editor.fileeditor import *
+from file_searcher.filesearcher import *
+from file_reader.filereader import *
+from web_browser.browser import *'''
 
 async def run_single_step(agent: Agent, user_request_text: str):
     agent.state.memory_list.append(Userrequest(text=user_request_text))
@@ -91,16 +90,21 @@ async def main(config=config):
         agent_parameter = config.get_agent_params()
         agent = Agent(agent_parameter, api_llm, oss_llm, computer)
         logger.info(f'Agent initialized successfully.')
+        exit_code, output = computer.execute(f'cd /workspace && rm -rf *')
         
+        # imports
+        import_memory = IPythonRun(code = IMPORTS)
+        await computer.run_ipython(import_memory)
+
         # Run the agent
         while True:
             try:
                 exit_code, output = computer.execute(f'pwd')
                 logger.info(f'Current working directory: {output}')
-                exit_code, output = computer.execute(f'cd /workspace && rm -rf *')
                 user_request = input("Input your request or use type exit to refresh the agent: ")
                 if user_request.lower() == 'exit':
                     agent.state.reset()
+                    exit_code, output = computer.execute(f'cd /workspace && rm -rf *')
                     logger.info("Agent state reset.")
                     user_request = input("Input your new request: ")
                 await run_single_step(agent, user_request)

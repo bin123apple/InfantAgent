@@ -10,4 +10,5 @@ exit
 </task_finish>. 
 Otherwise, provide the next command within the appropriate execution tag:
 > Use <execute_bash>...</execute_bash> for Bash commands.
-> Use <execute_ipython>...</execute_ipython> for my other customized commands, as I mentioned in the beginning.'''
+> Use <execute_ipython>...</execute_ipython> for my other customized commands, as I mentioned in the beginning.
+{note}'''

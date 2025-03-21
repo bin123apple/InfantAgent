@@ -819,7 +819,13 @@ class BrowserContext:
 			full_page=full_page,
 			animations='disabled',
 		)
+		screenshot_dir = "/workspace/screenshots"
+		os.makedirs(screenshot_dir, exist_ok=True)
+		timestamp = int(time.time())
+		screenshot_path = f"{screenshot_dir}/{timestamp}_screenshot.png"
 
+		with open(screenshot_path, 'wb') as f:
+			f.write(screenshot)
 		screenshot_b64 = base64.b64encode(screenshot).decode('utf-8')
 
 		# await self.remove_highlights()
@@ -1113,7 +1119,7 @@ class BrowserContext:
 			raise BrowserError(f'Failed to input text into index {element_node.highlight_index}')
 
 	@time_execution_async('--click_element_node')
-	async def _click_element_node(self, element_node: DOMElementNode) -> Optional[str]:
+	async def _click_element_node(self, element_node: DOMElementNode, click_count: int, button: str) -> Optional[str]:
 		"""
 		Optimized method to click an element using xpath.
 		"""
@@ -1157,7 +1163,9 @@ class BrowserContext:
 					await self._check_and_handle_navigation(page)
 
 			try:
-				return await perform_click(lambda: element_handle.click(timeout=1500))
+				return await perform_click(lambda: element_handle.click(timeout=1500, 
+                                                            click_count = click_count, 
+                                                            button = button))
 			except URLNotAllowedError as e:
 				raise e
 			except Exception:
@@ -1172,6 +1180,30 @@ class BrowserContext:
 			raise e
 		except Exception as e:
 			raise Exception(f'Failed to click element: {repr(element_node)}. Error: {str(e)}')
+
+	@time_execution_async('--click_element_node')
+	async def left_click_element_node(self, element_index: int) -> Optional[str]:
+		"""
+		Optimized method to click an element using index.
+		"""
+		element_node = await self.get_dom_element_by_index(element_index)
+		return await self._click_element_node(element_node, click_count=1, button='left')
+
+	@time_execution_async('--click_element_node')
+	async def right_click_element_node(self, element_index: int) -> Optional[str]:
+		"""
+		Optimized method to click an element using index.
+		"""
+		element_node = await self.get_dom_element_by_index(element_index)
+		return await self._click_element_node(element_node, click_count=1, button='right')
+
+	@time_execution_async('--click_element_node')
+	async def double_click_element_node(self, element_index: int) -> Optional[str]:
+		"""
+		Optimized method to click an element using index.
+		"""
+		element_node = await self.get_dom_element_by_index(element_index)
+		return await self._click_element_node(element_node, click_count=2, button='left')
 
 	@time_execution_async('--get_tabs_info')
 	async def get_tabs_info(self) -> list[TabInfo]:
@@ -1360,3 +1392,194 @@ class BrowserContext:
 		except Exception as e:
 			logger.debug(f'Failed to get CDP targets: {e}')
 			return []
+
+	async def get_all_dropdown_options(self, interactive_elements) -> str:
+		"""
+		Get all dropdown options for all selectors on the page.
+		"""
+		page = await self.get_current_page()
+		selector_map = await self.get_selector_map()
+		results = []
+
+		for index, dom_element in selector_map.items():
+			if index in interactive_elements:
+				all_options = []
+				frame_index = 0
+
+				for frame in page.frames:
+					try:
+						options = await frame.evaluate(
+							"""
+							(xpath) => {
+								const node = document.evaluate(xpath, document, null,
+									XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+								if (!node) return null;
+
+								// 如果是传统的 <select> 元素
+								if (node.tagName.toLowerCase() === 'select') {
+									return {
+										type: 'select',
+										options: Array.from(node.options).map(opt => ({
+											text: opt.text, // 不修剪文本，以便后续精确匹配
+											value: opt.value,
+											index: opt.index
+										})),
+										id: node.id,
+										name: node.name
+									};
+								} 
+								// 如果是建议选择的 <ul> 列表
+								else if (node.tagName.toLowerCase() === 'ul') {
+									// 这里假设建议项为 <li>，根据需要也可以更改选择器
+									const listItems = Array.from(node.querySelectorAll('li'));
+									return {
+										type: 'Suggest to select',
+										options: listItems.map((li, index) => ({
+											text: li.innerText, // 获取显示文本
+											// 尝试获取 data-code 属性作为值，如没有则为空字符串
+											value: li.getAttribute("data-code") || "",
+											index: index
+										})),
+										// 如果 <ul> 有 id 或者其他属性可用，也可以根据实际情况调整
+										id: node.id || "",
+										name: node.getAttribute("aria-label") || ""
+									};
+								}
+								return null;
+							}
+							""",
+							dom_element.xpath,
+						)
+						if options:
+							logger.debug(f'Find dropdown menu at frame {frame_index}, selector index {index}')
+							formatted_options = []
+							for opt in options['options']:
+								encoded_text = json.dumps(opt['text'])
+								formatted_options.append(f'{opt["index"]}: text={encoded_text}')
+							all_options.extend(formatted_options)
+							break
+					except Exception as frame_e:
+						logger.debug(f'frame {frame_index} evaluate fail, selector index {index}: {str(frame_e)}')
+					frame_index += 1
+
+				if all_options:
+					results.append(f"Selector index {index} dropdown options:")
+					results.append("\n".join(all_options))
+		
+		if results:
+			results.append("\nUse the exact text string in select_dropdown_option")
+			return "\n".join(results)
+		else:
+			return "No dropdown options found in any selector."
+
+	async def select_dropdown_option(
+		self,
+		index: int,
+		text: str
+	) -> str:
+		"""Select dropdown option by the text of the option you want to select.
+		This function supports both traditional <select> elements and custom <ul> suggestion lists."""
+		page = await self.get_current_page()
+		selector_map = await self.get_selector_map()
+		dom_element = selector_map[index]
+
+		# Validate that we're working with a select or a ul element
+		if dom_element.tag_name not in ['select', 'ul']:
+			logger.error(f'Element is not a select or ul! Tag: {dom_element.tag_name}, Attributes: {dom_element.attributes}')
+			msg = f'Cannot select option: Element with index {index} is a {dom_element.tag_name}, not a select or ul'
+			return msg
+
+		logger.debug(f"Attempting to select '{text}' using xpath: {dom_element.xpath}")
+		logger.debug(f'Element attributes: {dom_element.attributes}')
+		logger.debug(f'Element tag: {dom_element.tag_name}')
+
+		# Prepend '//' to the provided xpath
+		xpath = '//' + dom_element.xpath
+
+		try:
+			frame_index = 0
+			for frame in page.frames:
+				try:
+					logger.debug(f'Trying frame {frame_index} URL: {frame.url}')
+
+					if dom_element.tag_name == 'select':
+						# Verify we can find the dropdown in this frame
+						find_dropdown_js = """
+							(xpath) => {
+								try {
+									const select = document.evaluate(xpath, document, null,
+										XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+									if (!select) return null;
+									if (select.tagName.toLowerCase() !== 'select') {
+										return {
+											error: `Found element but it's a ${select.tagName}, not a SELECT`,
+											found: false
+										};
+									}
+									return {
+										id: select.id,
+										name: select.name,
+										found: true,
+										tagName: select.tagName,
+										optionCount: select.options.length,
+										currentValue: select.value,
+										availableOptions: Array.from(select.options).map(o => o.text.trim())
+									};
+								} catch (e) {
+									return {error: e.toString(), found: false};
+								}
+							}
+						"""
+						dropdown_info = await frame.evaluate(find_dropdown_js, dom_element.xpath)
+
+						if dropdown_info:
+							if not dropdown_info.get('found'):
+								logger.error(f'Frame {frame_index} error: {dropdown_info.get("error")}')
+								continue
+
+							logger.debug(f'Found dropdown in frame {frame_index}: {dropdown_info}')
+
+							# "label" because we are selecting by text; using nth(0) to avoid strict mode error
+							selected_option_values = (
+								await frame.locator('//' + dom_element.xpath).nth(0).select_option(label=text, timeout=1000)
+							)
+							msg = f'Selected option "{text}" with value {selected_option_values}'
+							return msg
+
+					elif dom_element.tag_name == 'ul':
+						# 针对自定义建议列表，查找 <ul> 下的 <li>，并模拟点击匹配文本的 li
+						select_li_js = """
+							({ xpath, text }) => {
+								const container = document.evaluate(xpath, document, null,
+									XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+								if (!container) return {found: false, error: "Container not found"};
+								const li = Array.from(container.querySelectorAll('li')).find(li => li.innerText.trim() === text);
+								if (!li) return {found: false, error: "No matching li found"};
+								li.click();
+								return {found: true};
+							}
+						"""
+						result = await frame.evaluate(select_li_js, { "xpath": dom_element.xpath, "text": text })
+						if result and result.get('found'):
+							msg = f'Selected option "{text}" in ul'
+							return msg
+						else:
+							error_msg = result.get('error') if result else "Unknown error"
+							logger.error(f'Frame {frame_index} UL selection error: {error_msg}')
+							continue
+
+
+				except Exception as frame_e:
+					logger.error(f'Frame {frame_index} attempt failed: {str(frame_e)}')
+					logger.error(f'Frame type: {type(frame)}')
+					logger.error(f'Frame URL: {frame.url}')
+
+				frame_index += 1
+
+			msg = f"Could not select option '{text}' in any frame"
+			return msg
+
+		except Exception as e:
+			msg = f'Selection failed: {str(e)}'
+			logger.error(msg)
+			return msg

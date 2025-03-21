@@ -5,7 +5,6 @@ The LVM localization ability is not that good.
 '''
 from __future__ import annotations
 
-import io
 import os
 import re
 import copy
@@ -91,7 +90,7 @@ If you believe the {item_to_click} is inside the red rectangle you selected, ple
 NOTES = '''NOTE: If you would like to use the `pyautogui.click` command, please replace the `x` and `y` parameters with the target you want to click on and a descriptive text of its position.'''
 
 
-LOCALIZATION_SYSTEM_PROMPT = '''I want to click on {item_to_click} with the mouse. 
+LOCALIZATION_SYSTEM_PROMPT_VISUAL = '''I want to click on {item_to_click} with the mouse. 
 Please help me determine the exact coordinates I need to click on. 
 I will provide you with a screenshot of my computer screen, divided into sections with dashed lines, and coordinates labeled around the edges of the screen. 
 If you need to zoom in on the screen for more precise coordinate identification, please use the following function:
@@ -142,7 +141,7 @@ Please help me determine whether {item_to_click} is located in the position corr
 '''.strip()
 
 
-LOCALIZATION_USER_INITIAL_PROMPT = '''I want to click on {item_to_click} ({Location}) with the mouse. Please help me determine its **EXACT** coordinates.
+LOCALIZATION_USER_INITIAL_PROMPT_VISUAL = '''I want to click on {item_to_click} ({Location}) with the mouse. Please help me determine its **EXACT** coordinates.
 I have provided you with the current screenshot. Its X-axis range is: {x_range} and its Y-axis range is: {y_range}.
 You can use localization() function to zoom in on the screen for more precise coordinate identification.'''.strip()
 
@@ -450,20 +449,32 @@ def replace_icon_desc_with_coordinates(command, x, y):
 
     Args:
         command (str): Command string containing `pyautogui.click`.
-        x (int): X-coordinate value.
-        y (int): Y-coordinate value.
+        element_index (int): DOMElementNode_index
 
     Returns:
         str: Modified command string.
     """
-    # Regular expression to find `icon` and `desc` parameters
-    pattern = r"item\s*=\s*'.*?',\s*description\s*=\s*'.*?'"
+    # Regular expression to find the action
+    pattern = r"mouse_(left_click|double_click|move|right_click)\(.*?\)"
+    match = re.search(pattern, command)
+    if match:
+        action = match.group(1)
+    
+    # # Regular expression to find `icon` and `desc` parameters
+    # pattern = r"item\s*=\s*'.*?',\s*description\s*=\s*'.*?'"
     replacement = f"x={x}, y={y}"
 
-    # Replace the matched part with `x` and `y` values
-    modified_command = re.sub(pattern, replacement, command)
+    # # Replace the matched part with element index
+    # modified_command = re.sub(pattern, replacement, command)
+    if action == 'left_click':
+        modified_command = f"mouse_left_click({replacement})"
+    elif action == 'double_click':
+        modified_command = f"mouse_double_click({replacement})"
+    elif action == 'right_click':
+        modified_command = f"mouse_right_click({replacement})"
 
     return modified_command
+
 
 def draw_grid(img, length, offset=(0, 0), draw_type="rectangle"):
     """
@@ -575,7 +586,7 @@ def draw_grid(img, length, offset=(0, 0), draw_type="rectangle"):
     
     return new_img, x_range, y_range
 
-async def localizaiton(agent: Agent, computer: Computer, memory: Memory):
+async def localization_visual(agent: Agent, memory: Memory):
     '''
     Localize the image description to the coordinate for accurate mouse click.
     Args:
@@ -584,6 +595,7 @@ async def localizaiton(agent: Agent, computer: Computer, memory: Memory):
     Returns:
         Memory: The updated memory object.
     '''
+    computer = agent.computer
     if isinstance(memory, IPythonRun) and memory.code:
         pattern = r"mouse_(?:left_click|double_click|move|right_click)\(.*?\)"
         match = re.search(pattern, memory.code)
@@ -635,13 +647,13 @@ async def image_description_to_coordinate(agent: Agent, computer: Computer, icon
     # Initialize the localization memory block
     byte_image = encode_image(grid_image)    
     messages = []
-    messages.append({'role': 'system', 'content': LOCALIZATION_SYSTEM_PROMPT.format(item_to_click=icon)})
+    messages.append({'role': 'system', 'content': LOCALIZATION_SYSTEM_PROMPT_VISUAL.format(item_to_click=icon)})
     messages.append({
         "role": "user",
         "content": [
             {
                 "type": "text",
-                "text": LOCALIZATION_USER_INITIAL_PROMPT.format(item_to_click=icon, Location=desc, 
+                "text": LOCALIZATION_USER_INITIAL_PROMPT_VISUAL.format(item_to_click=icon, Location=desc, 
                                                                 x_range=x_range, y_range=y_range)
             },
             {
