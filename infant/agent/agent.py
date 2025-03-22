@@ -185,12 +185,11 @@ class Agent:
         assert isinstance(self.state.memory_list[-1], Classification)
         cmd_set = self.state.memory_list[-1].cmd_set
         # print(f'cmd_set: {cmd_set}')
-        
+        interactive_elements = []
         # if the task is web_browse, we only need to execute the web_browse command
         if "web_browse" in cmd_set:
             cmd_set = {"web_browse"} # in-place change the cmd_set   
             dropdown_dict = None
-            interactive_elements = []
             
         stop_signals = ['</task_finish>']
         for cmd in cmd_set:

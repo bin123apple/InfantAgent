@@ -1,4 +1,6 @@
 import os
+import fitz
+import time
 import pandas as pd
 from typing import List, Tuple
 
@@ -108,3 +110,78 @@ def scroll_up() -> None:
     output = _cur_file_header(CURRENT_FILE, total_lines)
     output += _print_window(CURRENT_FILE, CURRENT_LINE, WINDOW, return_str=True)
     print(output)
+    
+@update_pwd_decorator
+def parse_pdf(pdf_path: str, page: int) -> fitz.Pixmap:
+    """
+    Captures a high-resolution screenshot of the entire specified page of the PDF (fixed zoom = 5.0)
+    and returns the screenshot as a PyMuPDF Pixmap object.
+    
+    Parameters:
+        pdf_path (str): The path to the PDF file.
+        page (int): The page number to process (1-indexed).
+        output_path (str, optional): The file path to save the screenshot. If provided, the image will be saved.
+    
+    Returns:
+        pix (fitz.Pixmap): The screenshot as a PyMuPDF Pixmap object.
+    """
+    # Open the PDF using PyMuPDF
+    doc = fitz.open(pdf_path)
+    total_pages = doc.page_count
+    if page < 1 or page > total_pages:
+        print(f"Page number {page} is out of range. Total pages: {total_pages}")
+        return None
+
+    # Load the specified page (PyMuPDF uses 0-indexed page numbers)
+    pdf_page = doc.load_page(page - 1)
+    
+    # Create a transformation matrix with a fixed zoom factor of 5.0 for high-resolution output
+    mat = fitz.Matrix(5.0, 5.0)
+    pix = pdf_page.get_pixmap(matrix=mat)
+    
+    # Save the screenshot if an output path is provided
+    screenshot_dir = "/workspace/screenshots"
+    os.makedirs(screenshot_dir, exist_ok=True)
+    timestamp = int(time.time())
+    screenshot_path = f"{screenshot_dir}/{timestamp}.png"
+    pix.save(screenshot_path)
+    print(f"<Screenshot saved at> {screenshot_path}")
+
+@update_pwd_decorator
+def zoom_pdf(pdf_path: str, page: int, region: tuple):
+    """
+    捕获PDF中指定页中某一特定区域的高分辨率截图，用于清晰查看局部图片。
+    
+    参数:
+        pdf_path (str): PDF文件路径。
+        page (int): 需要处理的页码（从1开始）。
+        region (tuple): 指定区域的元组，格式为 (x0, y0, x1, y1)，坐标使用PDF的坐标系。
+        zoom (float): 渲染时的缩放因子，默认值为5.0。
+        output_path (str, optional): 如果提供，则保存图片到此路径。
+    
+    返回:
+        pix (fitz.Pixmap): 截图的Pixmap对象。
+    """
+    # 打开PDF文件
+    doc = fitz.open(pdf_path)
+    total_pages = doc.page_count
+    if page < 1 or page > total_pages:
+        print(f"Page number {page} is out of range. Total pages: {total_pages}")
+        return None
+
+    # 加载指定页（页码从0开始）
+    pdf_page = doc.load_page(page - 1)
+    
+    # 创建缩放矩阵
+    mat = fitz.Matrix(5, 5)
+    
+    # 使用指定区域进行裁剪（clip参数）
+    clip_rect = fitz.Rect(*region)
+    pix = pdf_page.get_pixmap(matrix=mat, clip=clip_rect)
+    
+    screenshot_dir = "/workspace/screenshots"
+    os.makedirs(screenshot_dir, exist_ok=True)
+    timestamp = int(time.time())
+    screenshot_path = f"{screenshot_dir}/{timestamp}.png"
+    pix.save(screenshot_path)
+    print(f"<Screenshot saved at> {screenshot_path}")

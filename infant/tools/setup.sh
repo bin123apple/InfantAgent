@@ -109,4 +109,4 @@ echo "JUPYTER_EXEC_SERVER_PORT: $JUPYTER_EXEC_SERVER_PORT"
 
 source ~/.bashrc
 
-$INFANT_PYTHON_INTERPRETER -m pip install flake8 python-docx pypdf python-pptx pylatexenc openai opencv-python chardet pandas
+$INFANT_PYTHON_INTERPRETER -m pip install flake8 python-docx pypdf python-pptx pylatexenc openai opencv-python chardet pandas PyMuPDF

@@ -26,9 +26,84 @@ You can use any Bash commands.
 Please put the Bash commands you think need to be executed within <execute_bash>...</execute_bash> tags.
 '''
 
+tool_file_view = '''
+You can use the following file viewing functions to view the content of files.
+- open_file(path: str, line_number: int | None = 1, context_lines: int = 100): Opens a file and optionally moves to a specific line. path: Path to the file. line_number: Line number to move to. context_lines: Number of lines to display.
+- parse_pdf(pdf_path: str, page: int): View the specified page of a PDF file. pdf_path: Path to the PDF file. page: Page number to view.
+- zoom_pdf(pdf_path: str, page: int, region: tuple): Zoom in on a specific region of a PDF file. pdf_path: Path to the PDF file. page: Page number to view. region: Tuple specifying the region to zoom in on (x0, y0, x1, y1).
+- goto_line(line_number): Moves the window to show the specified line number.
+- scroll_down(): Moves the window down by the number of lines specified in WINDOW.
+- scroll_up(): Moves the window up by the number of lines specified in WINDOW.
+Please put the file viewing commands you think need to be executed within <execute_ipython>...</execute_ipython> tags.
+'''
+
+tool_file_view_one_shot = '''
+Here is an example:
+USER:
+Please open the file "example.txt" and
+show the content starting from line 5.
+
+ASSISTANT:
+Sure! Let me open the file "example.txt" and move to line 5:
+<execute_ipython>
+open_file('example.txt', line_number=5)
+</execute_ipython>
+
+USER:
+OBSERVATION:
+[File: /workspace/example.txt (5 lines total)]
+1|This is an example file.
+2|It contains some text data.
+3|Lorem ipsum dolor sit amet,
+4|consectetur adipiscing elit.
+5|Sed do eiusmod tempor incididunt
+
+ASSISTANT:
+What would you like to do next?
+
+USER:
+Please view the example.pdf file and show the content of page 3.
+
+ASSISTANT:
+Sure! Let me view page 3 of the PDF file "example.pdf":
+<execute_ipython>
+parse_pdf('example.pdf', page=3)
+</execute_ipython>
+
+USER:
+OBSERVATION:
+[PDF: example.pdf, Page 3]
+[PDF content displayed.]
+
+ASSISTANT:
+What would you like to do next?
+
+USER:
+Please zoom in on the region (100, 100, 200, 200) of page 3 in the example.pdf file.
+
+ASSISTANT:
+Sure! Let me zoom in on the specified region of page 3 in the PDF file "example.pdf":
+<execute_ipython>
+zoom_pdf('example.pdf', page=3, region=(100, 100, 200, 200))
+</execute_ipython>
+
+USER:
+OBSERVATION:
+[PDF: example.pdf, Page 3, Region (100, 100, 200, 200)]
+[Zoomed-in region displayed.]
+
+ASSISTANT:
+The current task is complete. If you have any further questions, feel free to ask!
+<task_finish>
+exit
+</task_finish>
+'''
+
+
 tool_file_edit = '''
 You can use the following file editing functions to view, add, delete, search, and modify files.
 - open_file(path: str, line_number: int | None = 1, context_lines: int = 100): Opens a file and optionally moves to a specific line.
+- parse_pdf(pdf_path: str, page: int): View the specified page of a PDF file.
 - goto_line(line_number): Moves the window to show the specified line number.
 - scroll_down(): Moves the window down by the number of lines specified in WINDOW.
 - scroll_up(): Moves the window up by the number of lines specified in WINDOW.
@@ -424,6 +499,7 @@ The task is complete. You can now view the search results for "kittens".
 tool_fake_user_response_prompt = '''You did not provide any commands. If you believe the task is complete or cannot be solved, reply with <task_finish>exit</task_finish>; otherwise, please provide a command.'''
 
 tool_document = {
+    "file_view": tool_file_view,
     "code_exec": tool_code_exe,
     "file_edit": tool_file_edit,
     "web_browse": tool_web_browse,
@@ -432,12 +508,14 @@ tool_document = {
 
 tool_example = {
     "code_exec": '',
+    "file_view": tool_file_view_one_shot,
     "file_edit": tool_file_edit_one_shot,
     "web_browse": tool_web_browse_one_shot,
     "computer_interaction": tool_mk_one_shot
 }
 
 tool_stop = {
+    "file_view": '</execute_ipython>',
     "code_exec": '</execute_bash>',
     "file_edit": '</execute_ipython>',
     "web_browse": '</execute_ipython>',
@@ -445,6 +523,7 @@ tool_stop = {
 }
 
 tool_note = {
+    "file_view": '',
     "code_exec": '',
     "file_edit": '',
     "web_browse": tool_web_browse_note,

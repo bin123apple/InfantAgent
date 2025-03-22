@@ -181,8 +181,17 @@ def reasoning_memory_to_diag(memory_block: list[Memory], end_prompt: str) -> str
                             'content': message})
         if hasattr(memory, 'result') and memory.result: 
             if '<Screenshot saved at>' in memory.result: # image situation
-                screenshot_path = memory.result.split('<Screenshot saved at>')[-1].strip()
-                mount_path = config.workspace_mount_path
+                lines = memory.result.splitlines()
+                # 反向查找最后一行包含 '<Screenshot saved at>' 的行
+                last_line = None
+                for line in reversed(lines):
+                    if '<Screenshot saved at>' in line:
+                        last_line = line
+                        break
+                # 如果找到了该行，则提取路径
+                if last_line is not None:
+                    screenshot_path = last_line.split('<Screenshot saved at>')[-1].strip()
+                    mount_path = config.workspace_mount_path
                 # print(f"mount_path: {mount_path}")
                 if screenshot_path.startswith("/workspace"):
                     image_path = screenshot_path.replace("/workspace", mount_path, 1)

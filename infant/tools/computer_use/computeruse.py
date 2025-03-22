@@ -36,10 +36,7 @@ def take_screenshot(command: str | None = None, top_left: tuple | None = None, l
     screenshot_dir = "/workspace/screenshots"
     os.makedirs(screenshot_dir, exist_ok=True)
     timestamp = int(time.time())
-    if command: 
-        screenshot_path = f"{screenshot_dir}/{timestamp}.png"
-    else:
-        screenshot_path = f"{screenshot_dir}/{timestamp}_screenshot.png"
+    screenshot_path = f"{screenshot_dir}/{timestamp}.png"
 
     # Get screen resolution
     screen_width, screen_height = ImageGrab.grab().size

@@ -20,8 +20,8 @@ from file_searcher.filesearcher import *
 from file_reader.filereader import *
 from web_browser.browser import *'''
 
-async def run_single_step(agent: Agent, user_request_text: str):
-    agent.state.memory_list.append(Userrequest(text=user_request_text))
+async def run_single_step(agent: Agent, user_request_text: str, image = None):
+    agent.state.memory_list.append(Userrequest(text=user_request_text, images=image))
 
     monitor_task = asyncio.create_task(agent.monitor_agent_state())
     special_case_task = asyncio.create_task(agent.special_case_handler())
@@ -47,54 +47,59 @@ async def run_single_step(agent: Agent, user_request_text: str):
     answer = finish_memory.thought
     return answer
 
+async def initialize_agent():
+    # Initialize the API Based LLM
+    litellm_parameter = config.get_litellm_params()
+    api_llm = LLM_API_BASED(litellm_parameter)
+    
+    # Initialize the OSS Based LLM
+    if config.use_oss_llm:
+        vllm_parameter = config.get_vllm_params()
+        oss_llm = LLM_OSS_BASED(vllm_parameter)
+    else:
+        oss_llm = None
+
+    # Initialize the computer
+    computer_parameter = config.get_computer_params()
+    sid = str(uuid.uuid4())
+    computer = Computer(computer_parameter, sid = sid)
+    
+    # cd to the workspace/clear the workspace/activate conda
+    exit_code, output = computer.execute(f'cd /workspace && rm -rf *')
+    if exit_code != 0:
+        logger.error(f'Failed to clear the workspace directory: {output}')
+        sys.exit(1)
+    else:
+        logger.info("Workspace directory has been cleared successfully.")
+    
+    # # activate conda
+    # exit_code, output = computer.execute(f'source /infant/miniforge3/etc/profile.d/conda.sh')
+    # exit_code, output = computer.execute(f'conda activate base')
+    # logger.info(f'Conda environment activated successfully.')
+
+    # git initial commit 
+    exit_code, output = computer.execute(f'git init') # initialize git
+    exit_code, output = computer.execute('git config --global core.pager ""')
+    exit_code, output = computer.execute(f'git add .') # initial add
+    exit_code, output = computer.execute(f'git commit -m "base commit"') # initial add
+    logger.info(f'Git initialized successfully.')
+    
+    # Initialize the Agent
+    agent_parameter = config.get_agent_params()
+    agent = Agent(agent_parameter, api_llm, oss_llm, computer)
+    logger.info(f'Agent initialized successfully.')
+    exit_code, output = computer.execute(f'cd /workspace && rm -rf *')
+    
+    # imports
+    import_memory = IPythonRun(code = IMPORTS)
+    await computer.run_ipython(import_memory)
+    return agent, computer
+
 async def main(config=config):
     
     try:
-        # Initialize the API Based LLM
-        litellm_parameter = config.get_litellm_params()
-        api_llm = LLM_API_BASED(litellm_parameter)
-        
-        # Initialize the OSS Based LLM
-        if config.use_oss_llm:
-            vllm_parameter = config.get_vllm_params()
-            oss_llm = LLM_OSS_BASED(vllm_parameter)
-        else:
-            oss_llm = None
-
-        # Initialize the computer
-        computer_parameter = config.get_computer_params()
-        sid = str(uuid.uuid4())
-        computer = Computer(computer_parameter, sid = sid)
-        
-        # cd to the workspace/clear the workspace/activate conda
-        exit_code, output = computer.execute(f'cd /workspace && rm -rf *')
-        if exit_code != 0:
-            logger.error(f'Failed to clear the workspace directory: {output}')
-            sys.exit(1)
-        else:
-            logger.info("Workspace directory has been cleared successfully.")
-        
-        # # activate conda
-        # exit_code, output = computer.execute(f'source /infant/miniforge3/etc/profile.d/conda.sh')
-        # exit_code, output = computer.execute(f'conda activate base')
-        # logger.info(f'Conda environment activated successfully.')
-
-        # git initial commit 
-        exit_code, output = computer.execute(f'git init') # initialize git
-        exit_code, output = computer.execute('git config --global core.pager ""')
-        exit_code, output = computer.execute(f'git add .') # initial add
-        exit_code, output = computer.execute(f'git commit -m "base commit"') # initial add
-        logger.info(f'Git initialized successfully.')
-        
-        # Initialize the Agent
-        agent_parameter = config.get_agent_params()
-        agent = Agent(agent_parameter, api_llm, oss_llm, computer)
-        logger.info(f'Agent initialized successfully.')
-        exit_code, output = computer.execute(f'cd /workspace && rm -rf *')
-        
-        # imports
-        import_memory = IPythonRun(code = IMPORTS)
-        await computer.run_ipython(import_memory)
+        # Initialize the agent
+        agent, computer = await initialize_agent()
 
         # Run the agent
         while True:
