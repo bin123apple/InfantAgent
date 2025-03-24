@@ -163,9 +163,15 @@ class Agent:
             memory = parse(resp) 
             if isinstance(memory, Message):
                 self.state.memory_list.append(memory)
-                reasoning_fake_user_response = Message(content=reasoning_fake_user_response_prompt)
-                reasoning_fake_user_response.source = 'user'
-                self.state.memory_list.append(reasoning_fake_user_response)
+                if self.agent_config.fake_response_mode:
+                    reasoning_fake_user_response = Message(content=reasoning_fake_user_response_prompt)
+                    reasoning_fake_user_response.source = 'user'
+                    self.state.memory_list.append(reasoning_fake_user_response)
+                else:
+                    user_response = await asyncio.get_event_loop().run_in_executor(None, input, "Witing for user input:")
+                    user_message = Message(content=user_response)
+                    user_message.source = 'user'
+                    self.state.memory_list.append(user_message)
             else:
                 self.state.memory_list.append(memory)
             await asyncio.sleep(0.3)
@@ -308,8 +314,7 @@ class Agent:
             #if self.state == "completed":
             #    logger.info("Agent reached 'completed' state, stopping monitor")
             #    break
-            if self.state.agent_state in ('finished', 'error'):
-                logger.info("Agent reached terminal state, stopping monitor.")
+            if self.state.agent_state in ('finished', 'error', 'awaiting_user_input'):
                 break
 
     async def parse_user_request(self) -> dict:

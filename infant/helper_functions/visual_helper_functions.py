@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from infant.agent.agent import Agent
 from infant.computer.computer import Computer
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 
 from infant.config import config
 from infant.util.debug import print_messages
@@ -144,6 +144,30 @@ Please help me determine whether {item_to_click} is located in the position corr
 LOCALIZATION_USER_INITIAL_PROMPT_VISUAL = '''I want to click on {item_to_click} ({Location}) with the mouse. Please help me determine its **EXACT** coordinates.
 I have provided you with the current screenshot. Its X-axis range is: {x_range} and its Y-axis range is: {y_range}.
 You can use localization() function to zoom in on the screen for more precise coordinate identification.'''.strip()
+
+def enhance_image_clarity(image, scale_factor=1, sharpness_factor=2.0):
+    """
+    增强图像清晰度的函数。该函数可以通过放大图像以及应用锐化滤镜来提高图像的清晰度。
+    
+    参数：
+        image (PIL.Image): 待处理的图像。
+        scale_factor (float): 放大倍率，默认为 1（不放大）。如果大于 1，则图像会相应放大。
+        sharpness_factor (float): 锐化因子，默认为 2.0。1.0 表示原始图像，小于 1 会使图像更模糊，
+                                  大于 1 则会增强图像的锐度。
+    
+    返回：
+        PIL.Image: 经过增强后的图像。
+    """
+    # 如果需要放大图像，则按指定倍率调整尺寸
+    if scale_factor != 1:
+        new_size = (int(image.width * scale_factor), int(image.height * scale_factor))
+        image = image.resize(new_size, resample=Image.LANCZOS)
+    
+    # 使用 ImageEnhance 对图像进行锐化
+    enhancer = ImageEnhance.Sharpness(image)
+    enhanced_image = enhancer.enhance(sharpness_factor)
+    
+    return enhanced_image
 
 def extract_image_path_from_output(output: str):
     '''
@@ -476,44 +500,165 @@ def replace_icon_desc_with_coordinates(command, x, y):
     return modified_command
 
 
+# def draw_grid(img, length, offset=(0, 0), draw_type="rectangle"):
+#     """
+#     Draws a grid with fixed divisions (2 horizontal lines and 3 vertical lines),
+#     and labels the intersection points based on global coordinates.
+#     Now, adds a black outer frame region as a background, and places red coordinate labels
+#     on the frame region instead of inside the grid.
+#     """
+
+#     draw = ImageDraw.Draw(img)
+#     width, height = img.size
+#     if offset:
+#         offset_x, offset_y = offset
+#     else:
+#         offset_x, offset_y = 0, 0
+
+#     # Fixed divisions: 3 horizontal regions and 4 vertical regions
+#     num_horizontal_lines = 5
+#     num_vertical_lines = 7
+
+#     # Calculate step sizes based on the screen size
+#     step_x = width // (num_vertical_lines + 1)
+#     step_y = height // (num_horizontal_lines + 1)
+
+#     # Define line color, line style, and font size
+#     grid_color = (200, 0, 0)  # Deep red (RGB)
+#     label_color = "red"  # Red labels
+#     dash_length = 10  # Length of each dash for dashed lines
+#     font_size = max(int((length / 40)), 
+#                     int(sqrt((width * height) / 2560)),
+#                     8)  # Adjust font size based on screen area
+
+#     # Load font
+#     try:
+#         font = ImageFont.truetype("DejaVuSans.ttf", font_size)
+#     except:
+#         font = ImageFont.load_default()
+
+#     # Use textbbox to calculate maximum label dimensions
+#     max_x_label_width = 0
+#     max_y_label_width = 0
+
+#     for i in range(num_vertical_lines + 2):
+#         label = f"{i * step_x + offset_x}"
+#         bbox = draw.textbbox((0, 0), label, font=font)
+#         max_x_label_width = max(max_x_label_width, bbox[2] - bbox[0])
+
+#     for j in range(num_horizontal_lines + 2):
+#         label = f"{j * step_y + offset_y}"
+#         bbox = draw.textbbox((0, 0), label, font=font)
+#         max_y_label_width = max(max_y_label_width, bbox[2] - bbox[0])
+
+#     frame_thickness_x = max_x_label_width  # Match longest X-coordinate label
+#     frame_thickness_y = font_size  # Match font size for Y-coordinate label height
+
+#     # print(f"Frame thickness: {frame_thickness_x} x {frame_thickness_y}")
+
+#     # Create a new image with the black frame
+#     new_width = width + 2 * frame_thickness_x
+#     new_height = height + 2 * frame_thickness_y
+#     new_img = Image.new("RGB", (new_width, new_height), "black")
+
+#     # Paste the original image onto the new background
+#     new_img.paste(img, (frame_thickness_x, frame_thickness_y))
+#     draw = ImageDraw.Draw(new_img)
+
+#     if draw_type == "???": # only draw the grid for the rectangle, not for the dot
+#         # Draw vertical dashed lines
+#         for i in range(1, num_vertical_lines + 1):
+#             x = i * step_x + frame_thickness_x
+#             for y in range(frame_thickness_y, height + frame_thickness_y, dash_length * 2):
+#                 draw.line([(x, y), (x, y + dash_length)], fill=grid_color, width=1)
+
+#         # Draw horizontal dashed lines
+#         for i in range(1, num_horizontal_lines + 1):
+#             y = i * step_y + frame_thickness_y
+#             for x in range(frame_thickness_x, width + frame_thickness_x, dash_length * 2):
+#                 draw.line([(x, y), (x + dash_length, y)], fill=grid_color, width=1)
+
+#     # Label X-coordinates on the top and bottom frame
+#     for i in range(num_vertical_lines + 2):
+#         x = i * step_x + frame_thickness_x
+#         label = f"{i * step_x + offset_x}"
+#         # Top frame
+#         draw.text(
+#             (x - max_x_label_width // 2, frame_thickness_y // 2 - font_size // 2), label, fill=label_color, font=font
+#         )
+#         # Bottom frame
+#         draw.text(
+#             (x - max_x_label_width // 2, height + frame_thickness_y), label, fill=label_color, font=font
+#         )
+
+#     # Label Y-coordinates on the left and right frame
+#     for j in range(num_horizontal_lines + 2):
+#         y = j * step_y + frame_thickness_y
+#         label = f"{j * step_y + offset_y}"
+#         # Left frame
+#         draw.text(
+#             (frame_thickness_x // 2 - max_y_label_width // 2, y - font_size // 2), label, fill=label_color, font=font
+#         )
+#         # Right frame
+#         draw.text(
+#             (width + frame_thickness_x, y - font_size // 2), label, fill=label_color, font=font
+#         )
+        
+#     # Calculate the range of x and y coordinates
+#     x_range = (offset_x, offset_x + (num_vertical_lines + 1) * step_x)
+#     y_range = (offset_y, offset_y + (num_horizontal_lines + 1) * step_y)
+    
+#     return new_img, x_range, y_range
+
 def draw_grid(img, length, offset=(0, 0), draw_type="rectangle"):
     """
-    Draws a grid with fixed divisions (2 horizontal lines and 3 vertical lines),
-    and labels the intersection points based on global coordinates.
-    Now, adds a black outer frame region as a background, and places red coordinate labels
-    on the frame region instead of inside the grid.
+    绘制固定分割网格（5条水平线和7条垂直线），并基于全局坐标标注交点。
+    此函数首先将输入图像按比例放大（同时参考长度也同步放大），
+    然后添加黑色边框区域作为背景，并在边框上标注红色坐标标签，而不是直接在网格内部标注。
+    
+    参数：
+        img (PIL.Image): 输入图像。
+        length (int): 用于调整字体大小和网格间距的参考边长。
+        offset (tuple): 全局坐标偏移 (offset_x, offset_y)。
+        draw_type (str): 绘制类型。若为 "rectangle"，则绘制虚线网格；其他类型可按需求扩展。
+        scale_factor (float): 图像放大倍率（保持长宽比），默认为1（不放大）。
+        
+    返回：
+        tuple: (new_img, x_range, y_range)
+            new_img: 添加边框和坐标标签后的图像。
+            x_range, y_range: 网格对应的全局坐标范围。
     """
+    width_original, height_original = img.size 
+    scale_factor= int(1920//width_original)
+    # 根据 scale_factor 放大图像，并同步调整参考边长
+    if scale_factor != 1:
+        new_size = (int(img.width * scale_factor), int(img.height * scale_factor))
+        img = img.resize(new_size, resample=Image.LANCZOS)  
 
+    # 开始绘制网格与标签
     draw = ImageDraw.Draw(img)
     width, height = img.size
-    if offset:
-        offset_x, offset_y = offset
-    else:
-        offset_x, offset_y = 0, 0
+    offset_x, offset_y = offset if offset else (0, 0)
 
-    # Fixed divisions: 3 horizontal regions and 4 vertical regions
+    # 固定分割：共5条水平线和7条垂直线
     num_horizontal_lines = 5
     num_vertical_lines = 7
 
-    # Calculate step sizes based on the screen size
-    step_x = width // (num_vertical_lines + 1)
-    step_y = height // (num_horizontal_lines + 1)
+    # 根据图像尺寸计算步长
+    step_x = length // (num_vertical_lines + 1)
+    step_y = length // 16 * 9 // (num_horizontal_lines + 1)
 
-    # Define line color, line style, and font size
-    grid_color = (200, 0, 0)  # Deep red (RGB)
-    label_color = "red"  # Red labels
-    dash_length = 10  # Length of each dash for dashed lines
-    font_size = max(int((length / 40)), 
-                    int(sqrt((width * height) / 2560)),
-                    8)  # Adjust font size based on screen area
+    # 定义网格颜色、标注颜色和虚线参数
+    label_color = "red"       # 红色标签
+    font_size = max(int((width_original * scale_factor / 40)), int(sqrt((width * height) / 2560)), 8)
 
-    # Load font
+    # 尝试加载字体，否则使用默认字体
     try:
         font = ImageFont.truetype("DejaVuSans.ttf", font_size)
     except:
         font = ImageFont.load_default()
 
-    # Use textbbox to calculate maximum label dimensions
+    # 计算X、Y轴上最大标签的宽度（用于边框预留）
     max_x_label_width = 0
     max_y_label_width = 0
 
@@ -527,60 +672,48 @@ def draw_grid(img, length, offset=(0, 0), draw_type="rectangle"):
         bbox = draw.textbbox((0, 0), label, font=font)
         max_y_label_width = max(max_y_label_width, bbox[2] - bbox[0])
 
-    frame_thickness_x = max_x_label_width  # Match longest X-coordinate label
-    frame_thickness_y = font_size  # Match font size for Y-coordinate label height
+    # 使用标签尺寸作为边框预留空间
+    frame_thickness_x = max_x_label_width
+    frame_thickness_y = font_size
 
-    # print(f"Frame thickness: {frame_thickness_x} x {frame_thickness_y}")
-
-    # Create a new image with the black frame
+    # 新图像尺寸：原图加上两侧边框
     new_width = width + 2 * frame_thickness_x
     new_height = height + 2 * frame_thickness_y
     new_img = Image.new("RGB", (new_width, new_height), "black")
-
-    # Paste the original image onto the new background
     new_img.paste(img, (frame_thickness_x, frame_thickness_y))
     draw = ImageDraw.Draw(new_img)
 
-    if draw_type == "???": # only draw the grid for the rectangle, not for the dot
-        # Draw vertical dashed lines
-        for i in range(1, num_vertical_lines + 1):
-            x = i * step_x + frame_thickness_x
-            for y in range(frame_thickness_y, height + frame_thickness_y, dash_length * 2):
-                draw.line([(x, y), (x, y + dash_length)], fill=grid_color, width=1)
-
-        # Draw horizontal dashed lines
-        for i in range(1, num_horizontal_lines + 1):
-            y = i * step_y + frame_thickness_y
-            for x in range(frame_thickness_x, width + frame_thickness_x, dash_length * 2):
-                draw.line([(x, y), (x + dash_length, y)], fill=grid_color, width=1)
-
-    # Label X-coordinates on the top and bottom frame
+    # 在上、下边框标注X轴坐标
     for i in range(num_vertical_lines + 2):
-        x = i * step_x + frame_thickness_x
+        x = i * step_x * scale_factor + frame_thickness_x
         label = f"{i * step_x + offset_x}"
-        # Top frame
+        # 上边框
         draw.text(
-            (x - max_x_label_width // 2, frame_thickness_y // 2 - font_size // 2), label, fill=label_color, font=font
+            (x - max_x_label_width // 2, frame_thickness_y // 2 - font_size // 2),
+            label, fill=label_color, font=font
         )
-        # Bottom frame
+        # 下边框
         draw.text(
-            (x - max_x_label_width // 2, height + frame_thickness_y), label, fill=label_color, font=font
+            (x - max_x_label_width // 2, height + frame_thickness_y),
+            label, fill=label_color, font=font
         )
 
-    # Label Y-coordinates on the left and right frame
+    # 在左右边框标注Y轴坐标
     for j in range(num_horizontal_lines + 2):
-        y = j * step_y + frame_thickness_y
+        y = j * step_y * scale_factor + frame_thickness_y
         label = f"{j * step_y + offset_y}"
-        # Left frame
+        # 左边框
         draw.text(
-            (frame_thickness_x // 2 - max_y_label_width // 2, y - font_size // 2), label, fill=label_color, font=font
+            (frame_thickness_x // 2 - max_y_label_width // 2, y - font_size // 2),
+            label, fill=label_color, font=font
         )
-        # Right frame
+        # 右边框
         draw.text(
-            (width + frame_thickness_x, y - font_size // 2), label, fill=label_color, font=font
+            (width + frame_thickness_x, y - font_size // 2),
+            label, fill=label_color, font=font
         )
         
-    # Calculate the range of x and y coordinates
+    # 计算全局坐标范围
     x_range = (offset_x, offset_x + (num_vertical_lines + 1) * step_x)
     y_range = (offset_y, offset_y + (num_horizontal_lines + 1) * step_y)
     
@@ -960,11 +1093,13 @@ async def localizaiton_correction(agent: Agent, computer: Computer, response: st
                         current_action = f'localization(top_left=({int(actual_rect_top_left[0])},{int(actual_rect_top_left[1])}),length={length})'
         
         # print_messages(dc_messages, "localizaiton_correction")
-        resp,_ = agent.llm.completion(messages=dc_messages, stop=['</localize>'])
+        response,_ = agent.llm.completion(messages=dc_messages, stop=['</localize>'])
         logger.info(f"Response in localizaiton_correction: {response}")
+        if '<|command_correct|>' in response:
+            break
         
         # Handle special cases: no action is avaliable
-        actions = parse_action(response)
+        actions = [parse_action(response)]
         if len(actions) == 0:
             break
         dc_messages.append({'role': 'assistant', 'content': response})

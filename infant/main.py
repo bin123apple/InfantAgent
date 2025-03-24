@@ -95,7 +95,7 @@ async def initialize_agent():
     await computer.run_ipython(import_memory)
     return agent, computer
 
-async def main(config=config):
+async def main():
     
     try:
         # Initialize the agent

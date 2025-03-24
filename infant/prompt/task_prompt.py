@@ -28,6 +28,8 @@ Our current task is:
 
 task_category = '''
 1. I can help you edit files.
-2. I can help you run code.
-3. I can help you interact with the computer using the keyboard and mouse to complete any task that can be performed on it.
+2. I can help you view files.
+3. I can help you run code.
+4. I can help you interact with the computer using the keyboard and mouse.
+5. I can help you browse the web.
 '''

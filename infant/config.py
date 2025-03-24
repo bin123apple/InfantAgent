@@ -160,6 +160,7 @@ class Config:
     max_continuous_errors = 10 # max number of continuous errors before the agent stops
     use_oss_llm = False # whether to use OSS LLM (Need GPU!)
     verify_step_by_step: bool = True
+    fake_response_mode: bool = False
     
     # Computer Attributes 
     runtime: str = 'server'
@@ -303,6 +304,7 @@ class Config:
             max_continuous_errors=self.max_continuous_errors,
             use_oss_llm=self.use_oss_llm,
             debug=self.debug,
+            fake_response_mode = self.fake_response_mode
         )
     
     def get_computer_params(self):
@@ -504,6 +506,7 @@ class AgentParams:
         max_continuous_errors,
         use_oss_llm,
         debug,
+        fake_response_mode,
     ):
         self.max_iterations = max_iterations
         self.max_voting = max_voting
@@ -520,6 +523,7 @@ class AgentParams:
         self.max_continuous_errors = max_continuous_errors
         self.use_oss_llm = use_oss_llm
         self.debug = debug
-
+        self.fake_response_mode = fake_response_mode
+        
 config = Config()
 config.finalize_config()

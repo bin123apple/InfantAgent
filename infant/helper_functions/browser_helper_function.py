@@ -32,6 +32,7 @@ config = BrowserConfig(
 
 browser = Browser(config)
 context = await browser.new_context()
+take_screenshot()
 EOL"""
 
 LOCALIZATION_SYSTEM_PROMPT_BROWSER = '''I want to click on {item_to_click} with the mouse. {description}
@@ -154,29 +155,30 @@ def parse_dropdown_options(text):
     return result
 
 def convert_web_browse_commands(memory: IPythonRun, finish_switch: bool, dropdown_dict: dict) -> Memory:
-    if memory.code == 'open_browser()':
-        memory.code = OPEN_BROWSER_CODE
-        return memory
-
-    if any(cmd in memory.code for cmd in ['type_text', 'press_key', 
-                                          'press_key_combination', 
-                                          'mouse_drag', 'mouse_box_select']):
-        return memory
-    
-    if not finish_switch:
-        if any(cmd in memory.code for cmd in ['mouse_left_click', 'mouse_double_click', 
-                                            'mouse_right_click']):
+    if hasattr(memory, 'code'):
+        if memory.code == 'open_browser()':
+            memory.code = OPEN_BROWSER_CODE
             return memory
 
-    if  'select_dropdown_option' in memory.code and dropdown_dict:
-        dropdown_option = extract_parameter_values(memory.code) # dict
-        if 'index' in dropdown_option and 'option' in dropdown_option:
-            index = dropdown_option['index']
-            text = dropdown_dict.get(str(index), {}).get(str(dropdown_option['option']), None)
-            memory.code = f'await context.select_dropdown_option(index={index}, text="{text}")'
+        if any(cmd in memory.code for cmd in ['type_text', 'press_key', 
+                                            'press_key_combination', 
+                                            'mouse_drag', 'mouse_box_select']):
             return memory
-    
-    memory.code = f'await context.{memory.code.strip()}'
+        
+        if not finish_switch:
+            if any(cmd in memory.code for cmd in ['mouse_left_click', 'mouse_double_click', 
+                                                'mouse_right_click']):
+                return memory
+
+        if  'select_dropdown_option' in memory.code and dropdown_dict:
+            dropdown_option = extract_parameter_values(memory.code) # dict
+            if 'index' in dropdown_option and 'option' in dropdown_option:
+                index = dropdown_option['index']
+                text = dropdown_dict.get(str(index), {}).get(str(dropdown_option['option']), None)
+                memory.code = f'await context.select_dropdown_option(index={index}, text="{text}")\ntake_screenshot()'
+                return memory
+        
+        memory.code = f'await context.{memory.code.strip()}\ntake_screenshot()'
     return memory
     
 
@@ -368,7 +370,6 @@ async def localization_browser(agent: Agent, memory: Memory, interactive_element
                     logger.error("Element Index is not a valid int.")
             except (SyntaxError, ValueError) as e:
                 logger.error(f"Failed to parse Element Index: {element_index}. Error: {e}")  
-    logger.info(f"=========End Browser localization=========")
     return memory, finish_switch, interactive_elements
 
 async def image_description_to_element_index(agent: Agent, computer: Computer, 

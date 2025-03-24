@@ -2,9 +2,9 @@ tool_sys_msg = '''
 Please collaborate with me to fulfill a request. For each step, provide the necessary command to execute, and I will return the results.
 
 **Guidelines:**
-> You can choose from the following commands:
+> You have the capability to execute one of the following commands:
 {tools}
-> Only one command can be executed at a time.
+> Only one command can be executed at a time. The result of the command will be displayed before proceeding to the next step.
 > We will break the request into smaller tasks and complete them step by step.
 > Once a task is completed, I will ask the user for the next step. You do not need to determine the next task in advance.
 
@@ -340,13 +340,13 @@ You can use the following functions to interact with the browser.
 - switch_to_tab(page_id: int): Switch to the tab at the specified index.
 - create_new_tab(url: str): Open a new tab with the specified URL.
 - save_cookies(): Save the current cookies.
+- download(url: str, save_dir: str): If you know the url of the file, you can use this command to download the file from the specified URL to the specified directory.
 - select_dropdown_option(index: int, option: int): Select the specified option from the dropdown menu. index: selector index. option: Index of the option to select.
 - mouse_left_click(item: str, description: str): Left mouse click at the specified position. For example: mouse_left_click('search bar', 'It is located near the top center of the Google Chrome browser window. It is a long, rectangular input field with rounded edges. The search bar spans almost the entire width of the browser window and sits directly below the browser's tab row. It has placeholder text that reads "Search Google or type a URL." The search bar is centrally aligned, making it easy to spot above the main content area of the browser.')
 - mouse_double_click(item: str, description: str): Double-click at the specified position. For example: mouse_double_click('The VSCode icon', 'It is located in the sidebar (Launcher) on the left side of the screen. It is the first icon from the top in the vertical arrangement. The icon has a blue background with a white folded "V"-shaped design in the center. The sidebar is aligned along the leftmost edge of the screen, adjacent to the desktop background on its right side.')
 - mouse_right_click(item: str, description: str): Right mouse click at the specified position. For example: mouse_right_click('The refresh button', 'It is located at the top-left corner of the Google Chrome browser window, inside the address bar. It is a circular arrow icon situated next to the left and right navigation arrows (back and forward buttons). The refresh button is just to the left of the search bar. Click it to refresh the current page.')
 - type_text(text: str): Type the given text. text: The text to type.
 - press_key(key: str): Presses the specified key. key: The key or key combination to press (e.g., "Return", "Ctrl+c").
-- press_key_combination(keys: List[str]): Presses the specified key combination.
 - mouse_drag(x_start: int, y_start: int, x_end: int, y_end: int): Drag the mouse from one position to another. x_start: Starting x-coordinate. y_start: Starting y-coordinate. x_end: Ending x-coordinate. y_end: Ending y-coordinate.
 - mouse_box_select(x_start: int, y_start: int, x_end: int, y_end: int): Selects a box by dragging the mouse from one position to another. x_start: Starting x-coordinate. y_start: Starting y-coordinate. x_end: Ending x-coordinate. y_end: Ending y-coordinate.
 - close(): Close the browser.
@@ -433,7 +433,6 @@ You can use the following functions to perform various mouse and keyboard operat
 - type_text(text: str): Type the given text. text: The text to type.
 - press_key(key: str): Presses the specified key. key: The key or key combination to press (e.g., "Return", "Ctrl+c").
 - open_application(app_name: str): Opens a specific application using the system application launcher. app_name: The name of the application to open (e.g., "chrome").
-- press_key_combination(keys: List[str]): Presses the specified key combination.
 - mouse_drag(x_start: int, y_start: int, x_end: int, y_end: int): Drag the mouse from one position to another. x_start: Starting x-coordinate. y_start: Starting y-coordinate. x_end: Ending x-coordinate. y_end: Ending y-coordinate.
 - mouse_box_select(x_start: int, y_start: int, x_end: int, y_end: int): Selects a box by dragging the mouse from one position to another. x_start: Starting x-coordinate. y_start: Starting y-coordinate. x_end: Ending x-coordinate. y_end: Ending y-coordinate.
 Please put the mouse/keyboard operations you think need to be executed inside the <execute_ipython>...</execute_ipython> tags.
@@ -441,7 +440,7 @@ Please put the mouse/keyboard operations you think need to be executed inside th
 
 tool_mk_one_shot = '''
 Here is an example:
-Current Task: Search a picture of kittens from Google.
+Current Task: Search a picture of kittens from Google and save to desktop.
 
 Assistant: 
 Open the Chrome browser.
@@ -490,7 +489,16 @@ User:
 Screenshot of the search results for "kittens".
 
 Assistant:
-The task is complete. You can now view the search results for "kittens".
+Let's save our modifications to local computer.
+<execute_ipython>
+press_key("Ctrl+s")
+</execute_ipython>
+
+User:
+Screenshot of the save picture.
+
+Assistant:
+The task is complete. You can now view the picture for "kittens" at your local computer.
 
 <task_finish>exit</task_finish>
 '''

@@ -4,7 +4,7 @@ import shutil
 import asyncio
 from infant.main import initialize_agent, run_single_step
 
-async def extract_table(user_request_text: str):
+async def extract_figure(user_request_text: str):
     
     agent, computer = await initialize_agent()
     computer.execute(f'cd /workspace && rm -rf *')
@@ -38,5 +38,5 @@ if __name__ == "__main__":
         "Please help me to estimate the data value for each data points from the figure 6B. "
         "The value should be as accurate as possible."
     )
-    answer = asyncio.run(extract_table(user_request_text))
+    answer = asyncio.run(extract_figure(user_request_text))
     print(answer)

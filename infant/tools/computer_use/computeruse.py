@@ -33,6 +33,7 @@ def take_screenshot(command: str | None = None, top_left: tuple | None = None, l
         str: The path to the saved screenshot.
     """
     # Constants
+    time.sleep(2)
     screenshot_dir = "/workspace/screenshots"
     os.makedirs(screenshot_dir, exist_ok=True)
     timestamp = int(time.time())
@@ -51,13 +52,13 @@ def take_screenshot(command: str | None = None, top_left: tuple | None = None, l
         )
         img = ImageGrab.grab(bbox=region)
         img.save(screenshot_path)
-        time.sleep(2)
+        # time.sleep(2)
         print(f"<Screenshot saved at> {screenshot_path}")
         length = region[2] - region[0]
     else:
         img = ImageGrab.grab()
         img.save(screenshot_path)
-        time.sleep(2)
+        # time.sleep(2)
         print(f"<Screenshot saved at> {screenshot_path}")
         length = screen_width
         
@@ -158,6 +159,7 @@ def type_text(text: str):
     Returns:
         None (Will take a screenshot)
     """
+    time.sleep(1)
     subprocess.run(f'xdotool type "{text}"', shell=True)
     sanitized_text = text.replace('/', '_')
     time.sleep(1)
@@ -176,6 +178,20 @@ def press_key(key: str):
     sanitized_key = key.replace('/', '_')
     time.sleep(1)
     take_screenshot(f'press_key({sanitized_key})')
+    
+@update_pwd_decorator
+def press_key_combination(keys: str):
+    """
+    Simulates pressing a combination of keys.
+    Args:
+        keys (str): The key combination to press (e.g., "ctrl+alt+t").
+    Returns:
+        None (Will take a screenshot)
+    """
+    subprocess.run(f"xdotool key {keys}", shell=True)
+    sanitized_keys = keys.replace('/', '_')
+    time.sleep(1)
+    take_screenshot(f'press_key_combination({sanitized_keys})')
 
 @update_pwd_decorator
 def open_application(app_name):
@@ -261,3 +277,19 @@ def mouse_drag(x_start, y_start, x_end, y_end, button="left"):
         print(f"Error executing xdotool command: {e}")
     except Exception as e:
         print(f"Unexpected error: {e}")
+
+@update_pwd_decorator
+def download(url: str, save_dir: str = "/workspace") -> None:
+    """
+    Download a file from the given URL to the specified directory using wget.
+
+    Args:
+        url (str): The URL of the file to download.
+        save_dir (str): The directory to save the downloaded PDF.
+    """
+    try:
+        subprocess.run(["wget", "-P", save_dir, url], check=True)
+        print(f"Downloaded file to {save_dir}")
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to download file from {url}")
+        print("Error:", e)

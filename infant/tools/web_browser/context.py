@@ -822,7 +822,7 @@ class BrowserContext:
 		screenshot_dir = "/workspace/screenshots"
 		os.makedirs(screenshot_dir, exist_ok=True)
 		timestamp = int(time.time())
-		screenshot_path = f"{screenshot_dir}/{timestamp}_screenshot.png"
+		screenshot_path = f"{screenshot_dir}/{timestamp}_browser_screenshot.png"
 
 		with open(screenshot_path, 'wb') as f:
 			f.write(screenshot)
