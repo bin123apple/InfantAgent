@@ -39,12 +39,8 @@ python infant/main.py
 
 - [ ] Add: Credits.md.
 - [ ] Add: Add RL training code.
-- [x] Add: Add more web-browser tool.
-- [x] FIX: web-browser tool related prompts.
-- [x] FIX: check web-browser intermediate prompts.
 - [ ] Add: Add more shots
 - [ ] FIX: Polish Code
-- [ ] Add waiting for user input state.
 - [ ] Add: More emoj/user friendly front end.
 - [ ] Add: evaluation in swe-bench/osworld/GAIA/GPQA...
 
