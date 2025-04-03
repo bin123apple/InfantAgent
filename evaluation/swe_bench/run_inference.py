@@ -586,22 +586,7 @@ def main(predictions_file, instance_ids):
 if __name__ == "__main__":
     instance_ids = [
         "sympy__sympy-15011",
-    ]
-    # instance_ids = [
-    #     "matplotlib__matplotlib-25079",
-    #     "pydata__xarray-4094",
-    #     "pydata__xarray-4493",
-    #     "scikit-learn__scikit-learn-25638",
-    #     "matplotlib__matplotlib-25433",
-    #     "pytest-dev__pytest-11148",
-    #     "django__django-12284",
-    #     "psf__requests-863",
-    #     "psf__requests-1963",
-    #     "psf__requests-2148",
-    #     "psf__requests-2317",
-    #     "psf__requests-2674",
-    #     "psf__requests-3362"
-    # ]
+    ] # Add more instance IDs here
 
 
     main(predictions_file = "six_step_predictions.jsonl", instance_ids = instance_ids)
