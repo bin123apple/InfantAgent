@@ -585,7 +585,7 @@ def main(predictions_file, instance_ids):
 
 if __name__ == "__main__":
     instance_ids = [
-        "sympy__sympy-15011",
+        "astropy__astropy-12907",
     ] # Add more instance IDs here
 
 
