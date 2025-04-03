@@ -11,7 +11,8 @@ from infant.agent.memory.memory import (
     IPythonRun,
     BrowseURL,
     TaskFinish,
-    Critic
+    Critic,
+    Finish
 )
 from infant.config import config
 from infant.agent.state.state import AgentState
@@ -85,8 +86,7 @@ def base_memory_to_str(memory: Memory) -> str:
         content = merge_text_image_content(text_content, memory.images)
         return content
     elif isinstance(memory, Userrequest):
-        text_content = reasoning_provide_user_request.format(user_request=memory.text, 
-                                                     task_category=task_category)
+        text_content = reasoning_provide_user_request.format(user_request=memory.text)
         content = merge_text_image_content(text_content, memory.images)        
         return content
     elif isinstance(memory, IPythonRun):
@@ -107,21 +107,7 @@ def base_memory_to_str(memory: Memory) -> str:
         else:
             return f'result: {memory.critic_result}'
     elif isinstance(memory, Task):
-        if memory.target is not None:
-            if memory.summary != '':
-                return task_to_str_w_target.format(summary=memory.summary, 
-                                                   thought=memory.thought, 
-                                                   task=memory.task, 
-                                                   target=memory.target)
-            else:
-                return f'{memory.thought}<task>{memory.task}<target>{memory.target}</target></task>'
-        else:
-            if memory.summary != '':
-                return task_to_str_wo_target.format(summary=memory.summary, 
-                                    thought=memory.thought, 
-                                    task=memory.task, )
-            else:
-                return f'{memory.thought}<task>{memory.task}</task>'
+        return f'{memory.thought}<task>{memory.task}</task>'
     elif isinstance(memory, Summarize):
         summary = ''
         tags = ['potential_issue', 'new_code', 'git_diff', 'key_steps', 'reason']
@@ -144,6 +130,8 @@ def base_memory_to_str(memory: Memory) -> str:
         return memory.content
     elif isinstance(memory, BrowseURL):
         return f'<browse>{memory.url}</browse>'
+    elif isinstance(memory, Finish):
+        return f'<finish>{memory.thought}</finish>'
     return ''
 
 def truncate_output(output: str, max_chars: int = 10_000) -> str:
@@ -167,7 +155,7 @@ def classification_memory_to_str(memory: Memory) -> str:
         else:
             return clf_task_to_str_wo_target.format(task=memory.task)
     
-def reasoning_memory_to_diag(memory_block: list[Memory], end_prompt: str) -> str:
+def reasoning_memory_to_diag(memory_block: list[Memory], end_prompt: str, mount_path: str) -> str:
     '''
     Use reasoning prompt to convert the memory_block to a string.
     '''
@@ -191,7 +179,7 @@ def reasoning_memory_to_diag(memory_block: list[Memory], end_prompt: str) -> str
                 # 如果找到了该行，则提取路径
                 if last_line is not None:
                     screenshot_path = last_line.split('<Screenshot saved at>')[-1].strip()
-                    mount_path = config.workspace_mount_path
+                    # mount_path = config.workspace_mount_path
                 # print(f"mount_path: {mount_path}")
                 if screenshot_path.startswith("/workspace"):
                     image_path = screenshot_path.replace("/workspace", mount_path, 1)
@@ -230,7 +218,7 @@ def classification_memory_to_diag(memory_block: list[Memory]) -> str:
                     'content': task_msg})        
     return messages
 
-def execution_memory_to_diag(memory_block: list[Memory], cmd_set, end_prompt):
+def execution_memory_to_diag(memory_block: list[Memory], cmd_set, end_prompt, mount_path: str) -> str:
     '''
     convert the exectuion memory_block to a string.
     '''
@@ -291,7 +279,7 @@ def execution_memory_to_diag(memory_block: list[Memory], cmd_set, end_prompt):
                 # 如果找到了该行，则提取路径
                 if last_line is not None:
                     screenshot_path = last_line.split('<Screenshot saved at>')[-1].strip()
-                    mount_path = config.workspace_mount_path
+                    # mount_path = config.workspace_mount_path
                 # print(f"mount_path: {mount_path}")
                 if screenshot_path.startswith("/workspace"):
                     image_path = screenshot_path.replace("/workspace", mount_path, 1)

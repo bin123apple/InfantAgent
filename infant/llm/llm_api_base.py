@@ -41,9 +41,6 @@ from infant.agent.memory.memory import (Userrequest,
 
 
 message_separator = '\n\n----------\n\n'
-os.environ['OPENAI_API_KEY'] = "BedrockProxyAPIKey"
-os.environ['OPENAI_BASE_URL'] = "http://Bedroc-Proxy-BC1nB9Zg3aQX-1860236286.us-west-2.elb.amazonaws.com/api/v1"
-
 class LLM_API_BASED:
     """
     The LLM class represents a Language Model instance.
@@ -104,6 +101,7 @@ class LLM_API_BASED:
         metrics = Metrics()
         cost_metric_supported = llm_config.cost_metric_supported
         feedback_mode = llm_config.feedback_mode
+        gift_key = llm_config.gift_key
         
         # Collect non-None parameters
         params = {
@@ -129,7 +127,7 @@ class LLM_API_BASED:
         logger.info(f'Initializing the Brain of the Agent with the following parameters: {non_none_str}')
         
         self.api_key = api_key
-        self.gift_key = False # FIXME: Move this to config
+        self.gift_key = gift_key
         self.base_url = base_url
         self.model_name = model
         self.metrics = metrics
@@ -173,10 +171,9 @@ class LLM_API_BASED:
                 try:
                     from openai import OpenAI
                     client = OpenAI()
-                    # os.environ['OPENAI_API_KEY'] = "BedrockProxyAPIKey"
-                    # os.environ['OPENAI_BASE_URL'] = "http://Bedroc-Proxy-BC1nB9Zg3aQX-1860236286.us-west-2.elb.amazonaws.com/api/v1"
                     completion = client.chat.completions.create(
-                        model="anthropic.claude-3-5-sonnet-20241022-v2:0",
+                        # model="anthropic.claude-3-5-sonnet-20241022-v2:0",
+                        model = 'claude-3-7-sonnet-20250219',
                         messages=messages,
                         max_tokens=max_tokens,
                         top_p=top_p,
@@ -243,7 +240,7 @@ class LLM_API_BASED:
                 if isinstance(message['content'], str):
                     debug_message += message_separator + message['content']
                 else: # image or other type
-                    assert litellm.supports_vision(model=self.model_name) == True # check if the model supports vision
+                    # assert litellm.supports_vision(model=self.model_name) == True # check if the model supports vision
                     debug_message += message_separator + 'message content is not a string!'
 
             ### For debugging only ###

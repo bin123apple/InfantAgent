@@ -31,9 +31,6 @@ You can use the following file viewing functions to view the content of files.
 - open_file(path: str, line_number: int | None = 1, context_lines: int = 100): Opens a file and optionally moves to a specific line. path: Path to the file. line_number: Line number to move to. context_lines: Number of lines to display.
 - parse_pdf(pdf_path: str, page: int): View the specified page of a PDF file. pdf_path: Path to the PDF file. page: Page number to view.
 - zoom_pdf(pdf_path: str, page: int, region: tuple): Zoom in on a specific region of a PDF file. pdf_path: Path to the PDF file. page: Page number to view. region: Tuple specifying the region to zoom in on (x0, y0, x1, y1).
-- goto_line(line_number): Moves the window to show the specified line number.
-- scroll_down(): Moves the window down by the number of lines specified in WINDOW.
-- scroll_up(): Moves the window up by the number of lines specified in WINDOW.
 Please put the file viewing commands you think need to be executed within <execute_ipython>...</execute_ipython> tags.
 '''
 
@@ -104,16 +101,11 @@ tool_file_edit = '''
 You can use the following file editing functions to view, add, delete, search, and modify files.
 - open_file(path: str, line_number: int | None = 1, context_lines: int = 100): Opens a file and optionally moves to a specific line.
 - parse_pdf(pdf_path: str, page: int): View the specified page of a PDF file.
-- goto_line(line_number): Moves the window to show the specified line number.
-- scroll_down(): Moves the window down by the number of lines specified in WINDOW.
-- scroll_up(): Moves the window up by the number of lines specified in WINDOW.
 - create_file(filename): Creates and opens a new file with the given name.
 - search_dir(search_term, dir_path='./'): Searches for a term in all files in the specified directory.
-- search_file(search_term, file_path=None): Searches for a term in the specified file or the currently open file.
 - find_file(file_name, dir_path='./'): Finds all files with the given name in the specified directory.
-- edit_file(file_name, start, start_str end, end_str, content): Replaces lines in a file with the given content. The start_str should be present in the start line and end_str should be present in the end line.
-- append_file(file_name, content): Appends given content to a file.
-- replace_function(file_name,function_to_replace,new_code): Replace the exsiting function: function_to_replace inside the file: file_name.
+- replace_content(file_path, old_content, new_content): Replaces the old content with the new content in the specified file.
+- append_file(file_name, content, start_line): Appends given content to a file. file_name: Name of the file. content: Content to append. start_line: Line number to start appending from (default is the end of the file).
 - search_function(file_path, function_signature): Search and show a function in the file. For the function_signature, you should only input the function name.
 Please put the file editing commands you think need to be executed within <execute_ipython>...</execute_ipython> tags.
 '''
@@ -153,7 +145,7 @@ def index():
 
 if __name__ == '__main__':
     app.run(port=5000)\"\"\"
-edit_file('app.py', start=1, start_str='', end=1, end_str='', content=EDITED_CODE)
+append_file('app.py', EDITED_CODE)
 </execute_ipython>
 
 USER:
@@ -168,6 +160,26 @@ OBSERVATION:
 8|
 9|if __name__ == '__main__':
 10|    app.run(port=5000)
+[File updated. Please review the changes and make sure they are correct (correct indentation, no duplicate lines, etc). Edit the file again if necessary.]
+
+ASSISTANT: Let's insert a print() statement to confirm the server is running correctly. Then, I will run the Python file to start the server:
+<execute_ipython>
+append_file('app.py', "print('Server is running on port 5000...')", 10)
+</execute_ipython>
+
+USER:
+OBSERVATION:
+1|from flask import Flask
+2|app = Flask(__name__)
+3|
+4|@app.route('/')
+5|def index():
+6|    numbers = list(range(1, 11))
+7|    return str(numbers)
+8|
+9|if __name__ == '__main__':
+10|    print('Server is running on port 5000...')
+11|    app.run(port=5000)
 [File updated. Please review the changes and make sure they are correct (correct indentation, no duplicate lines, etc). Edit the file again if necessary.]
 
 ASSISTANT:
@@ -292,7 +304,7 @@ USER:
 ASSISTANT:
 I should edit the file to display the numbers in a table format. I should include correct indentation. Let me update the file:
 <execute_ipython>
-edit_file('app.py', start=7, start_str='    return str(numbers)', end=7, end_str='    return str(numbers)', content="    return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) + '</table>'")
+replace_content('app.py', 'return str(numbers)', "return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) + '</table>'")
 </execute_ipython>
 
 USER:
@@ -330,7 +342,7 @@ exit
 
 tool_web_browse = '''
 You can use the following functions to interact with the browser.
-- open_browser(): Open the browser in headless mode.
+- open_browser(): Open the browser.
 - navigate_to(url: str) : Navigate to the specified URL.
 - refresh_page(): Refresh the current page.
 - go_back(): Go back to the previous page.
@@ -341,7 +353,7 @@ You can use the following functions to interact with the browser.
 - create_new_tab(url: str): Open a new tab with the specified URL.
 - save_cookies(): Save the current cookies.
 - download(url: str, save_dir: str): If you know the url of the file, you can use this command to download the file from the specified URL to the specified directory.
-- select_dropdown_option(index: int, option: int): Select the specified option from the dropdown menu. index: selector index. option: Index of the option to select.
+- select_dropdown_option(selector_index: int, option: int): Select the specified option from the dropdown menu. selector_index: selector index. option: Index of the option to select.
 - mouse_left_click(item: str, description: str): Left mouse click at the specified position. For example: mouse_left_click('search bar', 'It is located near the top center of the Google Chrome browser window. It is a long, rectangular input field with rounded edges. The search bar spans almost the entire width of the browser window and sits directly below the browser's tab row. It has placeholder text that reads "Search Google or type a URL." The search bar is centrally aligned, making it easy to spot above the main content area of the browser.')
 - mouse_double_click(item: str, description: str): Double-click at the specified position. For example: mouse_double_click('The VSCode icon', 'It is located in the sidebar (Launcher) on the left side of the screen. It is the first icon from the top in the vertical arrangement. The icon has a blue background with a white folded "V"-shaped design in the center. The sidebar is aligned along the leftmost edge of the screen, adjacent to the desktop background on its right side.')
 - mouse_right_click(item: str, description: str): Right mouse click at the specified position. For example: mouse_right_click('The refresh button', 'It is located at the top-left corner of the Google Chrome browser window, inside the address bar. It is a circular arrow icon situated next to the left and right navigation arrows (back and forward buttons). The refresh button is just to the left of the search bar. Click it to refresh the current page.')
@@ -523,11 +535,11 @@ tool_example = {
 }
 
 tool_stop = {
-    "file_view": '</execute_ipython>',
-    "code_exec": '</execute_bash>',
-    "file_edit": '</execute_ipython>',
-    "web_browse": '</execute_ipython>',
-    "computer_interaction": '</execute_ipython>'
+    "file_view": ['</execute_ipython>', '</execute_bash>'],
+    "code_exec": ['</execute_bash>', '</execute_ipython>'],
+    "file_edit": ['</execute_ipython>', '</execute_bash>'],
+    "web_browse": ['</execute_ipython>'],
+    "computer_interaction": ['</execute_ipython>']
 }
 
 tool_note = {

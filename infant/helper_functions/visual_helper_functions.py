@@ -169,7 +169,7 @@ def enhance_image_clarity(image, scale_factor=1, sharpness_factor=2.0):
     
     return enhanced_image
 
-def extract_image_path_from_output(output: str):
+def extract_image_path_from_output(output: str, mount_path: str) -> str:
     '''
     Extract the image path from the output.
     Args:
@@ -179,7 +179,7 @@ def extract_image_path_from_output(output: str):
     '''
     if '<Screenshot saved at>' in output:
         screenshot_path = output.split('<Screenshot saved at>')[-1].strip()
-        mount_path = config.workspace_mount_path
+        # mount_path = config.workspace_mount_path
         if screenshot_path.startswith("/workspace"):
             image_path = screenshot_path.replace("/workspace", mount_path, 1)
             return image_path
@@ -445,11 +445,11 @@ def crop_screenshot(image_path, command):
 
     return cropped_img, top_left_x, top_left_y, length
 
-def process_image_and_draw_grid(intermediate_results_dir, img, length, grid_offset=(0, 0),draw_type="rectangle"):
+def process_image_and_draw_grid(mount_path, img, length, grid_offset=(0, 0),draw_type="rectangle"):
     '''
     Save the image with grid to intermediate folder and return the byte data of the image.
     Args:
-        intermediate_results_dir (str): The directory to save the intermediate results.
+        mount_path (str): The directory to save the intermediate results.
         img (Image): The image to be processed.
         length (int): The length of the grid.
         grid_offset (tuple): The offset of the grid.
@@ -457,10 +457,10 @@ def process_image_and_draw_grid(intermediate_results_dir, img, length, grid_offs
     Returns:
         bytes: The byte data of the image.
     '''
-    os.makedirs(f'{intermediate_results_dir}/intermediate_steps/', exist_ok=True) 
+    os.makedirs(f'{mount_path}/intermediate_steps/', exist_ok=True) 
     processed_img, x_range, y_range = draw_grid(img, length=length, offset=grid_offset, draw_type=draw_type)
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{intermediate_results_dir}/intermediate_steps/{timestamp}.jpg"
+    filename = f"{mount_path}/intermediate_steps/{timestamp}.png"
     processed_img.save(filename)
     logger.info(f"grid Image saved as: {filename}")
     with open(filename, "rb") as file:
@@ -742,7 +742,7 @@ async def localization_visual(agent: Agent, memory: Memory):
             logger.info(f"Icon: {icon}, Desc: {desc}")
             screenshot_action = IPythonRun(code="take_screenshot()")
             image_path_output = await computer.run_ipython(screenshot_action)
-            image_path = extract_image_path_from_output(image_path_output)
+            image_path = extract_image_path_from_output(image_path_output, mount_path=computer.workspace_mount_path)
             if not image_path:
                 logger.error("Failed to take screenshot.")
                 logger.info(f"=========End localization=========")
@@ -752,7 +752,7 @@ async def localization_visual(agent: Agent, memory: Memory):
             img = Image.open(image_path)
             computer.screen_width = img.size[0]
             computer.screen_height = img.size[1]
-            grid_image , x_range, y_range = process_image_and_draw_grid(computer.intermediate_results_dir, 
+            grid_image , x_range, y_range = process_image_and_draw_grid(computer.workspace_mount_path, 
                                                         img, computer.screen_width, grid_offset=(0, 0)) 
             
             # Find the coordination
@@ -808,7 +808,7 @@ async def image_description_to_coordinate(agent: Agent, computer: Computer, icon
             response,_ = agent.llm.completion(messages=messages, stop=['</localize>'])
             logger.info(f"Response in image_description_to_coordinate: {response}")
         except Exception as e:
-            logger.error("Failed to call" + computer.model + ", Error: " + str(e))
+            logger.error("Failed to call" + ", Error: " + str(e))
             response = ""
         if 'localization(' in response or 'localization_done' in response:
             localization_action = await localizaiton_correction(agent, computer, response, last_response, messages, 
@@ -829,11 +829,11 @@ async def image_description_to_coordinate(agent: Agent, computer: Computer, icon
                 messages.append({"role": "assistant","content":f'<localize>{action}</localize>'})
                 screenshot_action = IPythonRun(code="take_screenshot()")
                 image_path_output = await computer.run_ipython(screenshot_action)
-                image_path = extract_image_path_from_output(image_path_output)
+                image_path = extract_image_path_from_output(image_path_output, mount_path=computer.workspace_mount_path)
 
                 cropped_img, top_left_x, top_left_y, length = crop_screenshot(image_path, action)
                 if cropped_img:
-                    grid_image, x_range, y_range = process_image_and_draw_grid(computer.intermediate_results_dir,
+                    grid_image, x_range, y_range = process_image_and_draw_grid(computer.workspace_mount_path,
                                                             cropped_img, length,
                                                             grid_offset=(top_left_x, top_left_y))
                 else:
@@ -908,7 +908,7 @@ async def localizaiton_correction(agent: Agent, computer: Computer, response: st
         coordination = extract_coordination(localization_action)
         screenshot_action = IPythonRun(code="take_screenshot()")
         image_path_output = await computer.run_ipython(screenshot_action)
-        image_path = extract_image_path_from_output(image_path_output)
+        image_path = extract_image_path_from_output(image_path_output, mount_path=computer.workspace_mount_path)
         screenshot = Image.open(image_path)
         cropped_img_dot, edge_distances, actual_coordination = draw_dot(screenshot, last_top_left, last_length, coordination, 
                                     computer.screen_width, computer.screen_height)
@@ -916,7 +916,7 @@ async def localizaiton_correction(agent: Agent, computer: Computer, response: st
             if isinstance(cropped_img_dot, str): # initial cropped_img_dot is a str
                 return cropped_img_dot
             else: # cropped_img_dot is an image
-                cropped_img_dot, x_range, y_range = process_image_and_draw_grid(computer.intermediate_results_dir, 
+                cropped_img_dot, x_range, y_range = process_image_and_draw_grid(computer.workspace_mount_path, 
                                                             cropped_img_dot, last_length, 
                                                             grid_offset=last_top_left, draw_type="dot") 
                 logger.info(f'x_range: {x_range}, y_range: {y_range}')
@@ -957,7 +957,7 @@ async def localizaiton_correction(agent: Agent, computer: Computer, response: st
                 length = int(match[1])
         screenshot_action = IPythonRun(code="take_screenshot()")
         image_path_output = await computer.run_ipython(screenshot_action)
-        image_path = extract_image_path_from_output(image_path_output)
+        image_path = extract_image_path_from_output(image_path_output, mount_path=computer.workspace_mount_path)
         screenshot = Image.open(image_path)
         cropped_img_rectangle, edge_distances, actual_rect_top_left = draw_rectangle(screenshot, last_top_left, last_length, top_left, length, 
                                                 computer.screen_width, computer.screen_height)
@@ -965,7 +965,7 @@ async def localizaiton_correction(agent: Agent, computer: Computer, response: st
             if isinstance(cropped_img_rectangle, str): # Initial cropped_img_dot is a str
                 return cropped_img_rectangle
             else:
-                cropped_img_rectangle, x_range, y_range = process_image_and_draw_grid(computer.intermediate_results_dir,
+                cropped_img_rectangle, x_range, y_range = process_image_and_draw_grid(computer.workspace_mount_path,
                                     cropped_img_rectangle, last_length,
                                     grid_offset=last_top_left)
                 logger.info(f'x_range: {x_range}, y_range: {y_range}')
@@ -1024,7 +1024,7 @@ async def localizaiton_correction(agent: Agent, computer: Computer, response: st
             if draw_type == "dot":
                 screenshot_action = IPythonRun(code="take_screenshot()")
                 image_path_output = await computer.run_ipython(screenshot_action)
-                image_path = extract_image_path_from_output(image_path_output)
+                image_path = extract_image_path_from_output(image_path_output, mount_path=computer.workspace_mount_path)
                 screenshot = Image.open(image_path)
                 original_coordination = coordination
                 coordination = (coordination[0] + dx, coordination[1] + dy)
@@ -1036,7 +1036,7 @@ async def localizaiton_correction(agent: Agent, computer: Computer, response: st
                         'content': cropped_img_dot})
                         coordination = original_coordination # reset the coordination, because the action is not valid
                     else:
-                        cropped_img_dot, x_range, y_range = process_image_and_draw_grid(computer.intermediate_results_dir, 
+                        cropped_img_dot, x_range, y_range = process_image_and_draw_grid(computer.workspace_mount_path, 
                                         cropped_img_dot, last_length, 
                                         grid_offset=last_top_left, draw_type="dot") 
                         image_url = encode_image(cropped_img_dot)
@@ -1059,7 +1059,7 @@ async def localizaiton_correction(agent: Agent, computer: Computer, response: st
             elif draw_type == "rectangle":
                 screenshot_action = IPythonRun(code="take_screenshot()")
                 image_path_output = await computer.run_ipython(screenshot_action)
-                image_path = extract_image_path_from_output(image_path_output)
+                image_path = extract_image_path_from_output(image_path_output, mount_path=computer.workspace_mount_path)
                 screenshot = Image.open(image_path)
                 original_top_left = top_left
                 top_left = (top_left[0] + dx, top_left[1] + dy)
@@ -1071,7 +1071,7 @@ async def localizaiton_correction(agent: Agent, computer: Computer, response: st
                         'content': cropped_img_rectangle})
                         top_left = original_top_left # reset the top_left, because the action is not valid
                     else:
-                        cropped_img_rectangle, x_range, y_range = process_image_and_draw_grid(computer.intermediate_results_dir,
+                        cropped_img_rectangle, x_range, y_range = process_image_and_draw_grid(computer.workspace_mount_path,
                                             cropped_img_rectangle, last_length,
                                             grid_offset=last_top_left)
                         logger.info(f'x_range: {x_range}, y_range: {y_range}')

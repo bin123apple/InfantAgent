@@ -90,8 +90,10 @@ class Config:
     """
     
     ## litellm Attributes
-    model: str = 'gpt-4o'
-    api_key: str | None = os.getenv("OPENAI_API_KEY")
+    model: str = 'claude-3-7-sonnet-latest'
+    api_key: str | None = os.getenv("ANTHROPIC_API_KEY")
+    # model: str = 'gpt-4o'
+    # api_key: str | None = os.getenv("OPENAI_API_KEY")
     base_url: str | None = None
     api_version: str | None = None
     embedding_model: str = 'local'
@@ -114,6 +116,7 @@ class Config:
     output_cost_per_token: float | None = 0.00001
     cost_metric_supported: bool = True
     feedback_mode: bool = False
+    gift_key: bool = False
     
     ## vllm Attributes
     model_name: str = ''
@@ -217,7 +220,6 @@ class Config:
         # Set workspace_mount_path if not set by the user
         if self.workspace_mount_path == 'undefined':
             self.workspace_mount_path = os.path.abspath(self.workspace_base)
-            os.makedirs(self.workspace_mount_path, exist_ok=True)
         self.workspace_base = os.path.abspath(self.workspace_base)
 
         # In local there is no computer, the workspace will have the same pwd as the host
@@ -268,7 +270,8 @@ class Config:
             max_output_tokens=self.max_output_tokens,
             input_cost_per_token=self.input_cost_per_token,
             output_cost_per_token=self.output_cost_per_token,
-            feedback_mode = self.feedback_mode
+            feedback_mode = self.feedback_mode,
+            gift_key=self.gift_key
         )
 
     def get_vllm_params(self):
@@ -412,6 +415,7 @@ class LitellmParams:
         model,
         api_key,
         base_url,
+        gift_key,
         api_version,
         embedding_model,
         embedding_base_url,
@@ -437,6 +441,7 @@ class LitellmParams:
         self.model = model
         self.api_key = api_key
         self.base_url = base_url
+        self.gift_key = gift_key
         self.api_version = api_version
         self.embedding_model = embedding_model
         self.embedding_base_url = embedding_base_url

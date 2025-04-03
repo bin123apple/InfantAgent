@@ -197,11 +197,12 @@ class Agent:
             cmd_set = {"web_browse"} # in-place change the cmd_set   
             dropdown_dict = None
             
-        stop_signals = ['</task_finish>']
+        stop_signals = ['</task_finish>', '</task>', '</execute_ipython>', '</execute_bash>'] # stop signals for the LLM to stop generating
         for cmd in cmd_set:
             if cmd in tool_stop:
-                stop_signals.append(tool_stop[cmd])
-                
+                stop_signals.extend(tool_stop[cmd])
+        stop_signals = list(set(stop_signals)) # remove duplicates from the stop signals
+        
         while not isinstance(self.state.memory_list[-1], TaskFinish):
             messages = await self.memory_to_input("execution", self.state.memory_list, cmd_set = cmd_set)
             # print_messages(messages, 'execution')
@@ -384,7 +385,8 @@ class Agent:
 
         elif case == "reasoning":
             memory_block = await process_memory_block(memory_block, reasoning_memory_rtve)
-            messages = reasoning_memory_to_diag(memory_block, end_prompt=self.reasoning_task_end_prompt)
+            messages = reasoning_memory_to_diag(memory_block, end_prompt=self.reasoning_task_end_prompt, 
+                                                mount_path = self.computer.workspace_mount_path)
 
         elif case == "classification":
             memory_block = await process_memory_block(memory_block, classification_memory_rtve)
@@ -394,7 +396,8 @@ class Agent:
             cmd_set = kwargs.get('cmd_set', None)
             # print(f'cmd_set in memory_to_input: {cmd_set}')
             memory_block = await process_memory_block(memory_block, execution_memory_rtve)
-            messages = execution_memory_to_diag(memory_block, cmd_set, end_prompt=self.execution_task_end_prompt)
+            messages = execution_memory_to_diag(memory_block, cmd_set, end_prompt=self.execution_task_end_prompt,
+                                                mount_path = self.computer.workspace_mount_path)
 
         elif case == "critic":
             memory_block = await process_memory_block(memory_block, critic_memory_rtve)

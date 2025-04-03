@@ -133,6 +133,10 @@ class Computer:
             logger.info('Detected initial session.')
             
         if self.is_initial_session:
+            # create mount folder
+            os.makedirs(self.workspace_mount_path, exist_ok=True)
+            logger.info(f'Created workspace mount path: {self.workspace_mount_path}')
+            
             logger.info('Creating new Docker container')
             n_tries = 5
             while n_tries > 0:
@@ -179,7 +183,7 @@ class Computer:
             if self.nvidia_driver == "Tesla":
                 logger.info("Initializing Tesla GPU driver")
                 exec_response = self.container.exec_run(
-                    "/home/Tesla-XorgDisplaySettingAuto.sh",
+                    "bash /home/Tesla-XorgDisplaySettingAuto.sh",
                     stream=True 
                 )
 
@@ -497,7 +501,9 @@ class Computer:
                 self.execute("unset LD_PRELOAD")
                 self.execute("nohup Xvfb :0 -screen 0 1920x1080x24 &")
                 self.execute("nohup gnome-session &")
-                time.sleep(10) # wait for the nomachine to start
+                # time.sleep(10) # wait for the nomachine to start
+                # self.execute("sed -i -e 's/\\(<option key=\\\"Show [^\\\"]* tutorial\\\" value=\\\"\\)true\\(\\\".*\\)/\\1false\\2/g' -e 's/\\(<option key=\\\"HTTP proxy password for any connections\\\" value=\\\"\\)EMPTY_PASSWORD\\(\\\".*\\)/\\1123\\2/' -e 's/\\(<option key=\\\"HTTP proxy username for any connections\\\" value=\\\"\\)\\\"\\(.*\\)/\\1infant\\\"\\2/' /home/infant/.nx/config/player.cfg")
+                # time.sleep(100000) # wait for the nomachine to start
                 input("When the computer setup is complete, press Enter to continue") # For setting up the first-time user
         except Exception as e:
             print(f"An error occurred: {e}")
@@ -549,16 +555,16 @@ class Computer:
         )
 
     def split_bash_commands(self, commands):
-        # States
+        # 定义状态
         NORMAL = 0
         IN_SINGLE_QUOTE = 1
         IN_DOUBLE_QUOTE = 2
         IN_HEREDOC = 3
 
         state = NORMAL
-        heredoc_trigger = None
+        heredoc_trigger = None  # 存储规范化后的 heredoc 触发符（不包含引号）
         result = []
-        current_command: list[str] = []
+        current_command = []
 
         i = 0
         while i < len(commands):
@@ -567,80 +573,98 @@ class Computer:
             if state == NORMAL:
                 if char == "'":
                     state = IN_SINGLE_QUOTE
+                    current_command.append(char)
                 elif char == '"':
                     state = IN_DOUBLE_QUOTE
+                    current_command.append(char)
                 elif char == '\\':
-                    # Check if this is escaping a newline
+                    # 如果是转义换行，则跳过换行符
                     if i + 1 < len(commands) and commands[i + 1] == '\n':
-                        i += 1  # Skip the newline
-                        # Continue with the next line as part of the same command
-                        i += 1  # Move to the first character of the next line
+                        current_command.append(char)
+                        i += 1  # 跳过换行符
+                        current_command.append('\n')
+                        i += 1
                         continue
+                    else:
+                        current_command.append(char)
                 elif char == '\n':
-                    if not heredoc_trigger and current_command:
+                    # 非 heredoc 状态下遇到换行，认为是一条完整命令
+                    if current_command:
                         result.append(''.join(current_command).strip())
                         current_command = []
+                # 检测 heredoc：遇到 << 时进入 heredoc 状态
                 elif char == '<' and commands[i : i + 2] == '<<':
-                    # Detect heredoc
                     state = IN_HEREDOC
-                    i += 2  # Skip '<<'
-                    while commands[i] == ' ':
+                    start_op = i
+                    i += 2  # 跳过 '<<'
+                    # 跳过空格
+                    while i < len(commands) and commands[i] == ' ':
                         i += 1
                     start = i
-                    while commands[i] not in [' ', '\n']:
+                    # 读取 heredoc 触发符（直到遇到空格或换行）
+                    while i < len(commands) and commands[i] not in [' ', '\n']:
                         i += 1
-                    heredoc_trigger = commands[start:i]
-                    current_command.append(commands[start - 2 : i])  # Include '<<'
-                    continue  # Skip incrementing i at the end of the loop
-                current_command.append(char)
+                    heredoc_raw = commands[start:i]
+                    # 如果触发符被引号包围，则去掉引号用于匹配
+                    if heredoc_raw and heredoc_raw[0] in ("'", '"') and heredoc_raw[-1] == heredoc_raw[0]:
+                        heredoc_trigger = heredoc_raw[1:-1]
+                    else:
+                        heredoc_trigger = heredoc_raw
+                    # 将 '<<' 及触发符（保持原格式）添加到当前命令中
+                    current_command.append(commands[start_op:i])
+                    continue  # 继续处理，不在此处 i 增加
+                else:
+                    current_command.append(char)
 
             elif state == IN_SINGLE_QUOTE:
                 current_command.append(char)
+                # 遇到未转义的单引号则退出单引号状态
                 if char == "'" and commands[i - 1] != '\\':
                     state = NORMAL
 
             elif state == IN_DOUBLE_QUOTE:
                 current_command.append(char)
+                # 遇到未转义的双引号则退出双引号状态
                 if char == '"' and commands[i - 1] != '\\':
                     state = NORMAL
 
             elif state == IN_HEREDOC:
                 current_command.append(char)
-                if (
-                    char == '\n'
-                    and heredoc_trigger
-                    and commands[i + 1 : i + 1 + len(heredoc_trigger) + 1]
-                    == heredoc_trigger + '\n'
-                ):
-                    # Check if the next line starts with the heredoc trigger followed by a newline
-                    i += (
-                        len(heredoc_trigger) + 1
-                    )  # Move past the heredoc trigger and newline
-                    current_command.append(
-                        heredoc_trigger + '\n'
-                    )  # Include the heredoc trigger and newline
-                    result.append(''.join(current_command).strip())
-                    current_command = []
-                    heredoc_trigger = None
-                    state = NORMAL
-                    continue
+                # 当遇到换行符时，检查下一行是否仅包含 heredoc 触发符
+                if char == '\n' and heredoc_trigger:
+                    next_line_start = i + 1
+                    j = next_line_start
+                    while j < len(commands) and commands[j] != '\n':
+                        j += 1
+                    next_line = commands[next_line_start:j]
+                    if next_line.strip() == heredoc_trigger:
+                        # 将终止行也添加到当前命令中
+                        current_command.append(next_line)
+                        if j < len(commands) and commands[j] == '\n':
+                            current_command.append('\n')
+                            i = j  # 将 i 移动到换行符位置
+                        else:
+                            i = j
+                        state = NORMAL
+                        heredoc_trigger = None
+                        continue
 
             i += 1
 
-        # Add the last command if any
         if current_command:
             result.append(''.join(current_command).strip())
-
-        # Remove any empty strings from the result
         result = [cmd for cmd in result if cmd]
-
         return result
 
     def execute(
         self, cmd: str, stream: bool = False, timeout: int | None = None
     ) -> tuple[int, str]:
         timeout = timeout or self.timeout
+        # if '<<' in cmd:
+        #     commands = [cmd]
+        # else:
         commands = self.split_bash_commands(cmd)
+        # print(f'commands: {commands}')
         if len(commands) > 1:
             all_output = ''
             for command in commands:
@@ -1068,17 +1092,9 @@ class Computer:
     
     async def run_ipython(self, memory: IPythonRun) -> str:
                 
-        import_files = (
-            "from computer_use import *\n"
-            "from file_editor import *\n"
-            "from file_searcher import *\n"
-            "from file_reader import *\n"
-            "from web_browser import *\n"
-        )
-
         # The real output from the code.
         obs = self._run_command(
-            ("cat > /tmp/infant_jupyter_temp.py <<'EOL'\n" f'{import_files}{memory.code}\n' 'EOL'),
+            ("cat > /tmp/infant_jupyter_temp.py <<'EOL'\n" f'{memory.code}\n' 'EOL'),
         )
         # run the code
         obs = self._run_command(

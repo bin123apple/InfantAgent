@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import ast
+import base64
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from infant.agent.agent import Agent
@@ -19,7 +20,7 @@ OPEN_BROWSER_CODE = """import subprocess
 
 with open("/tmp/log.log", "w") as log_file:
     subprocess.Popen(
-        ["google-chrome", "--remote-debugging-port=9222"],
+        ["google-chrome", "--no-first-run", "--remote-debugging-port=9222"],
         stdout=log_file, stderr=subprocess.STDOUT,
         close_fds=True
     )
@@ -349,7 +350,6 @@ async def localization_browser(agent: Agent, memory: Memory, interactive_element
             logger.info(f"Icon: {icon}, Desc: {desc}")
             get_state_action = IPythonRun(code=GET_STATE_CODE)
             browser_state = await computer.run_ipython(get_state_action)
-            
             remove_highlight_action = IPythonRun(code='await context.remove_highlights()')
             await computer.run_ipython(remove_highlight_action)
             
@@ -380,7 +380,8 @@ async def image_description_to_element_index(agent: Agent, computer: Computer,
     parsed_browser_state: dict = parse_browser_state(browser_state)
     # logger.info(f"Browser State: {parsed_browser_state}")
     # Initialize the localization memory block
-    byte_image = parsed_browser_state.get('screenshot', None)
+    base64_image = parsed_browser_state.get('screenshot', None)
+    base64_image = base64_image.strip('\'"')
     selector_map_str = parsed_browser_state.get('selector_map', "")
     selector_map_dict = parse_selector_map_string(selector_map_str)
     # selector_map_dict = ast.literal_eval(selector_map_str)
@@ -408,7 +409,7 @@ async def image_description_to_element_index(agent: Agent, computer: Computer,
             {
                 "type": "image_url",
                 "image_url": {
-                    "url": f"data:image/png;base64,{byte_image}",
+                    "url": f"data:image/png;base64,{base64_image}",
                     "detail": "high"
                 }
             }
@@ -417,10 +418,10 @@ async def image_description_to_element_index(agent: Agent, computer: Computer,
     try:
         # print_messages(messages, "image_description_to_element_index")
         response,_ = agent.llm.completion(messages=messages, stop=['</index>'])
-        logger.info(f"Response in browwser helper function: {response}")
+        logger.info(f"Response in browser helper function: {response}")
         element_index = extract_index(response)
         return element_index
     except Exception as e:
-        logger.error("Failed to call" + computer.model + ", Error: " + str(e))
+        logger.error("Failed to call the model" + ", Error: " + str(e))
 
     

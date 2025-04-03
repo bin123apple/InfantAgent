@@ -2,15 +2,14 @@ import os
 import sys
 import time
 import traceback
-# import site
 
-# sys.path = [path for path in sys.path if "requests" not in path]
-# standard_lib_path = os.path.dirname(os.__file__)
+import site
+sys.path = [path for path in sys.path if "requests" not in path]
+standard_lib_path = os.path.dirname(os.__file__)
+site_packages_path = site.getsitepackages()[0]
+sys.path.insert(0, standard_lib_path)
+sys.path.insert(0, site_packages_path)
 
-# site_packages_path = site.getsitepackages()[0]
-
-# sys.path.insert(0, standard_lib_path)
-# sys.path.insert(0, site_packages_path)
 import requests
 
 # Read the Python code from STDIN

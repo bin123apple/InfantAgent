@@ -431,7 +431,6 @@ def replace_code(
     _print_window(CURRENT_FILE, CURRENT_LINE, WINDOW)
     print(MSG_FILE_UPDATED)
 
-
 def _edit_or_append_file(
     file_name: str,
     start: int | None = None,
@@ -491,11 +490,15 @@ def _edit_or_append_file(
                 lines = original_file.readlines()
 
             if is_append:
+                content_lines = content.splitlines(keepends=True)
+                if not start:
+                    start = len(lines)
                 if lines and not (len(lines) == 1 and lines[0].strip() == ''):
                     if not lines[-1].endswith('\n'):
                         lines[-1] += '\n'
-                    content_lines = content.splitlines(keepends=True)
-                    new_lines = lines + content_lines
+                    if content_lines and not content_lines[-1].endswith('\n'):
+                        content_lines[-1] += '\n'
+                    new_lines = lines[:start-1] + content_lines + lines[start-1:]
                     content = ''.join(new_lines)
             else:
                 # Handle cases where start or end are None
@@ -686,7 +689,10 @@ def _edit_or_append_file(
         CURRENT_LINE = first_error_line
     else:
         if is_append:
-            CURRENT_LINE = max(1, len(lines))  # end of original file
+            # CURRENT_LINE = max(1, len(lines))  # end of original file
+            total_lines = len(content_lines)
+            CURRENT_LINE = (total_lines) // 2 + start
+            WINDOW = total_lines + 10
         else:
             CURRENT_LINE = start or n_total_lines or 1
     print(
@@ -725,7 +731,7 @@ def edit_file(file_name: str, start: int, start_str: str, end: int, end_str: str
     )
 
 @update_pwd_decorator
-def append_file(file_name: str, content: str) -> None:
+def append_file(file_name: str, content: str, start_line: int | None = None) -> None:
     """Append content to the given file.
 
     It appends text `content` to the end of the specified file.
@@ -734,4 +740,99 @@ def append_file(file_name: str, content: str) -> None:
         file_name: str: The name of the file to append to.
         content: str: The content to append to the file.
     """
-    _edit_or_append_file(file_name, start=1, end=None, content=content, is_append=True)
+    _edit_or_append_file(file_name, start=start_line, end=None, content=content, is_append=True)
+
+@update_pwd_decorator
+def replace_content(file_name: str, old_content: str, new_content: str | None = None) -> None:
+    """Implement the str_replace command, which replaces old_content with new_content in the file content"""
+    if not _is_valid_filename(file_name):
+        raise FileNotFoundError('Invalid file name.')
+
+    if not _is_valid_path(file_name):
+        raise FileNotFoundError('Invalid path or file name.')
+
+    if not _create_paths(file_name):
+        raise PermissionError('Could not access or create directories.')
+
+    if not os.path.isfile(file_name):
+        raise FileNotFoundError(f'File {file_name} not found.')
+        
+    # Read the file content
+    with open(file_name, 'r') as file:
+        file_content = file.read().expandtabs()
+    old_content = old_content.expandtabs()
+    new_content = new_content.expandtabs() if new_content is not None else ""
+
+    # Check if old_content is unique in the file
+    occurrences = file_content.count(old_content)
+    if occurrences == 0:
+        raise Exception(
+        f"No replacement was performed, old_content `{old_content}` did not appear verbatim in {file_name}."
+        )
+    elif occurrences > 1:
+        start_indices = []
+        start = 0
+        while True:
+            idx = file_content.find(old_content, start)
+            if idx == -1:
+                break
+            start_indices.append(idx)
+            start = idx + 1
+
+        file_content_line_starts = [0]
+        for line in file_content.split("\n"):
+            file_content_line_starts.append(file_content_line_starts[-1] + len(line) + 1)
+
+        def byte_offset_to_line(offset: int) -> int:
+            for i in range(len(file_content_line_starts) - 1):
+                if file_content_line_starts[i] <= offset < file_content_line_starts[i + 1]:
+                    return i + 1
+            return len(file_content_line_starts) - 1
+
+        lines = list(dict.fromkeys([byte_offset_to_line(idx) for idx in start_indices]))
+
+        raise Exception(
+            f"No replacement was performed. Multiple occurrences of old_content `{old_content}` in lines {lines}. Please ensure it is unique"
+        )
+    else:  # occurrences == 1
+        start_idx = file_content.find(old_content)
+        end_idx = start_idx + len(old_content)
+
+        file_content_line_starts = [0]
+        for line in file_content.split("\n"):
+            file_content_line_starts.append(file_content_line_starts[-1] + len(line) + 1)
+
+        def byte_offset_to_line(offset: int) -> int:
+            for i in range(len(file_content_line_starts) - 1):
+                if file_content_line_starts[i] <= offset < file_content_line_starts[i + 1]:
+                    return i + 1
+            return len(file_content_line_starts) - 1
+
+        start_line = byte_offset_to_line(start_idx)
+        end_line = byte_offset_to_line(end_idx - 1)
+
+
+    # Replace old_content with new_content
+    new_file_content = file_content.replace(old_content, new_content)
+
+    # Write the new content to the file
+    with open(file_name, 'w') as file:
+        file.write(new_file_content)
+
+    # Create a snippet of the edited section
+    middle_line = (start_line + end_line) // 2
+    window = end_line - start_line + 10
+
+    # Prepare the success message
+    with open(file_name, 'r', encoding='utf-8') as file:
+        n_total_lines = max(1, len(file.readlines()))
+    print(
+        f'[File: {os.path.abspath(file_name)} ({n_total_lines} lines total after edit)]'
+    )
+    CURRENT_FILE = file_name
+    CURRENT_LINE = middle_line
+    WINDOW = window
+    _print_window(CURRENT_FILE, CURRENT_LINE, WINDOW)
+    print(MSG_FILE_UPDATED)
+
+    

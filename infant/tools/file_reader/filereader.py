@@ -145,6 +145,7 @@ def parse_pdf(pdf_path: str, page: int) -> fitz.Pixmap:
     timestamp = int(time.time())
     screenshot_path = f"{screenshot_dir}/{timestamp}.png"
     pix.save(screenshot_path)
+    print('If the PDF file has page numbers indicated at the bottom, please refer to those page numbers as the standard. Note that they may differ from the page numbers mentioned in our instructions, as the initial pages of the PDF might include a table of contents or a cover page.')
     print(f"<Screenshot saved at> {screenshot_path}")
 
 @update_pwd_decorator
