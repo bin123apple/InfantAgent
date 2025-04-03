@@ -70,3 +70,4 @@ evaluation/swe_bench/gpt-4o.evaluation.json
 evaluation/swe_bench/logs/*
 evaluation/swe_bench/swe_repos/*
 evaluation/swe_bench_multimodal/*
+evaluation/gaia/gaia_dataset/*
