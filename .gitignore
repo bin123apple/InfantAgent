@@ -71,3 +71,4 @@ evaluation/swe_bench/logs/*
 evaluation/swe_bench/swe_repos/*
 evaluation/swe_bench_multimodal/*
 evaluation/gaia/gaia_dataset/*
+evaluation/gaia/gaia_workspace/*
