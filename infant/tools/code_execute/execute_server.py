@@ -69,10 +69,14 @@ class JupyterKernel:
         await self.execute(r'%colors nocolor')
         # pre-defined tools
         self.tools_to_run = [
-            # TODO: You can add code for your pre-defined tools here
+            'import sys',
+            'from computer_use.computeruse import *',
+            'from file_editor.fileeditor import *',
+            'from file_searcher.filesearcher import *',
+            'from file_reader.filereader import *',
+            'from web_browser.browser import *',
+            'from advanced_tools.advancedtools import *'  
         ]
-        if os.path.exists('/infant/plugins/agent_skills/agentskills.py'):
-            self.tools_to_run.append('from agentskills import *')
         for tool in self.tools_to_run:
             # logging.info(f'Tool initialized:\n{tool}')
             await self.execute(tool)

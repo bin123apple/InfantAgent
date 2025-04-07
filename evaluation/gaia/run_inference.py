@@ -25,13 +25,13 @@ from infant.util.save_dataset import save_to_dataset
 from infant.util.logger import reset_logger_for_multiprocessing, LOG_DIR
 # from my_agent import inference 
 
-IMPORTS = '''import sys
-from computer_use.computeruse import *
-from file_editor.fileeditor import *
-from file_searcher.filesearcher import *
-from file_reader.filereader import *
-from web_browser.browser import *
-from advanced_tools.advancedtools import *'''
+# IMPORTS = '''import sys
+# from computer_use.computeruse import *
+# from file_editor.fileeditor import *
+# from file_searcher.filesearcher import *
+# from file_reader.filereader import *
+# from web_browser.browser import *
+# from advanced_tools.advancedtools import *'''
 
 def extract_metadata(filename):
     records = []
@@ -103,8 +103,8 @@ async def initialize_docker_agent(instance: dict, config=config)-> Agent:
     agent = Agent(agent_parameter, api_llm, oss_llm, computer)
     logger.info(f'Agent initialized successfully.')
     
-    import_memory = IPythonRun(code = IMPORTS)
-    await computer.run_ipython(import_memory)
+    # import_memory = IPythonRun(code = IMPORTS)
+    # await computer.run_ipython(import_memory)
     
     import_memory = IPythonRun(code = "press_key('Escape')")
     await computer.run_ipython(import_memory)

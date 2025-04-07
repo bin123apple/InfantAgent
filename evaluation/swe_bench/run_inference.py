@@ -24,12 +24,12 @@ from infant.util.logger import reset_logger_for_multiprocessing, LOG_DIR
 MAX_FEEDBACK_TIME = 3
 MAX_CHECK_TIME = 2
 
-IMPORTS = '''import sys
-from computer_use.computeruse import *
-from file_editor.fileeditor import *
-from file_searcher.filesearcher import *
-from file_reader.filereader import *
-from web_browser.browser import *'''
+# IMPORTS = '''import sys
+# from computer_use.computeruse import *
+# from file_editor.fileeditor import *
+# from file_searcher.filesearcher import *
+# from file_reader.filereader import *
+# from web_browser.browser import *'''
 
 def check_missing_instance_ids(original_instance_ids, predictions_file):
     valid_instance_ids = []
@@ -188,8 +188,8 @@ async def initialize_docker_agent(instance: dict, config=config)-> Agent:
     agent = Agent(agent_parameter, api_llm, oss_llm, computer)
     logger.info(f'Agent initialized successfully.')
     
-    import_memory = IPythonRun(code = IMPORTS)
-    await computer.run_ipython(import_memory)
+    # import_memory = IPythonRun(code = IMPORTS)
+    # await computer.run_ipython(import_memory)
     
     return agent
 

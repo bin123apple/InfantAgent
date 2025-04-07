@@ -13,13 +13,13 @@ from infant.util.logger import infant_logger as logger
 from infant.util.save_dataset import save_to_dataset
 from infant.agent.memory.memory import Finish, IPythonRun
 
-IMPORTS = '''import sys
-from computer_use.computeruse import *
-from file_editor.fileeditor import *
-from file_searcher.filesearcher import *
-from file_reader.filereader import *
-from web_browser.browser import *
-from advanced_tools.advancedtools import *'''
+# IMPORTS = '''import sys
+# from computer_use.computeruse import *
+# from file_editor.fileeditor import *
+# from file_searcher.filesearcher import *
+# from file_reader.filereader import *
+# from web_browser.browser import *
+# from advanced_tools.advancedtools import *'''
 
 async def run_single_step(agent: Agent, user_request_text: str, image = None):
     agent.state.memory_list.append(Userrequest(text=user_request_text, images=image))
@@ -92,9 +92,9 @@ async def initialize_agent():
     logger.info(f'Agent initialized successfully.')
     exit_code, output = computer.execute(f'cd /workspace && rm -rf *')
     
-    # imports
-    import_memory = IPythonRun(code = IMPORTS)
-    await computer.run_ipython(import_memory)
+    # # imports
+    # import_memory = IPythonRun(code = IMPORTS)
+    # await computer.run_ipython(import_memory)
     return agent, computer
 
 async def main():

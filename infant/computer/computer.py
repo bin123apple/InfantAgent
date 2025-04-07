@@ -31,12 +31,6 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.chrome.options import Options
 
-IMPORTS = '''import sys
-from computer_use.computeruse import *
-from file_editor.fileeditor import *
-from file_searcher.filesearcher import *
-from file_reader.filereader import *
-from web_browser.browser import *'''
 class Computer:
     instance_id: str
     container_image: str
