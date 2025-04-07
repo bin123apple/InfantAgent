@@ -223,7 +223,8 @@ class Agent:
                     memory, finish_switch, interactive_elements = await localization_browser(self, memory, interactive_elements)
                     if not finish_switch:  
                         memory = await localization_visual(self, memory)
-                    memory = convert_web_browse_commands(memory, finish_switch, dropdown_dict) # convert the commands to correct format
+                    memory = convert_web_browse_commands(memory, finish_switch, 
+                                                         dropdown_dict, interactive_elements) # convert the commands to correct format
                 else:
                     memory = await localization_visual(self, memory) # convert the image description to coordinate for accurate mouse click   
                                                

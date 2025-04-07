@@ -155,7 +155,8 @@ def parse_dropdown_options(text):
                     result[current_key][option_key] = value
     return result
 
-def convert_web_browse_commands(memory: IPythonRun, finish_switch: bool, dropdown_dict: dict) -> Memory:
+def convert_web_browse_commands(memory: IPythonRun, finish_switch: bool, 
+                                dropdown_dict: dict, interactive_elements: list) -> Memory:
     if hasattr(memory, 'code'):
         if memory.code == 'open_browser()':
             memory.code = OPEN_BROWSER_CODE
@@ -178,6 +179,8 @@ def convert_web_browse_commands(memory: IPythonRun, finish_switch: bool, dropdow
             dropdown_option = extract_parameter_values(memory.code) # dict
             if 'selector_index' in dropdown_option and 'option' in dropdown_option:
                 index = dropdown_option['selector_index']
+                if int(index) in interactive_elements:
+                        interactive_elements.remove(int(index))
                 text = dropdown_dict.get(str(index), {}).get(str(dropdown_option['option']), None)
                 memory.code = f'await context.select_dropdown_option(index={index}, text="{text}")\ntake_screenshot()'
                 return memory
