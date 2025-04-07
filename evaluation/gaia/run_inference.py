@@ -30,7 +30,8 @@ from computer_use.computeruse import *
 from file_editor.fileeditor import *
 from file_searcher.filesearcher import *
 from file_reader.filereader import *
-from web_browser.browser import *'''
+from web_browser.browser import *
+from advanced_tools.advancedtools import *'''
 
 def extract_metadata(filename):
     records = []
@@ -80,6 +81,12 @@ async def initialize_docker_agent(instance: dict, config=config)-> Agent:
         computer = Computer(computer_parameter, sid = sid)
     except:
         logger.error({traceback.format_exc()})
+
+    # activate conda
+    computer.execute(f'source /infant/miniforge3/etc/profile.d/conda.sh')
+    computer.execute('export PATH=/infant/miniforge3/bin:$PATH')
+    computer.execute(f'source ~/.bashrc')
+    logger.info(f'Conda environment activated successfully.')
         
     # git initial commit 
     computer.execute(f'git init') # initialize git
@@ -92,6 +99,7 @@ async def initialize_docker_agent(instance: dict, config=config)-> Agent:
     # Initialize the Agent
     agent_parameter = config.get_agent_params()
     agent_parameter.fake_response_mode = True
+    agent_parameter.max_budget_per_task = 10
     agent = Agent(agent_parameter, api_llm, oss_llm, computer)
     logger.info(f'Agent initialized successfully.')
     

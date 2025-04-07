@@ -43,8 +43,8 @@ localization_fake_user_response_prompt = '''Please give me a command.'''
 
 localization_check_dot_prompt = '''I have marked the location you selected with a red dot in the image. 
 Please confirm whether the location you selected is correct. If it is incorrect, you can use the command <loca_finish>coordination</loca_finish> to reselect the coordinates or <execute_ipython>localization()</execute_ipython> to choose another area. 
-If you believe the location you selected is correct, please respond with <|command_correct|>.'''
+If you believe the location you selected is correct, please respond with <|exit|>.'''
 
 localization_check_rectangle_prompt = '''I have marked the area you selected with a red dot in the image. 
 Please confirm whether the area you selected is correct. If it is incorrect, you can use the command <execute_ipython>localization()</execute_ipython> to select another area. 
-If you believe the area you selected is correct, please respond with <|command_correct|>.'''
+If you believe the area you selected is correct, please respond with <|exit|>.'''

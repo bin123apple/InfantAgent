@@ -1,12 +1,10 @@
 """
 Playwright browser on steroids.
 """
-
-import asyncio
 import gc
+import asyncio
 import logging
 from dataclasses import dataclass, field
-
 from playwright._impl._api_structures import ProxySettings
 from playwright.async_api import Browser as PlaywrightBrowser
 from playwright.async_api import (
@@ -16,7 +14,6 @@ from playwright.async_api import (
 
 from infant.tools.web_browser.context import BrowserContext, BrowserContextConfig
 from infant.tools.web_browser.util import time_execution_async
-
 logger = logging.getLogger(__name__)
 
 

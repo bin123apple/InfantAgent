@@ -347,6 +347,8 @@ You can use the following functions to interact with the browser.
 - refresh_page(): Refresh the current page.
 - go_back(): Go back to the previous page.
 - go_forward(): Go forward to the next page.
+- clear_text(): Clear the text in the current input field.
+- mouse_scroll(direction: str, amount: int)): Simulates a mouse scroll up or down. direction (str): The direction to scroll ("up" or "down"). amount (int): The number of scroll steps to take.
 - close_current_tab(): Close the current tab.
 - execute_javascript(script: str): Execute the specified JavaScript code.
 - switch_to_tab(page_id: int): Switch to the tab at the specified index.
@@ -366,7 +368,7 @@ You can use the following functions to interact with the browser.
 
 tool_web_browse_one_shot = '''
 Here is an example:
-Current Task: Open Wikipedia and search for "Artificial Intelligence".
+Current Task: Open Wikipedia and search for "Artificial Intelligence regulation".
 Assistant: 
 Open the chrome.
 <execute_ipython>
@@ -416,16 +418,53 @@ User:
 Screenshot of the Wikipedia search results for "Artificial Intelligence".
 
 Assistant:
+Let's go back to the Wikipedia homepage and search for "Artificial Intelligence regulation".
+<execute_ipython>
+go_back()
+</execute_ipython>
+
+User:
+Screenshot of the Wikipedia homepage.
+
+Assistant:
+Click on the search bar again.
+<execute_ipython>
+mouse_left_click(item='search bar', description='It is located near the top center of the Wikipedia homepage. It is a rectangular input field with placeholder text "Search Wikipedia".')
+</execute_ipython>
+
+User:
+Screenshot of the search bar clicked.
+
+Assistant:
+Clear the text in the search bar.
+<execute_ipython>
+clear_text()
+</execute_ipython>
+
+User:
+Screenshot of the search bar cleared.
+
+Assistant:
+Type "Artificial Intelligence regulation" in the search bar.
+<execute_ipython>
+type_text("Artificial Intelligence regulation")
+</execute_ipython>
+
+User:
+Screenshot of the search term "Artificial Intelligence regulation" entered.
+All DOMElementNodes have been highlighted and numbered in the screenshot.
+
+Assistant:
 Click on the first search result.
 <execute_ipython>
 mouse_left_click(item='the first search result', description='It is located near the top right of the homepage.')
 </execute_ipython>
 
 User:
-Screenshot of the Wikipedia page for "Artificial Intelligence".
+Screenshot of the Wikipedia page for "Artificial Intelligence regulation".
 
 Assistant:
-The task is complete. You can now view the Wikipedia page for "Artificial Intelligence".
+The task is complete. You can now view the Wikipedia page for "Artificial Intelligence regulation".
 
 <task_finish>exit</task_finish>
 '''
@@ -433,7 +472,6 @@ The task is complete. You can now view the Wikipedia page for "Artificial Intell
 tool_web_browse_note = '''**NOTE:**
 When using a browser, if a dropdown menu appears, you need to first select the correct option from the menu before proceeding with the next steps. If the dropdown menu does not contain the content you need, click on any blank area to dismiss it.
 '''
-
 
 tool_mk_operation = '''
 You can use the following functions to perform various mouse and keyboard operations.
@@ -515,6 +553,61 @@ The task is complete. You can now view the picture for "kittens" at your local c
 <task_finish>exit</task_finish>
 '''
 
+tool_advanced = '''
+You can use the following functions to perform advanced operations.
+- search_arxiv(keyword: str, start_date: str, end_date: str, subject: str, field: str) : Searches for papers on arXiv based on the given keyword, date range, subject (options: cs, math, physics, q-bio, q-fin, stat), and keyword field (options: title, abstract, comments, author, all). Returns the search results.
+- download_arxiv_pdf(arxiv_id: str) : Downloads the specified arXiv paper based on its ID (eg: 1608.06816) and show the first page of the PDF.
+- parse_pdf(pdf_path: str, page: int): View the specified page of a PDF file.
+'''
+
+tool_advanced_one_shot = '''
+Here is an example:
+USER:
+Search for papers on arXiv related to "Artificial Intelligence" from 2022-01-01 to 2023-01-01.
+
+Assistant:
+Sure! Let me search for papers on arXiv related to "Artificial Intelligence" from 2022-01-01 to 2023-01-01:
+<execute_ipython>
+search_arxiv("Artificial Intelligence", "2022-01-01", "2023-01-01", subject="cs", field="title")
+</execute_ipython>
+
+USER:
+OBSERVATION:
+[1] 
+arXiv ID: 12345678
+Title: "A Comprehensive Survey on Artificial Intelligence"  
+Authors: John Doe, Jane Smith
+[2] 
+arXiv ID: 23456789
+Title: "Advancements in AI Technology"
+Authors: Alice Johnson, Bob Brown
+[3] 
+arXiv ID: 34567890
+Title: "AI in Healthcare: A Review"
+Authors: Charlie Green, David Blue
+
+Assistant:
+Great! I found some papers related to "Artificial Intelligence".
+Please let me know if you want to download any of them.
+
+USER:
+Please download the paper with ID 12345678.
+
+Assistant:
+Sure! Let me download the paper with ID 12345678:
+<execute_ipython>
+download_arxiv_pdf("12345678")
+</execute_ipython>
+
+USER:
+OBSERVATION:
+[PDF: 12345678, Page 1]
+[PDF content displayed.]
+
+Assistant:
+The paper with ID 12345678 has been downloaded successfully. The task is complete.
+<task_finish>exit</task_finish>
+'''
 
 tool_fake_user_response_prompt = '''You did not provide any commands. If you believe the task is complete or cannot be solved, reply with <task_finish>exit</task_finish>; otherwise, please provide a command.'''
 

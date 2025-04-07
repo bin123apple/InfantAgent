@@ -52,7 +52,7 @@ from infant.prompt.execution_prompt import (
 )
 
 from infant.prompt.localization_prompt import localization_prompt, localization_user_initial_prompt
-from infant.prompt.tools_prompt import tool_document, tool_sys_msg, tool_example, tool_note
+from infant.prompt.tools_prompt import tool_document, tool_sys_msg, tool_example, tool_note, tool_advanced, tool_advanced_one_shot
 from infant.agent.memory.retrieve_memory import (
     execution_memory_rtve, 
     retrieve_memory_further, 
@@ -226,8 +226,8 @@ def execution_memory_to_diag(memory_block: list[Memory], cmd_set, end_prompt, mo
     tools_instructions = ''
     for cmd in cmd_set:
         if cmd in tool_document:
-            tools_instructions = tools_instructions + tool_document[cmd] + '\n'
-            example = tool_example[cmd] + '\n'
+            tools_instructions = tools_instructions + tool_document[cmd] + tool_advanced + '\n'
+            example = tool_example[cmd] + tool_advanced_one_shot + '\n'
             note = tool_note[cmd] + '\n'
     messages.append({'role': 'user',
                      'content': tool_sys_msg.format(tools = tools_instructions, one_shot = example)})  

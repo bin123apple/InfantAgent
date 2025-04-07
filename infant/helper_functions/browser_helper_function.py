@@ -20,7 +20,7 @@ OPEN_BROWSER_CODE = """import subprocess
 
 with open("/tmp/log.log", "w") as log_file:
     subprocess.Popen(
-        ["google-chrome", "--no-first-run", "--remote-debugging-port=9222"],
+        ["google-chrome", "--no-first-run", "--remote-debugging-port=9222", "--start-maximized"],
         stdout=log_file, stderr=subprocess.STDOUT,
         close_fds=True
     )
@@ -98,7 +98,7 @@ def extract_parameter_values(signature):
         # 默认按照顺序映射到 index 和 option
         result = {}
         if len(converted) >= 1:
-            result['index'] = converted[0]
+            result['selector_index'] = converted[0]
         if len(converted) >= 2:
             result['option'] = converted[1]
         return result
@@ -163,7 +163,10 @@ def convert_web_browse_commands(memory: IPythonRun, finish_switch: bool, dropdow
 
         if any(cmd in memory.code for cmd in ['type_text', 'press_key', 
                                             'press_key_combination', 
-                                            'mouse_drag', 'mouse_box_select']):
+                                            'mouse_drag', 'mouse_box_select', 
+                                            'mouse_scroll','clear_text', 
+                                            'search_arxiv', 'download_arxiv_pdf',
+                                            'parse_pdf']):
             return memory
         
         if not finish_switch:
@@ -173,8 +176,8 @@ def convert_web_browse_commands(memory: IPythonRun, finish_switch: bool, dropdow
 
         if  'select_dropdown_option' in memory.code and dropdown_dict:
             dropdown_option = extract_parameter_values(memory.code) # dict
-            if 'index' in dropdown_option and 'option' in dropdown_option:
-                index = dropdown_option['index']
+            if 'selector_index' in dropdown_option and 'option' in dropdown_option:
+                index = dropdown_option['selector_index']
                 text = dropdown_dict.get(str(index), {}).get(str(dropdown_option['option']), None)
                 memory.code = f'await context.select_dropdown_option(index={index}, text="{text}")\ntake_screenshot()'
                 return memory

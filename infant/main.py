@@ -18,7 +18,8 @@ from computer_use.computeruse import *
 from file_editor.fileeditor import *
 from file_searcher.filesearcher import *
 from file_reader.filereader import *
-from web_browser.browser import *'''
+from web_browser.browser import *
+from advanced_tools.advancedtools import *'''
 
 async def run_single_step(agent: Agent, user_request_text: str, image = None):
     agent.state.memory_list.append(Userrequest(text=user_request_text, images=image))
@@ -72,10 +73,11 @@ async def initialize_agent():
     else:
         logger.info("Workspace directory has been cleared successfully.")
     
-    # # activate conda
-    # exit_code, output = computer.execute(f'source /infant/miniforge3/etc/profile.d/conda.sh')
-    # exit_code, output = computer.execute(f'conda activate base')
-    # logger.info(f'Conda environment activated successfully.')
+    # activate conda
+    exit_code, output = computer.execute(f'source /infant/miniforge3/etc/profile.d/conda.sh')
+    exit_code, output = computer.execute('export PATH=/infant/miniforge3/bin:$PATH')
+    exit_code, output = computer.execute(f'source ~/.bashrc')
+    logger.info(f'Conda environment activated successfully.')
 
     # git initial commit 
     exit_code, output = computer.execute(f'git init') # initialize git

@@ -61,7 +61,23 @@ def take_screenshot(command: str | None = None, top_left: tuple | None = None, l
         # time.sleep(2)
         print(f"<Screenshot saved at> {screenshot_path}")
         length = screen_width
-        
+
+@update_pwd_decorator
+def clear_text():
+    """
+    Simulates clearing all currently typed text by selecting all and deleting.
+    Returns:
+        None (Will take a screenshot)
+    """
+    # Select all text
+    subprocess.run("xdotool key ctrl+a", shell=True)
+    time.sleep(0.2)
+    # Delete selected text
+    subprocess.run("xdotool key BackSpace", shell=True)
+    time.sleep(1)
+    take_screenshot('clear_text()')
+
+
 @update_pwd_decorator
 def mouse_left_click(x, y, button="left"):
     """

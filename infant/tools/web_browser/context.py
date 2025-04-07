@@ -1583,3 +1583,25 @@ class BrowserContext:
 			msg = f'Selection failed: {str(e)}'
 			logger.error(msg)
 			return msg
+
+	async def scroll_up(self, pixel: int):
+		page = await self.get_current_page()
+		if pixel is not None:
+			await page.evaluate(f'window.scrollBy(0, -{pixel});')
+		else:
+			await page.evaluate('window.scrollBy(0, -window.innerHeight);')
+
+		amount = f'{pixel} pixels' if pixel is not None else 'one page'
+		msg = f'🔍  Scrolled up the page by {amount}'
+		print(msg)
+
+	async def scroll_down(self, pixel):
+		page = await self.get_current_page()
+		if pixel is not None:
+			await page.evaluate(f'window.scrollBy(0, {pixel});')
+		else:
+			await page.evaluate('window.scrollBy(0, window.innerHeight);')
+
+		amount = f'{pixel} pixels' if pixel is not None else 'one page'
+		msg = f'🔍  Scrolled down the page by {amount}'
+		print(msg)
