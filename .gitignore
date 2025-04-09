@@ -62,7 +62,7 @@ tests/debug/*
 dataset/*
 
 # workspace
-workspace/*
+workspace/
 
 # evaluation
 evaluation/swe_bench/predictions.jsonl
