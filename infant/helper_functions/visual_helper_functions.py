@@ -26,26 +26,105 @@ from infant.llm.llm_api_base import LLM_API_BASED
 
 CURRENT_WHOLE_IMAGE = None
 CURRENT_IMAGE_RANGE = None
+CURRENT_RED_POINT = None
+
+# LOCALIZATION_INITIAL_PROMPT_VISUAL = '''I'm trying to perform a mouse click action, and I need your help to determine the exact coordinates of the content I need to click on.
+# I will provide you with a screenshot of the screen. The coordinates are labeled along the edges of the screen.
+# Here are some functions that you might find useful:
+# 1. If you need to zoom in on the screen for more precise coordinate identification, please use the following function:
+# localization_area(top_left: tuple | None = None, bottom_right: tuple | None = None)
+# This function is used to zoom in on the screen by specifying the top-left corner and the bottom_right of the zoomed-in area.
+# Args:
+#     top_left (tuple | None):
+#         The top-left corner of the screenshot region as a tuple of (x, y) coordinates.
+#         If None, the screenshot will cover the entire screen. Defaults to None.
+#     bottom_right (tuple | None):
+#         The bottom-right corner of the screenshot region as a tuple of (x, y) coordinates.
+#         If None, the screenshot will cover the entire screen. Defaults to None.
+# 2. To check the exact screen position of a coordinate, you can use the following command:
+# localization_point(x: int, y: int)
+# I will draw a red dot on the screen at the specified coordinates.
+# Args:
+#     x (int): The x-coordinate of the point to check.
+#     y (int): The y-coordinate of the point to check.
+# 3. If you think the coordinates are correct, you can use the following command to finish the localization:
+# localization_done(x: int, y: int)
+# Args:
+#     x (int): The x-coordinate of the final point.
+#     y (int): The y-coordinate of the final point.
+# You should place the function you would like to execute within the <localize>...</localize> tags.
+# Here is an example:
+# User:
+# I want to click on vscode icon with the mouse. Please help me determine its **EXACT** coordinates.
+
+# Asistant:
+# let's zoom in on the screen for more precise coordinate identification.
+# <localize>
+# localization_area(top_left = (0, 200), bottom_right = (200, 400))
+# </localize>
+
+# User:
+# The current screen's x-axis range is 0 to 200, and the y-axis range is 200 to 400.
+# [Screenshot Figure]
+
+# Asistant:
+# let's check another area of the screen.
+# <localize>
+# localization_area(top_left = (400, 700), bottom_right = (500, 800))
+# </localize>
+
+# User:
+# The current screen's x-axis range is 400 to 500, and the y-axis range is 700 to 800.
+# [Screenshot Figure]
+
+# Asistant:
+# Let's check the specific location of coordinates (430, 710).
+# <localize>
+# localization_point(430,710)
+# </localize>
+
+# User:
+# The current screen's x-axis range is 400 to 500, and the y-axis range is 700 to 800.
+# The red dot is located at (430, 710).
+# [Screenshot Figure]
+
+# Assistant:
+# Let's check another specific location at coordinates (450, 750).
+# <localize>
+# localization_point(450, 750)
+# </localize>
+
+# User:
+# The current screen's x-axis range is 400 to 500, and the y-axis range is 700 to 800.
+# The red dot is located at (450, 750).
+# [Screenshot Figure]
+
+# Assistant:
+# We have found the coordinates of the vscode icon.
+# <localize>
+# localization_done(450, 750)
+# </localize>
+
+# Now, let's work on the real task:
+# I want to click on {item_to_click} ({Location}) with the mouse. 
+# The current screen's x-axis range is {x_range[0]} to {x_range[1]} and the y-axis range is {y_range[0]} to {y_range[1]}.
+# Please help me determine its **EXACT** coordinates.
+# '''.strip()
 
 LOCALIZATION_INITIAL_PROMPT_VISUAL = '''I'm trying to perform a mouse click action, and I need your help to determine the exact coordinates of the content I need to click on.
 I will provide you with a screenshot of the screen. The coordinates are labeled along the edges of the screen.
 Here are some functions that you might find useful:
-1. If you need to zoom in on the screen for more precise coordinate identification, please use the following function:
-localization_area(top_left: tuple | None = None, bottom_right: tuple | None = None)
-This function is used to zoom in on the screen by specifying the top-left corner and the bottom_right of the zoomed-in area.
-Args:
-    top_left (tuple | None):
-        The top-left corner of the screenshot region as a tuple of (x, y) coordinates.
-        If None, the screenshot will cover the entire screen. Defaults to None.
-    bottom_right (tuple | None):
-        The bottom-right corner of the screenshot region as a tuple of (x, y) coordinates.
-        If None, the screenshot will cover the entire screen. Defaults to None.
-2. To check the exact screen position of a coordinate, you can use the following command:
+1. To check the exact screen position of a coordinate, you can use the following command:
 localization_point(x: int, y: int)
 I will draw a red dot on the screen at the specified coordinates.
 Args:
     x (int): The x-coordinate of the point to check.
     y (int): The y-coordinate of the point to check.
+2. If you need to move the red dot, you can use the following command:
+move(dx: int, dy: int)
+Args:
+    dx (int): The distance to move along the x-axis. Positive values move right, negative left.
+    dy (int): The distance to move along the y-axis. Positive values move down, negative up.
 3. If you think the coordinates are correct, you can use the following command to finish the localization:
 localization_done(x: int, y: int)
 Args:
@@ -57,44 +136,23 @@ User:
 I want to click on vscode icon with the mouse. Please help me determine its **EXACT** coordinates.
 
 Asistant:
-let's zoom in on the screen for more precise coordinate identification.
-<localize>
-localization_area(top_left = (0, 200), bottom_right = (200, 400))
-</localize>
-
-User:
-The current screen's x-axis range is 0 to 200, and the y-axis range is 200 to 400.
-[Screenshot Figure]
-
-Asistant:
-let's check another area of the screen.
-<localize>
-localization_area(top_left = (400, 700), bottom_right = (500, 800))
-</localize>
-
-User:
-The current screen's x-axis range is 400 to 500, and the y-axis range is 700 to 800.
-[Screenshot Figure]
-
-Asistant:
 Let's check the specific location of coordinates (430, 710).
 <localize>
 localization_point(430,710)
 </localize>
 
 User:
-The current screen's x-axis range is 400 to 500, and the y-axis range is 700 to 800.
 The red dot is located at (430, 710).
 [Screenshot Figure]
 
 Assistant:
-Let's check another specific location at coordinates (450, 750).
+Let's move the red dot to coordinates to the right by 20 pixels and down by 40 pixels.
 <localize>
-localization_point(450, 750)
+move(20, 40)
 </localize>
 
 User:
-The current screen's x-axis range is 400 to 500, and the y-axis range is 700 to 800.
+The current screen's x-axis range is 0 to 1920, and the y-axis range is 0 to 1080.
 The red dot is located at (450, 750).
 [Screenshot Figure]
 
@@ -134,12 +192,10 @@ def localization_area(top_left: tuple | None = None,
     global CURRENT_WHOLE_IMAGE
     global CURRENT_IMAGE_RANGE
     
-    screenshot = CURRENT_WHOLE_IMAGE
-    
     if top_left is None:
         top_left = (0, 0)
     if bottom_right is None:
-        bottom_right = (screenshot.width, screenshot.height)
+        bottom_right = (CURRENT_WHOLE_IMAGE.width, CURRENT_WHOLE_IMAGE.height)
     
     # Validate the coordinates
     if bottom_right[0] <= top_left[0] or bottom_right[1] <= top_left[1]:
@@ -147,15 +203,61 @@ def localization_area(top_left: tuple | None = None,
         return None, None, None
     
     # Crop the screenshot to the specified region
-    screenshot = screenshot.crop((top_left[0], top_left[1], bottom_right[0], bottom_right[1]))
+    copy_img = CURRENT_WHOLE_IMAGE.copy()
+    cropped_img = copy_img.crop((top_left[0], top_left[1], bottom_right[0], bottom_right[1]))
     # Enhance the image clarity using the provided function
     scale_factor = (CURRENT_WHOLE_IMAGE.width // (bottom_right[0] - top_left[0])) * (CURRENT_WHOLE_IMAGE.height // (bottom_right[1] - top_left[1]))
     # enhanced_image = enhance_image_clarity(screenshot, scale_factor=scale_factor)
-    enhanced_image = enhance_image_clarity(screenshot, scale_factor=2) # zoom twice for now
+    enhanced_image = enhance_image_clarity(cropped_img, scale_factor=2) # zoom twice for now
     x_range = (top_left[0], bottom_right[0])
     y_range = (top_left[1], bottom_right[1])
     CURRENT_IMAGE_RANGE = (x_range, y_range)
     return enhanced_image, x_range, y_range
+
+def move(dx: int, dy: int) -> Tuple[Image.Image, tuple, tuple, tuple]:
+    """
+    Moves the current red dot by (dx, dy) relative to its current position.
+    
+    Args:
+        dx (int): The distance to move along the x-axis. Positive values move right, negative left.
+        dy (int): The distance to move along the y-axis. Positive values move down, negative up.
+        
+    Returns:
+        A tuple containing:
+          - The updated image with the red dot at the new location.
+          - The x_range as a tuple (0, image_width).
+          - The y_range as a tuple (0, image_height).
+          - The new (x, y) position of the red dot.
+        If the movement would place the red dot outside the image boundaries or if no current red dot is set,
+        prints an error message and returns (None, None, None, None).
+    """
+    global CURRENT_WHOLE_IMAGE, CURRENT_RED_POINT
+
+    if 'CURRENT_RED_POINT' not in globals() or CURRENT_RED_POINT is None:
+        print("No current red dot set. Please set a red dot using localization_point first.")
+        return None, None, None, None
+
+    current_x, current_y = CURRENT_RED_POINT
+    new_x = current_x + dx
+    new_y = current_y + dy
+
+    if new_x < 0 or new_x >= CURRENT_WHOLE_IMAGE.width or new_y < 0 or new_y >= CURRENT_WHOLE_IMAGE.height:
+        return None, None, None, "Movement leads to invalid coordinates: new position is out of image dimensions."
+
+    x_range = [0, CURRENT_WHOLE_IMAGE.width]
+    y_range = [0, CURRENT_WHOLE_IMAGE.height]
+    
+    copy_img = CURRENT_WHOLE_IMAGE.copy()
+    draw = ImageDraw.Draw(copy_img)
+    
+    dot_radius = 10
+    dot_color = (255, 0, 0)
+    
+    draw.ellipse((new_x - dot_radius, new_y - dot_radius, new_x + dot_radius, new_y + dot_radius), fill=dot_color)
+
+    CURRENT_RED_POINT = (new_x, new_y)
+    
+    return copy_img, x_range, y_range, (new_x, new_y)
 
 def localization_point(x: int, y: int)-> Tuple[Image.Image, tuple, tuple, tuple]:
     """
@@ -169,29 +271,21 @@ def localization_point(x: int, y: int)-> Tuple[Image.Image, tuple, tuple, tuple]
         None
     """
     global CURRENT_WHOLE_IMAGE
-    global CURRENT_IMAGE_RANGE
+    global CURRENT_RED_POINT
     
-    screenshot = CURRENT_WHOLE_IMAGE
     if x < 0 or x >= CURRENT_WHOLE_IMAGE.width or y < 0 or y >= CURRENT_WHOLE_IMAGE.height:
-        print("Invalid coordinates: x and y must be within the image dimensions.")
-        return None, None, None, None
+        return None, None, None, "Invalid coordinates: x and y must be within the image dimensions."
     
     # Draw a red dot on the image at the specified coordinates
-    x_range = CURRENT_IMAGE_RANGE[0]
-    y_range = CURRENT_IMAGE_RANGE[1]
+    CURRENT_RED_POINT = (x, y)
+    x_range = [0,CURRENT_WHOLE_IMAGE.width]
+    y_range = [0,CURRENT_WHOLE_IMAGE.height]
     copy_img = CURRENT_WHOLE_IMAGE.copy()
     draw = ImageDraw.Draw(copy_img)
-    dot_radius = max(5, int(min(x_range[1] - x_range[0], y_range[1] - y_range[0]) * 0.02))
+    dot_radius = 10
     dot_color = (255, 0, 0)
     draw.ellipse((x - dot_radius, y - dot_radius, x + dot_radius, y + dot_radius), fill=dot_color)
-    if x < x_range[0] or x > x_range[1] or y < y_range[0] or y > y_range[1]: # Use full screenshot
-        return screenshot, x_range, y_range, (x, y)
-    else: # Use cropped image
-        screenshot = screenshot.crop((x_range[0], y_range[0], x_range[1], y_range[1]))
-        scale_factor = (CURRENT_WHOLE_IMAGE.width // (x_range[1] - x_range[0])) * (CURRENT_WHOLE_IMAGE.height // (y_range[1] - y_range[0]))
-        # enhanced_image = enhance_image_clarity(screenshot, scale_factor=scale_factor)   
-        enhanced_image = enhance_image_clarity(screenshot, scale_factor=2) # zoom twice for now
-        return enhanced_image, x_range, y_range, (x, y)
+    return copy_img, x_range, y_range, (x, y)
 
 def localization_done(x: int, y: int) -> tuple:
     """
@@ -488,6 +582,17 @@ async def image_description_to_coordinate(agent: Agent, icon: str, desc: str,
             )
         elif 'localization_point' in action:
             enhanced_image, x_range, y_range, coordination = dispatch(fname, args, kwargs)
+            if enhanced_image is None:
+                text = coordination
+            text = (
+                f"The current screen's x-axis range is {x_range[0]} to {x_range[1]},\n"
+                f"and the y-axis range is {y_range[0]} to {y_range[1]}.\n"
+                f"The red dot is located at ({coordination[0]}, {coordination[1]})."
+            )
+        elif 'move' in action:
+            enhanced_image, x_range, y_range, coordination = dispatch(fname, args, kwargs)
+            if enhanced_image is None:
+                text = coordination
             text = (
                 f"The current screen's x-axis range is {x_range[0]} to {x_range[1]},\n"
                 f"and the y-axis range is {y_range[0]} to {y_range[1]}.\n"

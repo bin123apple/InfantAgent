@@ -1,3 +1,11 @@
+IMPORTS = '''import sys
+from computer_use.computeruse import *
+from file_editor.fileeditor import *
+from file_searcher.filesearcher import *
+from file_reader.filereader import *
+from web_browser.browser import *
+from advanced_tools.advancedtools import *'''
+
 tool_sys_msg = '''
 Please collaborate with me to fulfill a request. For each step, provide the necessary command to execute, and I will return the results.
 
@@ -345,9 +353,10 @@ You can use the following functions to interact with the browser.
 - open_browser(): Open the browser.
 - navigate_to(url: str) : Navigate to the specified URL.
 - refresh_page(): Refresh the current page.
+- get_page_html(): get the HTML code of the current page.
 - go_back(): Go back to the previous page.
 - go_forward(): Go forward to the next page.
-- clear_text(): Clear the text in the current input field.
+- clear_text(): Clear the text in the current input field. please make sure the input field is selected before using this command.
 - mouse_scroll(direction: str, amount: int)): Simulates a mouse scroll up or down. direction (str): The direction to scroll ("up" or "down"). amount (int): The number of scroll steps to take.
 - close_current_tab(): Close the current tab.
 - execute_javascript(script: str): Execute the specified JavaScript code.
@@ -360,6 +369,7 @@ You can use the following functions to interact with the browser.
 - mouse_double_click(item: str, description: str): Double-click at the specified position. For example: mouse_double_click('The VSCode icon', 'It is located in the sidebar (Launcher) on the left side of the screen. It is the first icon from the top in the vertical arrangement. The icon has a blue background with a white folded "V"-shaped design in the center. The sidebar is aligned along the leftmost edge of the screen, adjacent to the desktop background on its right side.')
 - mouse_right_click(item: str, description: str): Right mouse click at the specified position. For example: mouse_right_click('The refresh button', 'It is located at the top-left corner of the Google Chrome browser window, inside the address bar. It is a circular arrow icon situated next to the left and right navigation arrows (back and forward buttons). The refresh button is just to the left of the search bar. Click it to refresh the current page.')
 - type_text(text: str): Type the given text. text: The text to type.
+- google_search(content: str): Perform a Google search for the specified content. content: The content to search for.
 - press_key(key: str): Presses the specified key. key: The key or key combination to press (e.g., "Return", "Ctrl+c").
 - mouse_drag(x_start: int, y_start: int, x_end: int, y_end: int): Drag the mouse from one position to another. x_start: Starting x-coordinate. y_start: Starting y-coordinate. x_end: Ending x-coordinate. y_end: Ending y-coordinate.
 - mouse_box_select(x_start: int, y_start: int, x_end: int, y_end: int): Selects a box by dragging the mouse from one position to another. x_start: Starting x-coordinate. y_start: Starting y-coordinate. x_end: Ending x-coordinate. y_end: Ending y-coordinate.
@@ -467,6 +477,22 @@ Assistant:
 The task is complete. You can now view the Wikipedia page for "Artificial Intelligence regulation".
 
 <task_finish>exit</task_finish>
+
+USER:
+Search for today's news on Google.
+
+Assistant:
+Sure! Let me search for today's news on Google:
+<execute_ipython>
+google_search("today's news")
+</execute_ipython>
+
+USER:
+[Screenshot of the search results displayed.]
+
+Assistant:
+The task is complete. You can now view today's news on Google.
+<task_finish>exit</task_finish>
 '''
 
 tool_web_browse_note = '''**NOTE:**
@@ -558,6 +584,7 @@ You can use the following functions to perform advanced operations.
 - search_arxiv(keyword: str, start_date: str, end_date: str, subject: str, field: str) : Searches for papers on arXiv based on the given keyword, date range, subject (options: cs, math, physics, q-bio, q-fin, stat), and keyword field (options: title, abstract, comments, author, all). Returns the search results.
 - download_arxiv_pdf(arxiv_id: str) : Downloads the specified arXiv paper based on its ID (eg: 1608.06816) and show the first page of the PDF.
 - parse_pdf(pdf_path: str, page: int): View the specified page of a PDF file.
+- scroll_pdf_page(direction: str, page: int): Scrolls the specified page of a PDF file up or down. direction: Direction to scroll ("up" or "down"). page: Page number to scroll.
 '''
 
 tool_advanced_one_shot = '''
@@ -606,6 +633,23 @@ OBSERVATION:
 
 Assistant:
 The paper with ID 12345678 has been downloaded successfully. The task is complete.
+<task_finish>exit</task_finish>
+
+USER:
+Please check the content of the 10th page of the arxiv paper.
+
+Assistant:
+Sure! Let's scroll the PDF to the 10th page by scrolling down 9 pages:
+<execute_ipython>
+scroll_pdf_page(direction = "down", pages = 9)
+</execute_ipython>
+
+USER:
+[PDF: 12345678, Page 10]
+[PDF content displayed.]
+
+Assistant:
+The content of the 10th page of the arxiv paper has been displayed successfully. The task is complete.
 <task_finish>exit</task_finish>
 '''
 

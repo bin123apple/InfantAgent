@@ -11,6 +11,7 @@ import os
 import re
 import time
 import uuid
+import subprocess
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional, TypedDict
 
@@ -36,7 +37,7 @@ from infant.tools.web_browser.views import DOMElementNode, SelectorMap
 from infant.tools.web_browser.util import time_execution_async, time_execution_sync
 
 if TYPE_CHECKING:
-	from infant.tools.web_browser.browser import Browser
+	from infant.tools.web_browser.browser import Browser, BrowserConfig
 
 logger = logging.getLogger(__name__)
 
@@ -1605,3 +1606,11 @@ class BrowserContext:
 		amount = f'{pixel} pixels' if pixel is not None else 'one page'
 		msg = f'🔍  Scrolled down the page by {amount}'
 		print(msg)
+
+	async def google_search(self, content: str):
+
+		query = content.replace(" ", "+")
+		url = f"https://www.google.com/search?q={query}"
+
+		await self.navigate_to(url)
+		await asyncio.sleep(2) # wait for the page to load

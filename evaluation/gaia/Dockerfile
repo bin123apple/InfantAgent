@@ -213,7 +213,7 @@ RUN rm -f Miniforge3.sh
 # - agentskills dependencies
 RUN /infant/miniforge3/bin/pip install --upgrade pip
 RUN /infant/miniforge3/bin/pip install jupyterlab notebook jupyter_kernel_gateway flake8 Pillow
-RUN /infant/miniforge3/bin/pip install python-docx PyPDF2 python-pptx pylatexenc openai
+RUN /infant/miniforge3/bin/pip install python-docx PyPDF2 python-pptx pylatexenc openai openpyxl
 RUN /infant/miniforge3/bin/pip install python-dotenv toml termcolor pydantic python-docx pyyaml docker pexpect tenacity e2b browsergym minio
 
 # Build

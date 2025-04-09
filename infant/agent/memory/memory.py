@@ -33,7 +33,7 @@ class CmdRun(Memory):
             ret += f'THOUGHT: {self.thought}\n'
         ret += f'COMMAND:\n{self.command}'
         if self.result:
-            ret = f'EXECUTION RESULT:\n{self.result}'
+            ret += f'\nEXECUTION RESULT:\n{self.result}'
         return ret
   
 @dataclass
@@ -67,7 +67,7 @@ class IPythonRun(Memory):
             ret += f'THOUGHT: {self.thought}\n'
         ret += f'command:\n{self.code}'
         if self.result:
-            ret = f'EXECUTION RESULT:\n{self.result}'
+            ret += f'\nEXECUTION RESULT:\n{self.result}'
         return ret
 
 @dataclass
@@ -102,7 +102,7 @@ class BrowseInteractive(Memory):
             ret += f'THOUGHT: {self.thought}\n'
         ret += f'BROWSER_ACTIONS: {self.browser_actions}'
         if self.result:
-            ret = f'EXECUTION RESULT:\n{self.result}'
+            ret += f'\nEXECUTION RESULT:\n{self.result}'
         return ret
     
 @dataclass
@@ -126,7 +126,7 @@ class FileRead(Memory):
             ret += f'THOUGHT: {self.thought}\n'
         ret += f'Reading file: {self.path}. Lines: {self.start}-{self.end}.'
         if self.result:
-            ret = f'EXECUTION RESULT:\n{self.result}'
+            ret += f'\nEXECUTION RESULT:\n{self.result}'
         return ret
 
 @dataclass
@@ -146,7 +146,7 @@ class FileWrite(Memory):
             ret += f'THOUGHT: {self.thought}\n'
         ret += f'Modifying file: {self.path}. The new content: {self.content} will be written into lines {self.start}-{self.end}.'
         if self.result:
-            ret = f'EXECUTION RESULT:\n{self.result}'
+            ret += f'\nEXECUTION RESULT:\n{self.result}'
         return ret
     
 

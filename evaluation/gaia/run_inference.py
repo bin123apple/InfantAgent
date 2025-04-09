@@ -23,15 +23,7 @@ from infant.agent.memory.memory import Userrequest, Finish, IPythonRun
 from infant.util.logger import infant_logger as logger
 from infant.util.save_dataset import save_to_dataset
 from infant.util.logger import reset_logger_for_multiprocessing, LOG_DIR
-# from my_agent import inference 
-
-# IMPORTS = '''import sys
-# from computer_use.computeruse import *
-# from file_editor.fileeditor import *
-# from file_searcher.filesearcher import *
-# from file_reader.filereader import *
-# from web_browser.browser import *
-# from advanced_tools.advancedtools import *'''
+from infant.prompt.tools_prompt import IMPORTS
 
 def extract_metadata(filename):
     records = []
@@ -103,8 +95,8 @@ async def initialize_docker_agent(instance: dict, config=config)-> Agent:
     agent = Agent(agent_parameter, api_llm, oss_llm, computer)
     logger.info(f'Agent initialized successfully.')
     
-    # import_memory = IPythonRun(code = IMPORTS)
-    # await computer.run_ipython(import_memory)
+    import_memory = IPythonRun(code = IMPORTS)
+    await computer.run_ipython(import_memory)
     
     import_memory = IPythonRun(code = "press_key('Escape')")
     await computer.run_ipython(import_memory)
@@ -179,7 +171,10 @@ async def run_single_instance(instance: dict, logger):
     user_request = (
         f"I have attached the {ext} file: {file_name} in /workspace.\n{problem_statement}"
         if whether_attach_file else
-        f"{problem_statement}"
+        f"{problem_statement}\n"
+        "NOTE: If you want to search something online, please and the browser and use the command 'google_search' first. "
+        "If you still can not find the answer, you can navigate to the corresponding website and "
+        "try to find more details. "
     )
     logger.info(f"User request: {user_request}")
     # Run the agent
@@ -215,7 +210,7 @@ async def main(predictions_file: str = "predictions.jsonl"):
     dataset_path = "gaia_dataset/2023/validation/metadata_test.jsonl"
     dataset = extract_metadata(dataset_path)
     
-    with concurrent.futures.ProcessPoolExecutor(max_workers=2) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor:
         future_to_instance = {executor.submit(process_instance, instance): instance for instance in dataset}
         for future in concurrent.futures.as_completed(future_to_instance):
             instance = future_to_instance[future]
