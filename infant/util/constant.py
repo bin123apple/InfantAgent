@@ -1,0 +1,1 @@
+MOUNT_PATH = 'tests'

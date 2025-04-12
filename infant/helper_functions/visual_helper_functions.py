@@ -526,6 +526,16 @@ def replace_icon_desc_with_coordinates(command, x, y):
 
     return modified_command
 
+def image_to_base64(image_path: str) -> str:
+    if not os.path.exists(image_path):
+        raise FileNotFoundError(f"File not found: {image_path}")
+    with open(image_path, "rb") as img_file:
+        base64_data = base64.b64encode(img_file.read()).decode("utf-8")
+        print(f"Base64 encoded data for {image_path}: {base64_data[:30]}...")  # Print first 30 chars for debugging
+
+    image_url = f"data:image/png;base64,{base64_data}"
+    return image_url
+
 async def image_description_to_coordinate(agent: Agent, icon: str, desc: str, 
                                           image: Image.Image, x_range: tuple, y_range: tuple):
     """
@@ -535,6 +545,32 @@ async def image_description_to_coordinate(agent: Agent, icon: str, desc: str,
     global CURRENT_WHOLE_IMAGE
     CURRENT_WHOLE_IMAGE = image
     computer = agent.computer
+    if not agent.oss_llm is None:
+        byte_image = save_image_and_convert_to_byte(computer.workspace_mount_path, image) 
+        base64_image = encode_image(byte_image)
+        text = (
+            'Your task is to help the user identify the precise coordinates (x, y) of a specific area/element/object on the screen based on a description.\n'
+            '- Your response should aim to point to the center or a representative point within the described area/element/object as accurately as possible.\n'
+            '- If the description is unclear or ambiguous, infer the most relevant area or element based on its likely context or purpose.\n'
+            '- Your answer should be a single string (x, y) corresponding to the point of the interest.\n'
+            'Description: {description}\n'
+            'Answer:'
+        )
+        messages = [
+            {"role": "user", "content": [
+                {"type": "text", 
+                "text": text.format(description=f"I want to click the {icon}. {desc}")},
+                {"type": "image_url", 
+                "image_url": {"url": f"data:image/png;base64,{base64_image}"},
+                "detail": "high"}
+            ]}
+        ]
+        result = agent.oss_llm.completion(messages)[0] # No vote for now
+        coordination = ast.literal_eval(result.strip())
+        # save the image with the red dot
+        copy_img, x_range, y_range, (x, y) = localization_point(coordination[0], coordination[1])
+        save_image_and_convert_to_byte(computer.workspace_mount_path, copy_img)
+        return coordination
     byte_image = save_image_and_convert_to_byte(computer.workspace_mount_path, image) 
     base64_image = encode_image(byte_image)
     messages = []
@@ -562,7 +598,7 @@ async def image_description_to_coordinate(agent: Agent, icon: str, desc: str,
             return (0, 0)
         
         try:
-            response, _ = agent.llm.completion(messages=messages, stop=['</localize>'])
+            response = agent.llm.completion(messages=messages, stop=['</localize>'])
             logger.info(f"Response in image_description_to_coordinate: {response}")
             messages.append({
                 "role": "assistant",

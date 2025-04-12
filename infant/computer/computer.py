@@ -11,17 +11,19 @@ import tarfile
 import tempfile
 import asyncio
 import requests
+import traceback
 import subprocess
 from glob import glob
 from pexpect import pxssh
 from typing import Optional, Dict, Any
-from infant.tools.requirement import PluginRequirement
 from tenacity import retry, stop_after_attempt, wait_fixed
 from infant.util.exceptions import ComputerInvalidBackgroundCommandError
 from infant.util.logger import infant_logger as logger
 from infant.config import ComputerParams
 from infant.prompt.tools_prompt import tool_trace_code, tool_filter_bash_code
 from infant.agent.memory.memory import IPythonRun, CmdRun
+from infant.helper_functions.audio_helper_function import parse_audio # for exec()
+from infant.helper_functions.video_helper_function import parse_video, watch_video # for exec()
 
 # auto login to the nomachine
 from selenium import webdriver
@@ -246,51 +248,6 @@ class Computer:
         self._source_bashrc()
 
         self.plugin_initialized = True
-
-    # def init_plugins(self, requirements: list[PluginRequirement]):
-    #     """Load a plugin into the computer."""
-
-    #     if hasattr(self, 'plugin_initialized') and self.plugin_initialized:
-    #         return
-
-    #     if self.initialize_plugins:
-    #         logger.info('Initializing plugins in the computer')
-
-    #         # clean-up ~/.bashrc and touch ~/.bashrc
-    #         exit_code, output = self.execute('rm -f ~/.bashrc && touch ~/.bashrc')
-    #         # print(f'requirements: {requirements}')
-    #         for requirement in requirements:
-    #             # source bashrc file when plugin loads
-    #             self._source_bashrc()
-
-    #             # copy over the files
-    #             self.copy_to(
-    #                 requirement.host_src, requirement.computer_dest, recursive=True
-    #             )
-    #             logger.info(
-    #                 f'Copied files from [{requirement.host_src}] to [{requirement.computer_dest}] inside computer.'
-    #             )
-
-    #             # Execute the bash script
-    #             abs_path_to_bash_script = os.path.join(
-    #                 requirement.computer_dest, requirement.bash_script_path
-    #             )
-    #             logger.info(
-    #                 f'Initializing plugin [{requirement.name}] by executing [{abs_path_to_bash_script}] in the computer.'
-    #             )
-    #             exit_code, output = self.execute(abs_path_to_bash_script, stream=True)
-    #             if exit_code != 0:
-    #                 raise RuntimeError(
-    #                     f'Failed to initialize plugin {requirement.name} with exit code {exit_code} and output: {output}'
-    #                 )
-    #             logger.info(f'Plugin {requirement.name} initialized successfully.')
-    #     else:
-    #         logger.info('Skipping plugin initialization in the computer')
-
-    #     if len(requirements) > 0:
-    #         self._source_bashrc()
-
-    #     self.plugin_initialized = True
 
     def add_to_env(self, key: str, value: str):
         self._env[key] = value
@@ -1085,7 +1042,15 @@ class Computer:
         return self._run_immediately(command)
     
     async def run_ipython(self, memory: IPythonRun) -> str:
-                
+        
+        # run these commands locally
+        for func_name in ['parse_audio', 'parse_video', 'watch_video']:
+            local_vars = {}
+            if func_name in memory.code:
+                code = memory.code.replace(func_name, f'result = {func_name}')
+                exec(code, globals(), local_vars)
+                return str(local_vars['result'])       
+        
         # The real output from the code.
         obs = self._run_command(
             ("cat > /tmp/infant_jupyter_temp.py <<'EOL'\n" f'{memory.code}\n' 'EOL'),

@@ -24,6 +24,7 @@ from infant.util.logger import infant_logger as logger
 from infant.util.save_dataset import save_to_dataset
 from infant.util.logger import reset_logger_for_multiprocessing, LOG_DIR
 from infant.prompt.tools_prompt import IMPORTS
+import infant.util.constant as constant
 
 def extract_metadata(filename):
     records = []
@@ -42,6 +43,7 @@ def extract_metadata(filename):
     return records
 
 async def initialize_docker_agent(instance: dict, config=config)-> Agent:
+    global MOUNT_PATH
     # Initialize the API Based LLM
     litellm_parameter = config.get_litellm_params()
     litellm_parameter.gift_key = False
@@ -60,6 +62,7 @@ async def initialize_docker_agent(instance: dict, config=config)-> Agent:
     computer_parameter.computer_container_image = 'gaia_base_image'
     computer_parameter.instance_id = instance['task_id']
     computer_parameter.workspace_mount_path = os.path.join(os.getcwd(), "gaia_workspace", instance['task_id'])
+    constant.MOUNT_PATH = computer_parameter.workspace_mount_path
     
     # Use find_available_tcp_port() to find available ports
     computer_parameter.gui_port = None
@@ -145,7 +148,7 @@ async def run_single_step(agent: Agent, user_request_text: str):
             await special_case_task
         except asyncio.CancelledError:
             logger.info("Special case task has been cancelled")
-    
+
     finish_memory: Finish = agent.state.memory_list[-1]
     answer = finish_memory.thought
     return answer
@@ -156,7 +159,7 @@ async def run_single_instance(instance: dict, logger):
     # time.sleep(1000000000)
     task_id: str = instance.get("task_id", "unknown")
     logger.info(f"Running instance: {task_id}")
-    
+
     # prepare the user request text/files
     whether_attach_file = False
     problem_statement: str = instance.get("Question", "unknown")
@@ -167,7 +170,7 @@ async def run_single_instance(instance: dict, logger):
         dest_path = os.path.join(agent.computer.workspace_mount_path, file_name)
         shutil.copy(file_path, dest_path)
         _, ext = os.path.splitext(file_path)
-        
+
     user_request = (
         f"I have attached the {ext} file: {file_name} in /workspace.\n{problem_statement}"
         if whether_attach_file else
@@ -180,7 +183,7 @@ async def run_single_instance(instance: dict, logger):
     # Run the agent
     raw_answer = await run_single_step(agent, user_request)
     logger.info(f"Raw answer: {raw_answer}")
-    
+
     format_answer_instructions = "Please summarize your answer with the following template: FINAL ANSWER: [YOUR FINAL ANSWER]. YOUR FINAL ANSWER should be a number OR as few words as possible OR a comma separated list of numbers and/or strings. If you are asked for a number, don't use comma to write your number neither use units such as $ or percent sign unless specified otherwise. If you are asked for a string, don't use articles, neither abbreviations (e.g. for cities), and write the digits in plain text unless specified otherwise. If you are asked for a comma separated list, apply the above rules depending of whether the element to be put in the list is a number or a string."
     logger.info(f"Formatting answer with instructions: {format_answer_instructions}")
     formatted_answer = await run_single_step(agent, format_answer_instructions)
@@ -190,8 +193,8 @@ async def run_single_instance(instance: dict, logger):
 
 def cleanup_docker(instance: dict):
     instance_id = instance.get("task_id", "unknown")
-    new_instance_image: str = f"{instance_id}-gnome"
-    get_containers_cmd = f"docker ps -aq --filter ancestor={new_instance_image}"
+    container_name_filter = f"{instance_id}"
+    get_containers_cmd = f"docker ps -aq --filter 'name={container_name_filter}'"
     containers = subprocess.getoutput(get_containers_cmd).strip().split("\n")
 
     # delete the containers
@@ -205,12 +208,12 @@ def cleanup_docker(instance: dict):
     if os.path.exists(workspace_folder):
         shutil.rmtree(workspace_folder, ignore_errors=True)
         print(f"🗑️ Deleted folder: {workspace_folder}")
-        
+
 async def main(predictions_file: str = "predictions.jsonl"):
     dataset_path = "gaia_dataset/2023/validation/metadata_test.jsonl"
     dataset = extract_metadata(dataset_path)
     
-    with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=8) as executor:
         future_to_instance = {executor.submit(process_instance, instance): instance for instance in dataset}
         for future in concurrent.futures.as_completed(future_to_instance):
             instance = future_to_instance[future]

@@ -2,15 +2,19 @@ from __future__ import annotations
 
 import re
 import ast
+import json
 import base64
+from bs4 import BeautifulSoup
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from infant.agent.agent import Agent
+from urllib.parse import urlparse, urljoin
 from infant.computer.computer import Computer
 from infant.agent.memory.memory import Memory, IPythonRun
 from infant.util.debug import print_messages
 from infant.util.logger import infant_logger as logger
 from infant.prompt.tools_prompt import tool_web_browse
+from infant.agent.memory.restore_memory import truncate_output
 
 
 GET_STATE_CODE = """state = await context.get_state()
@@ -48,7 +52,7 @@ LOCALIZATION_SYSTEM_PROMPT_JS = '''I want to click on {item_to_click} with the m
 Please help me generate the javascript code to click on the element.
 I will provide you with:
 1. A screenshot of my computer screen.
-2. HTML code of the current page.
+2. Hyperlinks on the current page of the current page.
 '''
 
 LOCALIZATION_USER_INITIAL_PROMPT_BROWSER = '''I want to click on {item_to_click} with. {description} 
@@ -69,7 +73,7 @@ You should put your final answer in <index>...</index> tag. For example, your ca
 LOCALIZATION_USER_INITIAL_PROMPT_JS = '''I want to click on {item_to_click} with. {description} 
 Please help me generate the javascript code to click on the element. 
 If you believe the information I've provided is insufficient to generate a JavaScript code to click on the element, please return None.
-I have provided you with the current screenshot and the HTML code of the page is shown below:
+I have provided you with the current screenshot and the hyperlinks on the current page is shown below:
 {html_code}
 You should put your final answer in this format:
 <execute_js>YOUR_JAVASCRIPT_CODE</execute_js>
@@ -420,12 +424,15 @@ async def localization_browser(agent: Agent, memory: Memory, interactive_element
                     finish_switch = True
                     return memory, finish_switch, interactive_elements
                 else:
+                    # logger.info("Element Index is not a valid int. Trying to use visual ability")
+                    # FIXME: polish this javascript code
                     logger.info("Element Index is not a valid int. Trying to use js code")
                     # try to use execute the javascript to simulate the click
                     js_code = await image_description_to_executable_js(agent, computer, icon, 
                                                                              desc, browser_state)
+                    js_code = json.dumps(js_code)
                     if js_code is not None:
-                        memory.code = f'execute_javascript({repr(js_code)})'
+                        memory.code = f'execute_javascript({js_code})'
                         logger.info(f"javascript code to execute: {js_code}")
                         logger.info(f"=========End Browser localization=========")
                         finish_switch = True
@@ -443,17 +450,42 @@ async def image_description_to_executable_js(agent: Agent, computer: Computer,
     # logger.info(f"Browser State: {parsed_browser_state}")
     # Initialize the localization memory block
     base64_image = parsed_browser_state.get('screenshot', None)
+    if base64_image is None:
+        logger.info(f'parsed_browser_state:\n{parsed_browser_state}')
     base64_image = base64_image.strip('\'"')
     get_html_action = IPythonRun(code='await context.get_page_html()')
     html_code = await computer.run_ipython(memory=get_html_action)
     def extract_html(html_code):
-        match = re.search(r"<html[\s\S]*?</html>", html_code, re.IGNORECASE)
-        return match.group(0) if match else None
+        html_match = re.search(r'<html.*', html_code, re.DOTALL | re.IGNORECASE)
+        if not html_match:
+            return []
+        html_content = html_match.group(0)
+        return html_content
+    def extract_links_with_text(html_content, base_url):
+        soup = BeautifulSoup(html_content, 'html.parser')
+        links = []
+        for a_tag in soup.find_all('a', href=True):
+            if base_url:
+                full_url = urljoin(base_url, a_tag['href'])
+            else:
+                full_url = a_tag['href']
+            link_text = a_tag.get_text(strip=True)
+            links.append((link_text, full_url))
+        return links
+    def extract_base_url_from_html(html_content):
+        soup = BeautifulSoup(html_content, 'html.parser')
+        base_tag = soup.find('base', href=True)
+        if base_tag:
+            return base_tag['href']
+        return None
     html_code = extract_html(html_code)
-    
+    base_url = extract_base_url_from_html(html_code)
+    links = extract_links_with_text(html_code, base_url)
+    html_links = '\n'.join(f"{text} -> {url}" for text, url in links)
+    logger.info(f"HTML Links: {html_links}")
     messages = []
     messages.append({'role': 'system', 
-                     'content': LOCALIZATION_SYSTEM_PROMPT_BROWSER.format(item_to_click=icon, 
+                     'content': LOCALIZATION_SYSTEM_PROMPT_JS.format(item_to_click=icon, 
                                                                           description=desc)})
     messages.append({
         "role": "user",
@@ -462,7 +494,7 @@ async def image_description_to_executable_js(agent: Agent, computer: Computer,
                 "type": "text",
                 "text": LOCALIZATION_USER_INITIAL_PROMPT_JS.format(item_to_click=icon, 
                                                                    description=desc, 
-                                                                   html_code=html_code)
+                                                                   html_code=html_links)
             },
             {
                 "type": "image_url",
@@ -504,7 +536,6 @@ async def image_description_to_element_index(agent: Agent, computer: Computer,
     pixels_above = parsed_browser_state.get('pixels_above', 0)
     pixels_below = parsed_browser_state.get('pixels_below', 0)
     sorted_selector_map = get_sorted_selector_map(selector_map_dict)
-    
     
     messages = []
     messages.append({'role': 'system', 'content': LOCALIZATION_SYSTEM_PROMPT_BROWSER.format(item_to_click=icon, description=desc)})

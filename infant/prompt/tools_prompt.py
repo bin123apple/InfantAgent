@@ -34,15 +34,17 @@ You can use any Bash commands.
 Please put the Bash commands you think need to be executed within <execute_bash>...</execute_bash> tags.
 '''
 
-tool_file_view = '''
-You can use the following file viewing functions to view the content of files.
+tool_file_understand = '''
+You can use the following functions to understand the content of files. Such as reading files, view images, listen to audios, watch videos, etc.
 - open_file(path: str, line_number: int | None = 1, context_lines: int = 100): Opens a file and optionally moves to a specific line. path: Path to the file. line_number: Line number to move to. context_lines: Number of lines to display.
 - parse_pdf(pdf_path: str, page: int): View the specified page of a PDF file. pdf_path: Path to the PDF file. page: Page number to view.
+- parse_figure(figure_path: str): View the specified figure. figure_path: Path to the figure file.
+- parse_audio(audio_path: str, question: str): Ask a question about the audio file. audio_path: Path to the audio file. question: Question to ask.
 - zoom_pdf(pdf_path: str, page: int, region: tuple): Zoom in on a specific region of a PDF file. pdf_path: Path to the PDF file. page: Page number to view. region: Tuple specifying the region to zoom in on (x0, y0, x1, y1).
 Please put the file viewing commands you think need to be executed within <execute_ipython>...</execute_ipython> tags.
 '''
 
-tool_file_view_one_shot = '''
+tool_file_understand_one_shot = '''
 Here is an example:
 USER:
 Please open the file "example.txt" and
@@ -102,13 +104,28 @@ The current task is complete. If you have any further questions, feel free to as
 <task_finish>
 exit
 </task_finish>
+
+USER: 
+My friend from class sent me an audio recording of Professor Willowbrook giving out the recommended reading for the test, but my headphones are broken :(\n\nCould you please listen to the recording for me and tell me the page numbers I'm supposed to go over? I've attached a file called Homework.mp3 that has the recording. 
+
+ASSISTANT:
+Sure! Let me parse the audio file "Homework.mp3" and ask the question:
+<execute_ipython>
+parse_audio('Homework.mp3', question='please tell me the review page numbers recommended by Professor Willowbrook for the exam.')
+</execute_ipython>
+
+USER:
+[Answer from the audio file displayed.]
+
+ASSISTANT:
+<task_finish>
+exit
+</task_finish>
 '''
 
 
 tool_file_edit = '''
 You can use the following file editing functions to view, add, delete, search, and modify files.
-- open_file(path: str, line_number: int | None = 1, context_lines: int = 100): Opens a file and optionally moves to a specific line.
-- parse_pdf(pdf_path: str, page: int): View the specified page of a PDF file.
 - create_file(filename): Creates and opens a new file with the given name.
 - search_dir(search_term, dir_path='./'): Searches for a term in all files in the specified directory.
 - find_file(file_name, dir_path='./'): Finds all files with the given name in the specified directory.
@@ -357,7 +374,6 @@ You can use the following functions to interact with the browser.
 - go_back(): Go back to the previous page.
 - go_forward(): Go forward to the next page.
 - clear_text(): Clear the text in the current input field. please make sure the input field is selected before using this command.
-- mouse_scroll(direction: str, amount: int)): Simulates a mouse scroll up or down. direction (str): The direction to scroll ("up" or "down"). amount (int): The number of scroll steps to take.
 - close_current_tab(): Close the current tab.
 - execute_javascript(script: str): Execute the specified JavaScript code.
 - switch_to_tab(page_id: int): Switch to the tab at the specified index.
@@ -365,14 +381,7 @@ You can use the following functions to interact with the browser.
 - save_cookies(): Save the current cookies.
 - download(url: str, save_dir: str): If you know the url of the file, you can use this command to download the file from the specified URL to the specified directory.
 - select_dropdown_option(selector_index: int, option: int): Select the specified option from the dropdown menu. selector_index: selector index. option: Index of the option to select.
-- mouse_left_click(item: str, description: str): Left mouse click at the specified position. For example: mouse_left_click('search bar', 'It is located near the top center of the Google Chrome browser window. It is a long, rectangular input field with rounded edges. The search bar spans almost the entire width of the browser window and sits directly below the browser's tab row. It has placeholder text that reads "Search Google or type a URL." The search bar is centrally aligned, making it easy to spot above the main content area of the browser.')
-- mouse_double_click(item: str, description: str): Double-click at the specified position. For example: mouse_double_click('The VSCode icon', 'It is located in the sidebar (Launcher) on the left side of the screen. It is the first icon from the top in the vertical arrangement. The icon has a blue background with a white folded "V"-shaped design in the center. The sidebar is aligned along the leftmost edge of the screen, adjacent to the desktop background on its right side.')
-- mouse_right_click(item: str, description: str): Right mouse click at the specified position. For example: mouse_right_click('The refresh button', 'It is located at the top-left corner of the Google Chrome browser window, inside the address bar. It is a circular arrow icon situated next to the left and right navigation arrows (back and forward buttons). The refresh button is just to the left of the search bar. Click it to refresh the current page.')
-- type_text(text: str): Type the given text. text: The text to type.
 - google_search(content: str): Perform a Google search for the specified content. content: The content to search for.
-- press_key(key: str): Presses the specified key. key: The key or key combination to press (e.g., "Return", "Ctrl+c").
-- mouse_drag(x_start: int, y_start: int, x_end: int, y_end: int): Drag the mouse from one position to another. x_start: Starting x-coordinate. y_start: Starting y-coordinate. x_end: Ending x-coordinate. y_end: Ending y-coordinate.
-- mouse_box_select(x_start: int, y_start: int, x_end: int, y_end: int): Selects a box by dragging the mouse from one position to another. x_start: Starting x-coordinate. y_start: Starting y-coordinate. x_end: Ending x-coordinate. y_end: Ending y-coordinate.
 - close(): Close the browser.
 '''
 
@@ -482,7 +491,16 @@ USER:
 Search for today's news on Google.
 
 Assistant:
-Sure! Let me search for today's news on Google:
+Sure! Let me open the Chrome browser.
+<execute_ipython>
+open_browser()
+</execute_ipython>
+
+USER:
+[Screenshot of the Chrome browser opened.]
+
+Assistant:
+Let me search for today's news on Google:
 <execute_ipython>
 google_search("today's news")
 </execute_ipython>
@@ -580,11 +598,11 @@ The task is complete. You can now view the picture for "kittens" at your local c
 '''
 
 tool_advanced = '''
-You can use the following functions to perform advanced operations.
+You can use the following functions to perform advanced operations. These commands are compound commands. When available, please prefer using these commands rather than attempting to perform the operations by yourself.
 - search_arxiv(keyword: str, start_date: str, end_date: str, subject: str, field: str) : Searches for papers on arXiv based on the given keyword, date range, subject (options: cs, math, physics, q-bio, q-fin, stat), and keyword field (options: title, abstract, comments, author, all). Returns the search results.
 - download_arxiv_pdf(arxiv_id: str) : Downloads the specified arXiv paper based on its ID (eg: 1608.06816) and show the first page of the PDF.
-- parse_pdf(pdf_path: str, page: int): View the specified page of a PDF file.
-- scroll_pdf_page(direction: str, page: int): Scrolls the specified page of a PDF file up or down. direction: Direction to scroll ("up" or "down"). page: Page number to scroll.
+- scroll_pdf_page(direction: str, pages: int): When you're viewing a PDF document in the web interface, you can use this command to scroll the specified page of the PDF file up or down. direction: Direction to scroll ("up" or "down"). page: Page number to scroll.
+- watch_video(video_path_or_url: str): Watch a video file or YouTube URL. video_path_or_url: Local path or YouTube URL.
 '''
 
 tool_advanced_one_shot = '''
@@ -635,8 +653,11 @@ Assistant:
 The paper with ID 12345678 has been downloaded successfully. The task is complete.
 <task_finish>exit</task_finish>
 
+Here is another example:
 USER:
-Please check the content of the 10th page of the arxiv paper.
+I opened an arxiv paper online.
+Please check the content of the 10th page of the current arxiv paper.
+[PDF: 12345678, Page 1]
 
 Assistant:
 Sure! Let's scroll the PDF to the 10th page by scrolling down 9 pages:
@@ -651,12 +672,30 @@ USER:
 Assistant:
 The content of the 10th page of the arxiv paper has been displayed successfully. The task is complete.
 <task_finish>exit</task_finish>
+
+USER: 
+Please help me to view the video "lecture.mp4".
+
+ASSISTANT:
+Sure! Let me parse the video file "lecture.mp4" at 30 seconds:
+<execute_ipython>
+watch_video('lecture.mp4')
+</execute_ipython>
+
+USER:
+[The video displayed.]
+
+ASSISTANT:
+The video has been displayed. 
+<task_finish>
+exit
+</task_finish>
 '''
 
 tool_fake_user_response_prompt = '''You did not provide any commands. If you believe the task is complete or cannot be solved, reply with <task_finish>exit</task_finish>; otherwise, please provide a command.'''
 
 tool_document = {
-    "file_view": tool_file_view,
+    "file_understand": tool_file_understand,
     "code_exec": tool_code_exe,
     "file_edit": tool_file_edit,
     "web_browse": tool_web_browse,
@@ -665,14 +704,14 @@ tool_document = {
 
 tool_example = {
     "code_exec": '',
-    "file_view": tool_file_view_one_shot,
+    "file_understand": tool_file_understand_one_shot,
     "file_edit": tool_file_edit_one_shot,
     "web_browse": tool_web_browse_one_shot,
     "computer_interaction": tool_mk_one_shot
 }
 
 tool_stop = {
-    "file_view": ['</execute_ipython>', '</execute_bash>'],
+    "file_understand": ['</execute_ipython>', '</execute_bash>'],
     "code_exec": ['</execute_bash>', '</execute_ipython>'],
     "file_edit": ['</execute_ipython>', '</execute_bash>'],
     "web_browse": ['</execute_ipython>'],
@@ -680,7 +719,7 @@ tool_stop = {
 }
 
 tool_note = {
-    "file_view": '',
+    "file_understand": '',
     "code_exec": '',
     "file_edit": '',
     "web_browse": tool_web_browse_note,

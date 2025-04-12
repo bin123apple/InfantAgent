@@ -53,47 +53,7 @@ class LLM_OSS_BASED:
             return action
         else:
             action = self.parse_response(response)[0]
-            return action
-
-
-    def task_to_message(self, state: State) -> list:
-        """
-        merge a task to messages list with special system prompt.
-        FIXME: This logic should be executed in the agent.
-
-        Args:
-            state: State: current state.
-
-        Returns:
-            list: The message.
-        """
-        
-        # find the last task
-        for item in reversed(state.history):
-            if isinstance(item[0], Task):
-                current_task = item[0].task
-                if item[0].target is not None:
-                    current_target = item[0].target
-                else:
-                    current_target = None
-                break
-                    
-        sys_prompt = system_prompt.format(current_task = current_task) # FIXME: Fix this
-        if current_target is not None:
-            sys_prompt += f"\nThe expected target is: {current_target}"
-        system_message = {'role': 'user', 'content': sys_prompt}
-        if state.brainless_mode:
-            messages = []
-            few_shots_message = {'role': 'user', 'content': few_shots_prompt} # FIXME: Fix this
-            messages.append(few_shots_message)
-            messages.append(system_message)
-        else:
-            messages = restore_memory(state) # FIXME: Fix this
-            few_shots_message = {'role': 'user', 'content': few_shots_prompt} # FIXME: Fix this
-            messages.insert(0, few_shots_message)
-            messages.append(system_message)
-        return messages
-    
+            return action    
     
     def parse_response(self, response) -> list:
         """
@@ -143,7 +103,7 @@ class LLM_OSS_BASED:
             )
             logger.info(f"Model {self.model} loaded into GPU memory")
 
-    def completion(self, messages, stop):
+    def completion(self, messages, stop: list | None = None) -> list:
         '''
         Generate several a list of responses. (Based on the number of sampling_n)
         '''
@@ -151,7 +111,7 @@ class LLM_OSS_BASED:
         self.load_model()
         sampling_params = copy.deepcopy(self.sampling_params)
         sampling_params.stop = stop
-        request_output = self.llm.chat(messages, sampling_params.stop)
+        request_output = self.llm.chat(messages, sampling_params)
         logger.debug(f"Request output: {request_output}")
         self.get_token_count(request_output)
         response_list = []

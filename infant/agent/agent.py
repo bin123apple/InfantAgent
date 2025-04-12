@@ -44,8 +44,6 @@ from infant.prompt.execution_prompt import (
 from infant.agent.memory.retrieve_memory import (
     reasoning_memory_rtve, 
     classification_memory_rtve,
-    critic_memory_rtve,
-    localization_memory_rtve
 )
 
 from infant.agent.memory.restore_memory import (
@@ -53,8 +51,6 @@ from infant.agent.memory.restore_memory import (
     classification_memory_to_diag, 
     execution_memory_rtve,
     execution_memory_to_diag,
-    critic_memory_to_diag,
-    summary_memory_to_diag,
     truncate_output,
 )
 
@@ -82,10 +78,8 @@ class Agent:
         - llm (LLM): The llm to be used by this agent
         """
         logger.info(f"Initializing Agent with parameters: agent_config: {agent_config}")
-        if agent_config.use_oss_llm:
-            self.llm = oss_llm
-        else:
-            self.llm = api_llm
+        self.llm = api_llm
+        self.oss_llm = oss_llm
         self.computer = computer
         self.agent_config = agent_config
         self.state = State()
@@ -181,9 +175,11 @@ class Agent:
     async def classification(self,) -> Classification:
         messages = await self.memory_to_input("classification", self.state.memory_list)
         # print(f'Messages in classification: {messages}')
-        resp, mem_blc= self.llm.completion(messages=messages, stop=['</clf_task>'])
-        if mem_blc:
-            self.state.memory_list.extend(mem_blc)
+        # resp, mem_blc= self.llm.completion(messages=messages, stop=['</clf_task>'])
+        # if mem_blc:
+        #     self.state.memory_list.extend(mem_blc)
+        # Try all prompts
+        resp = '<clf_task>file_edit, code_exec, computer_interaction, web_browse, file_understand</clf_task>'
         memory = parse(resp) 
         self.state.memory_list.append(memory)
 
@@ -194,7 +190,7 @@ class Agent:
         interactive_elements = []
         # if the task is web_browse, we only need to execute the web_browse command
         if "web_browse" in cmd_set:
-            cmd_set = {"web_browse"} # in-place change the cmd_set   
+            # cmd_set = {"web_browse"} # in-place change the cmd_set   
             dropdown_dict = None
             
         stop_signals = ['</task_finish>', '</task>', '</execute_ipython>', '</execute_bash>'] # stop signals for the LLM to stop generating
@@ -219,7 +215,7 @@ class Agent:
                     
                 # localization, convert the image description to coordinate for accurate mouse click
                 # For web_browse, we need to try localization_browser first & convert commands to correct format
-                if cmd == 'web_browse':  
+                if 'web_browse' in cmd_set:  
                     memory, finish_switch, interactive_elements = await localization_browser(self, memory, interactive_elements)
                     if not finish_switch:  
                         memory = await localization_visual(self, memory)
@@ -399,15 +395,6 @@ class Agent:
             memory_block = await process_memory_block(memory_block, execution_memory_rtve)
             messages = execution_memory_to_diag(memory_block, cmd_set, end_prompt=self.execution_task_end_prompt,
                                                 mount_path = self.computer.workspace_mount_path)
-
-        elif case == "critic":
-            memory_block = await process_memory_block(memory_block, critic_memory_rtve)
-            messages = critic_memory_to_diag(memory_block)
-
-        elif case in ["summary_true", "summary_false"]:
-            git_patch = kwargs.get('git_patch', None)
-            memory_block = await process_memory_block(memory_block, critic_memory_rtve)
-            messages = summary_memory_to_diag(memory_block, git_patch, case)
         return messages
 
     def extract_image_from_response(self, response: str) -> bytes:

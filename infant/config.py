@@ -89,7 +89,7 @@ class Config:
     computer_timeout: The timeout for the computer.
     """
     
-    ## litellm Attributes
+    # litellm Attributes
     model: str = 'claude-3-7-sonnet-latest'
     api_key: str | None = os.getenv("ANTHROPIC_API_KEY")
     # model: str = 'gpt-4o'
@@ -119,19 +119,19 @@ class Config:
     gift_key: bool = False
     
     ## vllm Attributes
-    model_name: str = ''
+    model_name: str = 'osunlp/UGround-V1-72B'
     tensor_parallel_size: int = 4 # Tensor parallelism splits the model's tensors across n GPUs
     max_model_len: int = 9632
     disable_custom_all_reduce: bool = True
     enable_prefix_caching: bool = False
     trust_remote_code: bool = True
-    gpu_memory_utilization: float = 0.5 # kv cache memory utilization
+    gpu_memory_utilization: float = 0.7 # kv cache memory utilization
     sampling_n: int = 1
     best_of: Optional[int] = None
     presence_penalty: float = 0.0
     frequency_penalty: float = 0.0
     repetition_penalty: float = 1.0
-    vllm_temperature: float = 1.0
+    vllm_temperature: float = 0
     vllm_top_p: float = 1.0
     vllm_top_k: int = -1
     min_p: float = 0.0

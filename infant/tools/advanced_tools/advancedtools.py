@@ -1,11 +1,12 @@
 import os
 import re
+import time
+import logging
 import asyncio
 import requests
 import subprocess
-from urllib.parse import urlencode, quote_plus
 from bs4 import BeautifulSoup
-import logging
+from urllib.parse import urlencode, quote_plus, quote
 from infant.tools.file_reader.filereader import parse_pdf
 from infant.tools.util import update_pwd_decorator
 from infant.tools.web_browser.browser import Browser, BrowserConfig
@@ -138,43 +139,14 @@ def download_arxiv_pdf(arxiv_id: str) -> str:
 def scroll_pdf_page(direction: str, pages: int) -> str:
     if direction == "up":
         for _ in range(pages):
-            press_key('Left')
+            key = 'Left'
+            subprocess.run(f"xdotool key {key}", shell=True)
+            time.sleep(1)
     elif direction == "down":
         for _ in range(pages):
-            press_key('Right')
+            key = 'Right'
+            subprocess.run(f"xdotool key {key}", shell=True)
+            time.sleep(1)
     take_screenshot()
         
 
-async def google_search(content: str):
-    def is_chrome_running() -> bool:
-        try:
-            output = subprocess.check_output(["pgrep", "-f", "google-chrome"])
-            return bool(output.strip()) 
-        except subprocess.CalledProcessError:
-            return False 
-    
-    google_chrome_running = is_chrome_running()
-    if not google_chrome_running:
-
-        with open("/tmp/log.log", "w") as log_file:
-            subprocess.Popen(
-                ["google-chrome", "--no-first-run", "--remote-debugging-port=9222", "--start-maximized"],
-                stdout=log_file, stderr=subprocess.STDOUT,
-                close_fds=True
-            )
-            
-        config = BrowserConfig(
-            headless=False,
-            chrome_instance_path='/usr/bin/google-chrome',
-            cdp_url="http://127.0.0.1:9222"
-        )
-
-        browser = Browser(config)
-        context = await browser.new_context()
-
-    query = content.replace(" ", "+")
-    url = f"https://www.google.com/search?q={query}"
-
-    await context.navigate_to(url)
-    await asyncio.sleep(2) # wait for the page to load
-    take_screenshot()    

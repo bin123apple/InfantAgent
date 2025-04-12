@@ -13,6 +13,7 @@ import time
 import uuid
 import subprocess
 from dataclasses import dataclass, field
+from urllib.parse import quote
 from typing import TYPE_CHECKING, Optional, TypedDict
 
 from playwright._impl._errors import TimeoutError
@@ -1609,7 +1610,7 @@ class BrowserContext:
 
 	async def google_search(self, content: str):
 
-		query = content.replace(" ", "+")
+		query = quote(content)
 		url = f"https://www.google.com/search?q={query}"
 
 		await self.navigate_to(url)

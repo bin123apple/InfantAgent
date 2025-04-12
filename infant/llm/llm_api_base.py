@@ -364,7 +364,6 @@ class LLM_API_BASED:
             
         return messages, feedback, memory_block
 
-
     def is_local(self):
         """
         Determines if the system is using a locally running LLM.

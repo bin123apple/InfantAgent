@@ -147,6 +147,19 @@ def parse_pdf(pdf_path: str, page: int) -> fitz.Pixmap:
     pix.save(screenshot_path)
     print('If the PDF file has page numbers indicated at the bottom, please refer to those page numbers as the standard. Note that they may differ from the page numbers mentioned in our instructions, as the initial pages of the PDF might include a table of contents or a cover page.')
     print(f"<Screenshot saved at> {screenshot_path}")
+    
+@update_pwd_decorator
+def parse_figure(figure_path: str):
+    """
+    Parse a figure from the given path and return its dimensions.
+    args:
+        figure_path (str): The path to the figure file.
+    returns:
+        None
+    """
+    # Save the screenshot if an output path is provided
+    print(f"<Screenshot saved at> {figure_path}")
+    
 
 @update_pwd_decorator
 def zoom_pdf(pdf_path: str, page: int, region: tuple):
