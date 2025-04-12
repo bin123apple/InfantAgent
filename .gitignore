@@ -55,6 +55,9 @@ logs/*
 workspace/*
 tests/agent/workspace/*
 
+# tests
+tests/
+
 # debug
 tests/debug/*
 
