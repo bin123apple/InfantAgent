@@ -43,7 +43,6 @@ def extract_metadata(filename):
     return records
 
 async def initialize_docker_agent(instance: dict, config=config)-> Agent:
-    global MOUNT_PATH
     # Initialize the API Based LLM
     litellm_parameter = config.get_litellm_params()
     litellm_parameter.gift_key = False
@@ -175,9 +174,7 @@ async def run_single_instance(instance: dict, logger):
         f"I have attached the {ext} file: {file_name} in /workspace.\n{problem_statement}"
         if whether_attach_file else
         f"{problem_statement}\n"
-        "NOTE: If you want to search something online, please and the browser and use the command 'google_search' first. "
-        "If you still can not find the answer, you can navigate to the corresponding website and "
-        "try to find more details. "
+        "NOTE: If you want to search something online, please open the browser and use the command 'google_search' first."
     )
     logger.info(f"User request: {user_request}")
     # Run the agent
@@ -213,7 +210,7 @@ async def main(predictions_file: str = "predictions.jsonl"):
     dataset_path = "gaia_dataset/2023/validation/metadata_test.jsonl"
     dataset = extract_metadata(dataset_path)
     
-    with concurrent.futures.ProcessPoolExecutor(max_workers=8) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=2) as executor:
         future_to_instance = {executor.submit(process_instance, instance): instance for instance in dataset}
         for future in concurrent.futures.as_completed(future_to_instance):
             instance = future_to_instance[future]

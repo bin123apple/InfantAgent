@@ -506,6 +506,8 @@ class Computer:
         )
 
     def split_bash_commands(self, commands):
+        if 'execute_javascript'in commands:
+            return [commands]
         # 定义状态
         NORMAL = 0
         IN_SINGLE_QUOTE = 1
@@ -897,7 +899,7 @@ class Computer:
         mount_dir = self.workspace_mount_path
         logger.info(f'Mounting workspace directory: {mount_dir}')
         return {
-            '/sys/fs/cgroup': {'bind': '/sys/fs/cgroup', 'mode': 'rw'},
+            # '/sys/fs/cgroup': {'bind': '/sys/fs/cgroup', 'mode': 'rw'},
             mount_dir: {'bind': self.computer_workspace_dir, 'mode': 'rw'},
             self.cache_dir: {'bind': ('/home/infant/.cache' if self.run_as_infant else '/root/.cache'),'mode': 'rw',},
         }
@@ -920,6 +922,9 @@ class Computer:
         split_commands = []
         commands = self.split_bash_commands(commands)
         for command in commands:
+            if 'execute_javascript'in commands:
+                split_commands.append(command)
+                continue
             split_commands += command.split('&&')
         
         return [cmd.strip() for cmd in split_commands]

@@ -95,10 +95,12 @@ def watch_video(video_path_or_url: str) -> str:
             video_path_local = video_path.replace("/workspace", constant.MOUNT_PATH, 1)
             audio_path_local = extract_audio_with_moviepy(video_path_local) 
             audio_path = audio_path_local.replace(constant.MOUNT_PATH, "/workspace", 1)
-        output += f"If you want to watch the video at `time_sec` seconds, please use the following command:\n"
+        output += f"please use the following command:\n"
         output += f"parse_video(video_path='{video_path}', time_sec: float)\n"
+        output += f"to watch the video at `time_sec` seconds.\n"
         output += f'I will extract a screenshot from the video at the specified time and provide that to you.\n'
-        output += f"As you can not listen to the audio directly, you can ask me to answer questions based on the video's audio file by using this command:\n"
+        output += f'If you still want to get more information from the audio of the video, '
+        output += f"you can ask me to answer questions based on the video's audio file by using this command:\n"
         output += f"parse_audio(audio_path='{audio_path}', question: str)"
         output += f'I will answer your question based on the audio content.'
     except Exception as e:
