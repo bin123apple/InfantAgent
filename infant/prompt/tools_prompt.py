@@ -36,7 +36,7 @@ Please put the Bash commands you think need to be executed within <execute_bash>
 
 tool_file_understand = '''
 You can use the following functions to understand the content of files. Such as reading files, view images, listen to audios, watch videos, etc.
-- open_file(path: str, line_number: int | None = 1, context_lines: int = 100): Opens a file and optionally moves to a specific line. path: Path to the file. line_number: Line number to move to. context_lines: Number of lines to display.
+- open_file(path: str, line_number: int | None = 1, context_lines: int = 100): Opens a file (txt, csv, word, code file, etc.) and optionally moves to a specific line. path: Path to the file. line_number: Line number to move to. context_lines: Number of lines to display.
 - parse_pdf(pdf_path: str, page: int): View the specified page of a PDF file. pdf_path: Path to the PDF file. page: Page number to view.
 - parse_figure(figure_path: str): View the specified figure. figure_path: Path to the figure file.
 - parse_audio(audio_path: str, question: str): Ask a question about the audio file. audio_path: Path to the audio file. question: Question to ask.
@@ -370,7 +370,6 @@ You can use the following functions to interact with the browser.
 - open_browser(): Open the browser.
 - navigate_to(url: str) : Navigate to the specified URL.
 - refresh_page(): Refresh the current page.
-- get_page_html(): get the HTML code of the current page.
 - go_back(): Go back to the previous page.
 - go_forward(): Go forward to the next page.
 - clear_text(): Clear the text in the current input field. please make sure the input field is selected before using this command.

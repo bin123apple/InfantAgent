@@ -430,8 +430,9 @@ async def localization_browser(agent: Agent, memory: Memory, interactive_element
                     # try to use execute the javascript to simulate the click
                     js_code = await image_description_to_executable_js(agent, computer, icon, 
                                                                              desc, browser_state)
-                    js_code = json.dumps(js_code)
                     if js_code is not None:
+                        js_code = '(function() {\n' + js_code + '\n})();'
+                        js_code = json.dumps(js_code)
                         memory.code = f'execute_javascript({js_code})'
                         logger.info(f"javascript code to execute: {js_code}")
                         logger.info(f"=========End Browser localization=========")

@@ -151,14 +151,28 @@ def parse_pdf(pdf_path: str, page: int) -> fitz.Pixmap:
 @update_pwd_decorator
 def parse_figure(figure_path: str):
     """
-    Parse a figure from the given path and return its dimensions.
-    args:
+    Parse a figure from the given path and return its dimensions or trigger appropriate handlers.
+    
+    Args:
         figure_path (str): The path to the figure file.
-    returns:
+        
+    Returns:
         None
     """
-    # Save the screenshot if an output path is provided
-    print(f"<Screenshot saved at> {figure_path}")
+    ext = os.path.splitext(figure_path)[-1].lower()
+
+    # Image file types (you can extend this list as needed)
+    image_extensions = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.tiff', '.webp'}
+
+    if ext in image_extensions:
+        print(f"<Screenshot saved at> {figure_path}")
+    elif ext == '.pdf':
+        print(f'{figure_path} is not a supported figure type. '
+            'Please use `parse_pdf(pdf_path: str, page: int)` command to view the PDF.')
+    else:
+        print(f'{figure_path} is not a supported figure type.\n'
+              'Please use `open_file(path: str, line_number: int | None = 1, context_lines: int | None = 150)` ' 
+              'command to view it.')
     
 
 @update_pwd_decorator

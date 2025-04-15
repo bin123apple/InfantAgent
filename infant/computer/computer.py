@@ -506,6 +506,8 @@ class Computer:
         )
 
     def split_bash_commands(self, commands):
+        if 'context.execute_javascript' in commands:
+            return [commands]   
         # 定义状态
         NORMAL = 0
         IN_SINGLE_QUOTE = 1
@@ -615,7 +617,6 @@ class Computer:
         #     commands = [cmd]
         # else:
         commands = self.split_bash_commands(cmd)
-        # print(f'commands: {commands}')
         if len(commands) > 1:
             all_output = ''
             for command in commands:
@@ -920,6 +921,9 @@ class Computer:
         split_commands = []
         commands = self.split_bash_commands(commands)
         for command in commands:
+            if 'context.execute_javascript' in command:
+                split_commands.append(command)
+                continue
             split_commands += command.split('&&')
         
         return [cmd.strip() for cmd in split_commands]

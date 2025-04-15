@@ -23,6 +23,7 @@ from infant.agent.memory.memory import (
     LocalizationFinish,
 )
 from infant.util.logger import infant_logger as logger
+from infant.util.backup_image import backup_image
 from infant.util.special_case_handler import handle_reasoning_repetition, check_accumulated_cost
 from infant.prompt.parse_user_input import parse_user_input_prompt
 from infant.prompt.reasoning_prompt import reasoning_fake_user_response_prompt
@@ -237,7 +238,8 @@ class Agent:
                 if hasattr(memory, 'code') and memory.code:
                     memory.code = tmp_code
                     
-                logger.info(memory, extra={'msg_type': 'Execution Result'})
+                logger.info(f'Execution Result\n{memory.result}', extra={'msg_type': 'Execution Result'})
+                backup_image(memory, self.computer.workspace_mount_path)
                 self.state.memory_list.append(memory)
             elif isinstance(memory, Message):
                 self.state.memory_list.append(memory)
