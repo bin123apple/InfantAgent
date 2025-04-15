@@ -898,7 +898,7 @@ class Computer:
         mount_dir = self.workspace_mount_path
         logger.info(f'Mounting workspace directory: {mount_dir}')
         return {
-            '/sys/fs/cgroup': {'bind': '/sys/fs/cgroup', 'mode': 'rw'},
+            # '/sys/fs/cgroup': {'bind': '/sys/fs/cgroup', 'mode': 'rw'},
             mount_dir: {'bind': self.computer_workspace_dir, 'mode': 'rw'},
             self.cache_dir: {'bind': ('/home/infant/.cache' if self.run_as_infant else '/root/.cache'),'mode': 'rw',},
         }

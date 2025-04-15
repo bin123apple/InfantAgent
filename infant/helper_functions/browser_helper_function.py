@@ -451,9 +451,8 @@ async def image_description_to_executable_js(agent: Agent, computer: Computer,
     # logger.info(f"Browser State: {parsed_browser_state}")
     # Initialize the localization memory block
     base64_image = parsed_browser_state.get('screenshot', None)
-    if base64_image is None:
-        logger.info(f'parsed_browser_state:\n{parsed_browser_state}')
-    base64_image = base64_image.strip('\'"')
+    if base64_image:
+        base64_image = base64_image.strip('\'"')
     get_html_action = IPythonRun(code='await context.get_page_html()')
     html_code = await computer.run_ipython(memory=get_html_action)
     def extract_html(html_code):
@@ -488,24 +487,37 @@ async def image_description_to_executable_js(agent: Agent, computer: Computer,
     messages.append({'role': 'system', 
                      'content': LOCALIZATION_SYSTEM_PROMPT_JS.format(item_to_click=icon, 
                                                                           description=desc)})
-    messages.append({
-        "role": "user",
-        "content": [
-            {
-                "type": "text",
-                "text": LOCALIZATION_USER_INITIAL_PROMPT_JS.format(item_to_click=icon, 
-                                                                   description=desc, 
-                                                                   html_code=html_links)
-            },
-            {
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/png;base64,{base64_image}",
-                    "detail": "high"
+    if base64_image:
+        messages.append({
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": LOCALIZATION_USER_INITIAL_PROMPT_JS.format(item_to_click=icon, 
+                                                                    description=desc, 
+                                                                    html_code=html_links)
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/png;base64,{base64_image}",
+                        "detail": "high"
+                    }
                 }
-            }
-        ]
-    })
+            ]
+        })
+    else:
+        messages.append({
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": LOCALIZATION_USER_INITIAL_PROMPT_JS.format(item_to_click=icon, 
+                                                                    description=desc, 
+                                                                    html_code=html_links)
+                }
+            ]
+        })
     try:
         # print_messages(messages, "image_description_to_element_index")
         response,_ = agent.llm.completion(messages=messages, stop=['</execute_js>'])
@@ -526,7 +538,10 @@ async def image_description_to_element_index(agent: Agent, computer: Computer,
     # logger.info(f"Browser State: {parsed_browser_state}")
     # Initialize the localization memory block
     base64_image = parsed_browser_state.get('screenshot', None)
-    base64_image = base64_image.strip('\'"')
+    if base64_image:
+        base64_image = base64_image.strip('\'"')
+    else:
+        return None
     selector_map_str = parsed_browser_state.get('selector_map', "")
     selector_map_dict = parse_selector_map_string(selector_map_str)
     # selector_map_dict = ast.literal_eval(selector_map_str)

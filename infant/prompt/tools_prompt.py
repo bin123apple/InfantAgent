@@ -45,7 +45,6 @@ Please put the file viewing commands you think need to be executed within <execu
 '''
 
 tool_file_understand_one_shot = '''
-Here is an example:
 USER:
 Please open the file "example.txt" and
 show the content starting from line 5.
@@ -136,7 +135,6 @@ Please put the file editing commands you think need to be executed within <execu
 '''
 
 tool_file_edit_one_shot = '''
-Here is an example:
 USER:
 Please create a table in the file "app.py" and display the numbers from 1 to 10 in it.
 
@@ -385,7 +383,6 @@ You can use the following functions to interact with the browser.
 '''
 
 tool_web_browse_one_shot = '''
-Here is an example:
 Current Task: Open Wikipedia and search for "Artificial Intelligence regulation".
 Assistant: 
 Open the chrome.
@@ -532,7 +529,6 @@ Please put the mouse/keyboard operations you think need to be executed inside th
 '''
 
 tool_mk_one_shot = '''
-Here is an example:
 Current Task: Search a picture of kittens from Google and save to desktop.
 
 Assistant: 
@@ -605,7 +601,6 @@ You can use the following functions to perform advanced operations. These comman
 '''
 
 tool_advanced_one_shot = '''
-Here is an example:
 USER:
 Search for papers on arXiv related to "Artificial Intelligence" from 2022-01-01 to 2023-01-01.
 

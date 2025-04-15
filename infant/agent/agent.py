@@ -23,7 +23,8 @@ from infant.agent.memory.memory import (
     LocalizationFinish,
 )
 from infant.util.logger import infant_logger as logger
-from infant.util.backup_image import backup_image
+from infant.util.backup import backup_image
+import infant.util.constant as constant
 from infant.util.special_case_handler import handle_reasoning_repetition, check_accumulated_cost
 from infant.prompt.parse_user_input import parse_user_input_prompt
 from infant.prompt.reasoning_prompt import reasoning_fake_user_response_prompt

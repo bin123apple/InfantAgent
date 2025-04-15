@@ -201,8 +201,8 @@ def execution_memory_to_diag(memory_block: list[Memory], cmd_set, end_prompt, mo
     tools_instructions = ''
     for cmd in cmd_set:
         if cmd in tool_document:
-            tools_instructions = tools_instructions + tool_document[cmd] + tool_advanced + '\n'
-            example = tool_example[cmd] + tool_advanced_one_shot + '\n'
+            tools_instructions = tools_instructions + tool_document[cmd] + tool_advanced
+            example = tool_example[cmd] + tool_advanced_one_shot
             note = tool_note[cmd] + '\n'
     messages.append({'role': 'user',
                      'content': tool_sys_msg.format(tools = tools_instructions, one_shot = example)})  
