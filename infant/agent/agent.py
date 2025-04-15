@@ -23,7 +23,7 @@ from infant.agent.memory.memory import (
     LocalizationFinish,
 )
 from infant.util.logger import infant_logger as logger
-from infant.util.backup import backup_image
+from infant.util.backup_image import backup_image_memory
 import infant.util.constant as constant
 from infant.util.special_case_handler import handle_reasoning_repetition, check_accumulated_cost
 from infant.prompt.parse_user_input import parse_user_input_prompt
@@ -240,7 +240,7 @@ class Agent:
                     memory.code = tmp_code
                     
                 logger.info(f'Execution Result\n{memory.result}', extra={'msg_type': 'Execution Result'})
-                backup_image(memory, self.computer.workspace_mount_path)
+                backup_image_memory(memory, constant.MOUNT_PATH)
                 self.state.memory_list.append(memory)
             elif isinstance(memory, Message):
                 self.state.memory_list.append(memory)

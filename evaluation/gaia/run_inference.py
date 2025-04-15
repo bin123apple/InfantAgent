@@ -90,6 +90,11 @@ async def initialize_docker_agent(instance: dict, config=config)-> Agent:
     logger.info(f'Git initialized successfully.')
     computer.execute('source ~/.bashrc')
     
+    # set language
+    computer.execute("echo 'export LANG=en_US.UTF-8' >> ~/.bashrc")
+    computer.execute("echo 'export LC_ALL=en_US.UTF-8' >> ~/.bashrc")
+    computer.execute("source ~/.bashrc")
+
     # Initialize the Agent
     agent_parameter = config.get_agent_params()
     agent_parameter.fake_response_mode = True
@@ -209,8 +214,8 @@ def cleanup_docker(instance: dict):
 async def main(predictions_file: str = "predictions.jsonl"):
     dataset_path = "gaia_dataset/2023/validation/metadata_test.jsonl"
     dataset = extract_metadata(dataset_path)
-    
-    with concurrent.futures.ProcessPoolExecutor(max_workers=2) as executor:
+
+    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
         future_to_instance = {executor.submit(process_instance, instance): instance for instance in dataset}
         for future in concurrent.futures.as_completed(future_to_instance):
             instance = future_to_instance[future]

@@ -71,8 +71,8 @@ Please tell me the **EXACT** element node index that I should click, if the {ite
 You should put your final answer in <index>...</index> tag. For example, your can return <index>5</index> or <index>None</index>'''.strip()
 
 LOCALIZATION_USER_INITIAL_PROMPT_JS = '''I want to click on {item_to_click} with. {description} 
-Please help me generate the javascript code to click on the element. 
-If you believe the information I've provided is insufficient to generate a JavaScript code to click on the element, please return None.
+Please help me generate a **ONE LINE** javascript code to click on the hyperlink of the element. 
+If you believe the information I've provided is insufficient to generate a **ONE LINE** JavaScript code to click on the hyperlink of the element, please return None.
 I have provided you with the current screenshot and the hyperlinks on the current page is shown below:
 {html_code}
 You should put your final answer in this format:
@@ -208,7 +208,7 @@ def convert_web_browse_commands(memory: IPythonRun, finish_switch: bool,
         
         if matched_cmd in ['type_text', 'press_key', 'press_key_combination', 
                         'mouse_drag', 'mouse_box_select', 'mouse_scroll', 
-                        'clear_text']:
+                        'clear_text', 'download']:
             return memory
         
         if  'select_dropdown_option' in memory.code and dropdown_dict:
@@ -377,7 +377,7 @@ def extract_js(resp):
         if js_code is None or js_code== "None" or js_code == "none":
             return None
         try:
-            return js_code
+            return js_code.strip()
         except ValueError:
             return None
     else:
@@ -414,12 +414,20 @@ async def localization_browser(agent: Agent, memory: Memory, interactive_element
             element_index = await image_description_to_element_index(agent, computer, icon, 
                                                                      desc, browser_state)
             logger.info(f"Element Index: {element_index}")
-            
+
+            # Try click element, if it is not a valid js code, then return None
+            try_code = replace_icon_desc_with_element_index(memory.code, element_index)
+            try_memory = IPythonRun(code=try_code)
+            try_result = agent.computer.run_ipython(try_memory)
+            if 'Traceback (most recent call last)' in try_result:
+                logger.info(f"Failed to click {element_index}, will write some java code.")
+                element_index = None
+                
             try: 
                 if isinstance(element_index, int):
                     interactive_elements.append(element_index)
                     memory.code = replace_icon_desc_with_element_index(memory.code, element_index) # replace the image description with the coordinate
-                    logger.info(f"Mouse clicked at Element Index: ({element_index})")
+                    logger.info(f"Mouse clicked at Element Index: ({element_index})")                    
                     logger.info(f"=========End Browser localization=========")
                     finish_switch = True
                     return memory, finish_switch, interactive_elements
@@ -433,6 +441,14 @@ async def localization_browser(agent: Agent, memory: Memory, interactive_element
                     if js_code is not None:
                         js_code = '(function() {\n' + js_code + '\n})();'
                         js_code = json.dumps(js_code)
+                        
+                        # Try js_code, if it is not a valid js code, then return None
+                        try_memory = IPythonRun(code=f'await context.execute_javascript({js_code})')
+                        try_result = agent.computer.run_ipython(try_memory)
+                        if 'Traceback (most recent call last)' in try_result:
+                            logger.info(f"Failed to execute javascript code, will use visual ability.")
+                            return memory, finish_switch, interactive_elements
+                        
                         memory.code = f'execute_javascript({js_code})'
                         logger.info(f"javascript code to execute: {js_code}")
                         logger.info(f"=========End Browser localization=========")
@@ -523,7 +539,10 @@ async def image_description_to_executable_js(agent: Agent, computer: Computer,
         response,_ = agent.llm.completion(messages=messages, stop=['</execute_js>'])
         logger.info(f"LLM Response for generating js: {response}")
         js_code = extract_js(response)
-        return js_code
+        if '\n' in js_code:
+            return None
+        else:
+            return js_code
     except Exception as e:
         logger.error("Failed to call the model" + ", Error: " + str(e))
 
@@ -579,7 +598,10 @@ async def image_description_to_element_index(agent: Agent, computer: Computer,
         response,_ = agent.llm.completion(messages=messages, stop=['</index>'])
         logger.info(f"LLM Response for generating element index: {response}")
         element_index = extract_index(response)
-        return element_index
+        if element_index in selector_map_dict:
+            return element_index
+        else:
+            return None
     except Exception as e:
         logger.error("Failed to call the model" + ", Error: " + str(e))
 

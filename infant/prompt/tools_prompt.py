@@ -597,7 +597,7 @@ You can use the following functions to perform advanced operations. These comman
 - search_arxiv(keyword: str, start_date: str, end_date: str, subject: str, field: str) : Searches for papers on arXiv based on the given keyword, date range, subject (options: cs, math, physics, q-bio, q-fin, stat), and keyword field (options: title, abstract, comments, author, all). Returns the search results.
 - download_arxiv_pdf(arxiv_id: str) : Downloads the specified arXiv paper based on its ID (eg: 1608.06816) and show the first page of the PDF.
 - scroll_pdf_page(direction: str, pages: int): When you're viewing a PDF document in the web interface, you can use this command to scroll the specified page of the PDF file up or down. direction: Direction to scroll ("up" or "down"). page: Page number to scroll.
-- watch_video(video_path_or_url: str): Watch a video file or YouTube URL. video_path_or_url: Local path or YouTube URL.
+- watch_video(video_path_or_url: str): Please use this command to Watch a video file or YouTube URL. Especially when there is a sign-in prompt for Youtube. video_path_or_url: Local path or YouTube URL.
 '''
 
 tool_advanced_one_shot = '''

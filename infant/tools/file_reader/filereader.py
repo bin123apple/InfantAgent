@@ -136,7 +136,7 @@ def parse_pdf(pdf_path: str, page: int) -> fitz.Pixmap:
     pdf_page = doc.load_page(page - 1)
     
     # Create a transformation matrix with a fixed zoom factor of 5.0 for high-resolution output
-    mat = fitz.Matrix(5.0, 5.0)
+    mat = fitz.Matrix(4.0, 4.0)
     pix = pdf_page.get_pixmap(matrix=mat)
     
     # Save the screenshot if an output path is provided

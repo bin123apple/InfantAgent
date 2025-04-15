@@ -18,11 +18,12 @@ if TYPE_CHECKING:
 from infant.computer.computer import Computer
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 
-from infant.config import config
+import infant.util.constant as constant
 from infant.util.debug import print_messages
 from infant.agent.memory.memory import Memory, IPythonRun
 from infant.util.logger import infant_logger as logger
 from infant.llm.llm_api_base import LLM_API_BASED
+from infant.util.backup_image import backup_image
 
 CURRENT_WHOLE_IMAGE = None
 CURRENT_IMAGE_RANGE = None
@@ -490,6 +491,7 @@ def save_image_and_convert_to_byte(mount_path: str, img: Image.Image) -> bytes:
     filename = f"{mount_path}/intermediate_steps/{timestamp}.png"
     img.save(filename)
     logger.info(f"Intermediate Image saved as: {filename}")
+    backup_image(filename, '/home/uconn/BinLei/Backup/gaia/images')
     with open(filename, "rb") as file:
         image_bytes = file.read()
     return image_bytes
@@ -536,6 +538,29 @@ def image_to_base64(image_path: str) -> str:
     image_url = f"data:image/png;base64,{base64_data}"
     return image_url
 
+def extract_coordinates(result: list[str]):
+    # Step 1: 提取 <answer>...</answer> 中的内容
+    answer_match = re.search(r'<answer>\s*(.*?)\s*</answer>', result[0], re.DOTALL)
+    if not answer_match:
+        return (-1,-1)
+
+    content = answer_match.group(1)
+
+    # Step 2: 尝试从中提取坐标 (x, y) 或 (x1, y1, x2, y2)
+    point_match = re.search(r'\((\d+),\s*(\d+)\)', content)
+    if point_match:
+        x, y = map(int, point_match.groups())
+        return (x, y)
+
+    box_match = re.search(r'\((\d+),\s*(\d+),\s*(\d+),\s*(\d+)\)', content)
+    if box_match:
+        x1, y1, x2, y2 = map(int, box_match.groups())
+        x = (x1 + x2) // 2
+        y = (y1 + y2) // 2
+        return (x, y)
+
+    return (-1,-1)
+
 async def image_description_to_coordinate(agent: Agent, icon: str, desc: str, 
                                           image: Image.Image, x_range: tuple, y_range: tuple):
     """
@@ -546,32 +571,27 @@ async def image_description_to_coordinate(agent: Agent, icon: str, desc: str,
     CURRENT_WHOLE_IMAGE = image
     computer = agent.computer
     if not agent.oss_llm is None:
-        byte_image = save_image_and_convert_to_byte(computer.workspace_mount_path, image) 
+        byte_image = save_image_and_convert_to_byte(constant.MOUNT_PATH, image) 
         base64_image = encode_image(byte_image)
-        text = (
-            'Your task is to help the user identify the precise coordinates (x, y) of a specific area/element/object on the screen based on a description.\n'
-            '- Your response should aim to point to the center or a representative point within the described area/element/object as accurately as possible.\n'
-            '- If the description is unclear or ambiguous, infer the most relevant area or element based on its likely context or purpose.\n'
-            '- Your answer should be a single string (x, y) corresponding to the point of the interest.\n'
-            'Description: {description}\n'
-            'Answer:'
-        )
+        prefix = 'Please provide the ONE point coordinates (x, y) of a specific element based on this sentence: '
+        suffix = ' First, think about the reasoning process in the mind within <think> </think> tags. Then, output the point coordinates within <answer> </answer> tags.'
+        text = prefix + "{description}" + suffix
         messages = [
             {"role": "user", "content": [
-                {"type": "text", 
-                "text": text.format(description=f"I want to click the {icon}. {desc}")},
                 {"type": "image_url", 
-                "image_url": {"url": f"data:image/png;base64,{base64_image}"},
-                "detail": "high"}
+                "image_url": {"url": f"data:image/png;base64,{base64_image}"}},
+                {"type": "text", 
+                "text": text.format(description=icon+" ("+desc+")")},
             ]}
         ]
-        result = agent.oss_llm.completion(messages)[0] # No vote for now
-        coordination = ast.literal_eval(result.strip())
+        result = agent.oss_llm.completion(messages) # No vote for now
+        logger.info(f"Response in image_description_to_coordinate: {result}")
+        coordination = extract_coordinates(result)
         # save the image with the red dot
         copy_img, x_range, y_range, (x, y) = localization_point(coordination[0], coordination[1])
-        save_image_and_convert_to_byte(computer.workspace_mount_path, copy_img)
+        save_image_and_convert_to_byte(constant.MOUNT_PATH, copy_img)
         return coordination
-    byte_image = save_image_and_convert_to_byte(computer.workspace_mount_path, image) 
+    byte_image = save_image_and_convert_to_byte(constant.MOUNT_PATH, image) 
     base64_image = encode_image(byte_image)
     messages = []
     messages.append({
@@ -643,7 +663,7 @@ async def image_description_to_coordinate(agent: Agent, icon: str, desc: str,
 
         message = [{"type": "text", "text": text}]
         if enhanced_image:
-            byte_image = save_image_and_convert_to_byte(computer.workspace_mount_path, enhanced_image) 
+            byte_image = save_image_and_convert_to_byte(constant.MOUNT_PATH, enhanced_image) 
             base64_image = encode_image(byte_image)
             message.append({
                 "type": "image_url",
@@ -679,7 +699,7 @@ async def localization_visual(agent: Agent, memory: Memory):
             logger.info(f"Icon: {icon}, Desc: {desc}")
             screenshot_action = IPythonRun(code="take_screenshot()")
             image_path_output = await computer.run_ipython(screenshot_action)
-            image_path = extract_image_path_from_output(image_path_output, mount_path=computer.workspace_mount_path)
+            image_path = extract_image_path_from_output(image_path_output, mount_path=constant.MOUNT_PATH)
             if not image_path:
                 logger.error("Failed to take screenshot.")
                 logger.info(f"=========End localization=========")

@@ -85,7 +85,7 @@ def mouse_left_click(x, y, button="left"):
     Args:
         x (int): x-coordinate.
         y (int): y-coordinate.
-        button (str): The mouse button to click ("left" or "right
+        button (str): The mouse button to click "left" or "right
     Returns:
         None (Will take a screenshot)
     """
@@ -95,7 +95,8 @@ def mouse_left_click(x, y, button="left"):
         time.sleep(1)
         take_screenshot(f'mouse_left_click({x}, {y})')
     else:
-        print('Please provide a more detailed description of where you want to click.')
+        take_screenshot(f'mouse_left_click({x}, {y})')
+        print('Please double check where you want to click and provide a more detailed description.')
 
 @update_pwd_decorator
 def mouse_double_click(x, y, button="left"):
@@ -114,7 +115,8 @@ def mouse_double_click(x, y, button="left"):
         time.sleep(1)
         take_screenshot(f'mouse_double_click({x}, {y})')
     else:
-        print('Please provide a more detailed description of where you want to double-click.')
+        take_screenshot(f'mouse_left_click({x}, {y})')
+        print('Please double check where you want to click and provide a more detailed description.')
 
 @update_pwd_decorator
 def mouse_right_click(x, y):
@@ -131,7 +133,8 @@ def mouse_right_click(x, y):
         time.sleep(1)
         take_screenshot(f'mouse_right_click({x}, {y})')
     else:
-        print('Please provide a more detailed description of where you want to right-click.')
+        take_screenshot(f'mouse_left_click({x}, {y})')
+        print('Please double check where you want to click and provide a more detailed description.')
 
 @update_pwd_decorator
 def mouse_move(x, y):

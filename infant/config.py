@@ -119,8 +119,8 @@ class Config:
     gift_key: bool = False
     
     ## vllm Attributes
-    model_name: str = 'osunlp/UGround-V1-72B'
-    tensor_parallel_size: int = 4 # Tensor parallelism splits the model's tensors across n GPUs
+    model_name: str = 'weitaikang/RL-Qwen2.5VL-lora-7B-ckpt500'
+    tensor_parallel_size: int = 2 # Tensor parallelism splits the model's tensors across n GPUs
     max_model_len: int = 9632
     disable_custom_all_reduce: bool = True
     enable_prefix_caching: bool = False
@@ -161,7 +161,7 @@ class Config:
     max_finish_retry = 3 # max number of retries before the agent finishes the task
     max_message_retry = 3 # max number of retries for message actions (e.g. message actions appear in the middle of the analysis)
     max_continuous_errors = 10 # max number of continuous errors before the agent stops
-    use_oss_llm = False # whether to use OSS LLM (Need GPU!)
+    use_oss_llm = True # whether to use OSS LLM (Need GPU!)
     verify_step_by_step: bool = True
     fake_response_mode: bool = False
     
