@@ -56,6 +56,7 @@ from infant.agent.memory.restore_memory import (
     truncate_output,
 )
 
+from infant.helper_functions.mouse_click import mouse_click
 from infant.helper_functions.visual_helper_functions import localization_visual
 from infant.helper_functions.browser_helper_function import localization_browser, convert_web_browse_commands, check_dropdown_options
 from infant.agent.memory.file_related_memory import get_diff_patch, git_add_or_not
@@ -214,26 +215,18 @@ class Agent:
                 # record the descritpion of the image
                 if hasattr(memory, 'code') and memory.code:
                     tmp_code = memory.code
-                    
-                # localization, convert the image description to coordinate for accurate mouse click
-                # For web_browse, we need to try localization_browser first & convert commands to correct format
-                if 'web_browse' in cmd_set:  
-                    memory, finish_switch, interactive_elements = await localization_browser(self, memory, interactive_elements)
-                    if not finish_switch:  
-                        memory = await localization_visual(self, memory)
-                    memory = convert_web_browse_commands(memory, finish_switch, 
-                                                         dropdown_dict, interactive_elements) # convert the commands to correct format
-                else:
-                    memory = await localization_visual(self, memory) # convert the image description to coordinate for accurate mouse click   
-                                               
-                method = getattr(self.computer, memory.action)
-                result = await method(memory)
                 
+                # check if the mouse click is needed
+                memory, interactive_elements = await mouse_click(self, memory, interactive_elements) # check if the memory is a localization task
+                memory = convert_web_browse_commands(memory, dropdown_dict, interactive_elements) # convert the commands to correct format     
+                method = getattr(self.computer, memory.action)
+                if not memory.result:
+                    memory.result = await method(memory)
+                    
                 # For web_browser, we need to check the dropdown menu
                 chk_dropdown_result, dropdown_dict = await check_dropdown_options(self, cmd, interactive_elements)
-                result += f'\n{chk_dropdown_result}'    
-                    
-                memory.result = truncate_output(output = result)
+                memory.result += f'\n{chk_dropdown_result}'    
+                memory.result = truncate_output(output = memory.result)
                 
                 # convert the coordinate back to image description
                 if hasattr(memory, 'code') and memory.code:

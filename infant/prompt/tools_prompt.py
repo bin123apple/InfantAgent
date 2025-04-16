@@ -370,13 +370,11 @@ You can use the following functions to interact with the browser.
 - refresh_page(): Refresh the current page.
 - go_back(): Go back to the previous page.
 - go_forward(): Go forward to the next page.
-- clear_text(): Clear the text in the current input field. please make sure the input field is selected before using this command.
 - close_current_tab(): Close the current tab.
 - execute_javascript(script: str): Execute the specified JavaScript code.
 - switch_to_tab(page_id: int): Switch to the tab at the specified index.
 - create_new_tab(url: str): Open a new tab with the specified URL.
 - save_cookies(): Save the current cookies.
-- download(url: str, save_dir: str): If you know the url of the file, you can use this command to download the file from the specified URL to the specified directory.
 - select_dropdown_option(selector_index: int, option: int): Select the specified option from the dropdown menu. selector_index: selector index. option: Index of the option to select.
 - google_search(content: str): Perform a Google search for the specified content. content: The content to search for.
 - close(): Close the browser.
@@ -515,12 +513,14 @@ When using a browser, if a dropdown menu appears, you need to first select the c
 
 tool_mk_operation = '''
 You can use the following functions to perform various mouse and keyboard operations.
+- clear_text(): Clear the text in the current input field. please make sure the input field is selected before using this command.
 - take_screenshot(): If you want to check the current screen, you can use this command to take a screenshot of the current screen.
 - mouse_left_click(item: str, description: str): Left mouse click at the specified position. For example: mouse_left_click('search bar', 'It is located near the top center of the Google Chrome browser window. It is a long, rectangular input field with rounded edges. The search bar spans almost the entire width of the browser window and sits directly below the browser's tab row. It has placeholder text that reads "Search Google or type a URL." The search bar is centrally aligned, making it easy to spot above the main content area of the browser.')
 - mouse_double_click(item: str, description: str): Double-click at the specified position. For example: mouse_double_click('The VSCode icon', 'It is located in the sidebar (Launcher) on the left side of the screen. It is the first icon from the top in the vertical arrangement. The icon has a blue background with a white folded "V"-shaped design in the center. The sidebar is aligned along the leftmost edge of the screen, adjacent to the desktop background on its right side.')
 - mouse_right_click(item: str, description: str): Right mouse click at the specified position. For example: mouse_right_click('The refresh button', 'It is located at the top-left corner of the Google Chrome browser window, inside the address bar. It is a circular arrow icon situated next to the left and right navigation arrows (back and forward buttons). The refresh button is just to the left of the search bar. Click it to refresh the current page.')
 - mouse_scroll(direction: str, amount: int): Scroll mouse scroll up or down. direction: Direction to scroll ("up" or "down"). amount: Number of times to scroll.
 - type_text(text: str): Type the given text. text: The text to type.
+- download(url: str, save_dir: str): If you know the url of the file, you can use this command to download the file from the specified URL to the specified directory.
 - press_key(key: str): Presses the specified key. key: The key or key combination to press (e.g., "Return", "Ctrl+c").
 - open_application(app_name: str): Opens a specific application using the system application launcher. app_name: The name of the application to open (e.g., "chrome").
 - mouse_drag(x_start: int, y_start: int, x_end: int, y_end: int): Drag the mouse from one position to another. x_start: Starting x-coordinate. y_start: Starting y-coordinate. x_end: Ending x-coordinate. y_end: Ending y-coordinate.

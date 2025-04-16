@@ -13,6 +13,7 @@ from infant.util.logger import infant_logger as logger
 from infant.util.save_dataset import save_to_dataset
 from infant.agent.memory.memory import Finish, IPythonRun
 from infant.prompt.tools_prompt import IMPORTS
+import infant.util.constant as constant
 
 async def run_single_step(agent: Agent, user_request_text: str, image = None):
     agent.state.memory_list.append(Userrequest(text=user_request_text, images=image))
@@ -95,6 +96,7 @@ async def main():
     try:
         # Initialize the agent
         agent, computer = await initialize_agent()
+        constant.MOUNT_PATH = computer.workspace_mount_path
 
         # Run the agent
         while True:

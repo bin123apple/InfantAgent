@@ -184,31 +184,18 @@ def extract_web_commands(tool_str: str):
     matches = re.findall(r'-\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(', tool_str)
     return set(matches)
 
-def convert_web_browse_commands(memory: IPythonRun, finish_switch: bool, 
-                                dropdown_dict: dict, interactive_elements: list) -> Memory:
+def convert_web_browse_commands(memory: IPythonRun, dropdown_dict: dict, interactive_elements: list) -> Memory:
 
     if hasattr(memory, 'code'):
         if memory.code == 'open_browser()':
             memory.code = OPEN_BROWSER_CODE
             return memory
-
-        if not finish_switch:
-            if any(cmd in memory.code for cmd in ['mouse_left_click', 'mouse_double_click', 
-                                                'mouse_right_click']):
-                return memory
             
         web_tools = extract_web_commands(tool_web_browse)
         code_line = memory.code.strip()
         matched_cmd = next((cmd for cmd in web_tools if code_line.startswith(cmd + "(")), None)
         
         if matched_cmd is None:
-            if not any(cmd in memory.code for cmd in ['left_click_element_node', 'double_click_element_node', 
-                                                'right_click_element_node', 'select_dropdown_option']): # these commands need to be converted
-                return memory
-        
-        if matched_cmd in ['type_text', 'press_key', 'press_key_combination', 
-                        'mouse_drag', 'mouse_box_select', 'mouse_scroll', 
-                        'clear_text', 'download']:
             return memory
         
         if  'select_dropdown_option' in memory.code and dropdown_dict:
@@ -220,7 +207,7 @@ def convert_web_browse_commands(memory: IPythonRun, finish_switch: bool,
                 text = dropdown_dict.get(str(index), {}).get(str(dropdown_option['option']), None)
                 memory.code = f'await context.select_dropdown_option(index={index}, text="{text}")\ntake_screenshot()'
                 return memory
-         
+        
         memory.code = f'await context.{memory.code.strip()}\ntake_screenshot()'
     return memory
     
@@ -300,7 +287,7 @@ def replace_icon_desc_with_element_index(command, element_index):
         element_index (int): DOMElementNode_index
 
     Returns:
-        str: Modified command string.
+        str: Modified command string. eg. left_click_element_node(element_index=1)
     """
     # Regular expression to find the action
     pattern = r"mouse_(left_click|double_click|move|right_click)\(.*?\)"
@@ -414,15 +401,7 @@ async def localization_browser(agent: Agent, memory: Memory, interactive_element
             element_index = await image_description_to_element_index(agent, computer, icon, 
                                                                      desc, browser_state)
             logger.info(f"Element Index: {element_index}")
-
-            # Try click element, if it is not a valid js code, then return None
-            try_code = replace_icon_desc_with_element_index(memory.code, element_index)
-            try_memory = IPythonRun(code=try_code)
-            try_result = agent.computer.run_ipython(try_memory)
-            if 'Traceback (most recent call last)' in try_result:
-                logger.info(f"Failed to click {element_index}, will write some java code.")
-                element_index = None
-                
+            
             try: 
                 if isinstance(element_index, int):
                     interactive_elements.append(element_index)
@@ -432,8 +411,6 @@ async def localization_browser(agent: Agent, memory: Memory, interactive_element
                     finish_switch = True
                     return memory, finish_switch, interactive_elements
                 else:
-                    # logger.info("Element Index is not a valid int. Trying to use visual ability")
-                    # FIXME: polish this javascript code
                     logger.info("Element Index is not a valid int. Trying to use js code")
                     # try to use execute the javascript to simulate the click
                     js_code = await image_description_to_executable_js(agent, computer, icon, 
@@ -441,14 +418,6 @@ async def localization_browser(agent: Agent, memory: Memory, interactive_element
                     if js_code is not None:
                         js_code = '(function() {\n' + js_code + '\n})();'
                         js_code = json.dumps(js_code)
-                        
-                        # Try js_code, if it is not a valid js code, then return None
-                        try_memory = IPythonRun(code=f'await context.execute_javascript({js_code})')
-                        try_result = agent.computer.run_ipython(try_memory)
-                        if 'Traceback (most recent call last)' in try_result:
-                            logger.info(f"Failed to execute javascript code, will use visual ability.")
-                            return memory, finish_switch, interactive_elements
-                        
                         memory.code = f'execute_javascript({js_code})'
                         logger.info(f"javascript code to execute: {js_code}")
                         logger.info(f"=========End Browser localization=========")
@@ -469,6 +438,8 @@ async def image_description_to_executable_js(agent: Agent, computer: Computer,
     base64_image = parsed_browser_state.get('screenshot', None)
     if base64_image:
         base64_image = base64_image.strip('\'"')
+    else:
+        return None
     get_html_action = IPythonRun(code='await context.get_page_html()')
     html_code = await computer.run_ipython(memory=get_html_action)
     def extract_html(html_code):
@@ -503,37 +474,24 @@ async def image_description_to_executable_js(agent: Agent, computer: Computer,
     messages.append({'role': 'system', 
                      'content': LOCALIZATION_SYSTEM_PROMPT_JS.format(item_to_click=icon, 
                                                                           description=desc)})
-    if base64_image:
-        messages.append({
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": LOCALIZATION_USER_INITIAL_PROMPT_JS.format(item_to_click=icon, 
-                                                                    description=desc, 
-                                                                    html_code=html_links)
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:image/png;base64,{base64_image}",
-                        "detail": "high"
-                    }
+    messages.append({
+        "role": "user",
+        "content": [
+            {
+                "type": "text",
+                "text": LOCALIZATION_USER_INITIAL_PROMPT_JS.format(item_to_click=icon, 
+                                                                description=desc, 
+                                                                html_code=html_links)
+            },
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/png;base64,{base64_image}",
+                    "detail": "high"
                 }
-            ]
-        })
-    else:
-        messages.append({
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": LOCALIZATION_USER_INITIAL_PROMPT_JS.format(item_to_click=icon, 
-                                                                    description=desc, 
-                                                                    html_code=html_links)
-                }
-            ]
-        })
+            }
+        ]
+    })
     try:
         # print_messages(messages, "image_description_to_element_index")
         response,_ = agent.llm.completion(messages=messages, stop=['</execute_js>'])

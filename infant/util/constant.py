@@ -1,1 +1,1 @@
-MOUNT_PATH = 'tests'
+MOUNT_PATH = None
