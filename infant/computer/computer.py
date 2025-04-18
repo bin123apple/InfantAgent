@@ -1,17 +1,13 @@
 import os
 import re
 import time
-import uuid
 import json
-import random
 import atexit
 import docker
 import socket
 import tarfile
 import tempfile
-import asyncio
 import requests
-import traceback
 import subprocess
 from glob import glob
 from pexpect import pxssh
@@ -24,14 +20,6 @@ from infant.prompt.tools_prompt import tool_trace_code, tool_filter_bash_code
 from infant.agent.memory.memory import IPythonRun, CmdRun
 from infant.helper_functions.audio_helper_function import parse_audio # for exec()
 from infant.helper_functions.video_helper_function import parse_video, watch_video # for exec()
-
-# auto login to the nomachine
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.chrome.options import Options
 
 class Computer:
     instance_id: str
@@ -508,14 +496,13 @@ class Computer:
     def split_bash_commands(self, commands):
         if 'context.execute_javascript' in commands:
             return [commands]   
-        # 定义状态
         NORMAL = 0
         IN_SINGLE_QUOTE = 1
         IN_DOUBLE_QUOTE = 2
         IN_HEREDOC = 3
 
         state = NORMAL
-        heredoc_trigger = None  # 存储规范化后的 heredoc 触发符（不包含引号）
+        heredoc_trigger = None
         result = []
         current_command = []
 
@@ -531,59 +518,49 @@ class Computer:
                     state = IN_DOUBLE_QUOTE
                     current_command.append(char)
                 elif char == '\\':
-                    # 如果是转义换行，则跳过换行符
                     if i + 1 < len(commands) and commands[i + 1] == '\n':
                         current_command.append(char)
-                        i += 1  # 跳过换行符
+                        i += 1  
                         current_command.append('\n')
                         i += 1
                         continue
                     else:
                         current_command.append(char)
                 elif char == '\n':
-                    # 非 heredoc 状态下遇到换行，认为是一条完整命令
                     if current_command:
                         result.append(''.join(current_command).strip())
                         current_command = []
-                # 检测 heredoc：遇到 << 时进入 heredoc 状态
                 elif char == '<' and commands[i : i + 2] == '<<':
                     state = IN_HEREDOC
                     start_op = i
-                    i += 2  # 跳过 '<<'
-                    # 跳过空格
+                    i += 2 
                     while i < len(commands) and commands[i] == ' ':
                         i += 1
                     start = i
-                    # 读取 heredoc 触发符（直到遇到空格或换行）
                     while i < len(commands) and commands[i] not in [' ', '\n']:
                         i += 1
                     heredoc_raw = commands[start:i]
-                    # 如果触发符被引号包围，则去掉引号用于匹配
                     if heredoc_raw and heredoc_raw[0] in ("'", '"') and heredoc_raw[-1] == heredoc_raw[0]:
                         heredoc_trigger = heredoc_raw[1:-1]
                     else:
                         heredoc_trigger = heredoc_raw
-                    # 将 '<<' 及触发符（保持原格式）添加到当前命令中
                     current_command.append(commands[start_op:i])
-                    continue  # 继续处理，不在此处 i 增加
+                    continue
                 else:
                     current_command.append(char)
 
             elif state == IN_SINGLE_QUOTE:
                 current_command.append(char)
-                # 遇到未转义的单引号则退出单引号状态
                 if char == "'" and commands[i - 1] != '\\':
                     state = NORMAL
 
             elif state == IN_DOUBLE_QUOTE:
                 current_command.append(char)
-                # 遇到未转义的双引号则退出双引号状态
                 if char == '"' and commands[i - 1] != '\\':
                     state = NORMAL
 
             elif state == IN_HEREDOC:
                 current_command.append(char)
-                # 当遇到换行符时，检查下一行是否仅包含 heredoc 触发符
                 if char == '\n' and heredoc_trigger:
                     next_line_start = i + 1
                     j = next_line_start
@@ -591,11 +568,10 @@ class Computer:
                         j += 1
                     next_line = commands[next_line_start:j]
                     if next_line.strip() == heredoc_trigger:
-                        # 将终止行也添加到当前命令中
                         current_command.append(next_line)
                         if j < len(commands) and commands[j] == '\n':
                             current_command.append('\n')
-                            i = j  # 将 i 移动到换行符位置
+                            i = j
                         else:
                             i = j
                         state = NORMAL

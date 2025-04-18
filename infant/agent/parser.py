@@ -2,7 +2,6 @@ import re
 from infant.agent.memory.memory import (
     Memory,
     Analysis,
-    Userrequest,
     Message,
     Summarize,
     Task,
@@ -15,7 +14,6 @@ from infant.agent.memory.memory import (
     LocalizationFinish
 )
 from infant.util.logger import infant_logger as logger
-from infant.agent.memory.memory import memory_list
 
 def parse(response: str) -> Memory:
     resp_completion = response_completion(response)
@@ -64,7 +62,7 @@ def parse_response(resp: str) -> str:
         return memory
     
     # parse task
-    task_match = re.search(r'<task>(.*?)</task>', resp, re.DOTALL)  # 保存原始匹配对象
+    task_match = re.search(r'<task>(.*?)</task>', resp, re.DOTALL)
     target = None
     ## Check for target within the task if task is found
     if task_match:

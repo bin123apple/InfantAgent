@@ -10,107 +10,20 @@ import re
 import ast
 import base64
 import datetime
-from math import sqrt
-from io import BytesIO
 from typing import TYPE_CHECKING, Tuple
 if TYPE_CHECKING:
     from infant.agent.agent import Agent
-from infant.computer.computer import Computer
-from PIL import Image, ImageDraw, ImageFont, ImageEnhance
+from PIL import Image, ImageDraw, ImageEnhance
 
 import infant.util.constant as constant
-from infant.util.debug import print_messages
+from infant.util.debug import print_messages # for debugging
 from infant.agent.memory.memory import Memory, IPythonRun
 from infant.util.logger import infant_logger as logger
-from infant.llm.llm_api_base import LLM_API_BASED
 from infant.util.backup_image import backup_image
 
 CURRENT_WHOLE_IMAGE = None
 CURRENT_IMAGE_RANGE = None
 CURRENT_RED_POINT = None
-
-# LOCALIZATION_INITIAL_PROMPT_VISUAL = '''I'm trying to perform a mouse click action, and I need your help to determine the exact coordinates of the content I need to click on.
-# I will provide you with a screenshot of the screen. The coordinates are labeled along the edges of the screen.
-# Here are some functions that you might find useful:
-# 1. If you need to zoom in on the screen for more precise coordinate identification, please use the following function:
-# localization_area(top_left: tuple | None = None, bottom_right: tuple | None = None)
-# This function is used to zoom in on the screen by specifying the top-left corner and the bottom_right of the zoomed-in area.
-# Args:
-#     top_left (tuple | None):
-#         The top-left corner of the screenshot region as a tuple of (x, y) coordinates.
-#         If None, the screenshot will cover the entire screen. Defaults to None.
-#     bottom_right (tuple | None):
-#         The bottom-right corner of the screenshot region as a tuple of (x, y) coordinates.
-#         If None, the screenshot will cover the entire screen. Defaults to None.
-# 2. To check the exact screen position of a coordinate, you can use the following command:
-# localization_point(x: int, y: int)
-# I will draw a red dot on the screen at the specified coordinates.
-# Args:
-#     x (int): The x-coordinate of the point to check.
-#     y (int): The y-coordinate of the point to check.
-# 3. If you think the coordinates are correct, you can use the following command to finish the localization:
-# localization_done(x: int, y: int)
-# Args:
-#     x (int): The x-coordinate of the final point.
-#     y (int): The y-coordinate of the final point.
-# You should place the function you would like to execute within the <localize>...</localize> tags.
-# Here is an example:
-# User:
-# I want to click on vscode icon with the mouse. Please help me determine its **EXACT** coordinates.
-
-# Asistant:
-# let's zoom in on the screen for more precise coordinate identification.
-# <localize>
-# localization_area(top_left = (0, 200), bottom_right = (200, 400))
-# </localize>
-
-# User:
-# The current screen's x-axis range is 0 to 200, and the y-axis range is 200 to 400.
-# [Screenshot Figure]
-
-# Asistant:
-# let's check another area of the screen.
-# <localize>
-# localization_area(top_left = (400, 700), bottom_right = (500, 800))
-# </localize>
-
-# User:
-# The current screen's x-axis range is 400 to 500, and the y-axis range is 700 to 800.
-# [Screenshot Figure]
-
-# Asistant:
-# Let's check the specific location of coordinates (430, 710).
-# <localize>
-# localization_point(430,710)
-# </localize>
-
-# User:
-# The current screen's x-axis range is 400 to 500, and the y-axis range is 700 to 800.
-# The red dot is located at (430, 710).
-# [Screenshot Figure]
-
-# Assistant:
-# Let's check another specific location at coordinates (450, 750).
-# <localize>
-# localization_point(450, 750)
-# </localize>
-
-# User:
-# The current screen's x-axis range is 400 to 500, and the y-axis range is 700 to 800.
-# The red dot is located at (450, 750).
-# [Screenshot Figure]
-
-# Assistant:
-# We have found the coordinates of the vscode icon.
-# <localize>
-# localization_done(450, 750)
-# </localize>
-
-# Now, let's work on the real task:
-# I want to click on {item_to_click} ({Location}) with the mouse. 
-# The current screen's x-axis range is {x_range[0]} to {x_range[1]} and the y-axis range is {y_range[0]} to {y_range[1]}.
-# Please help me determine its **EXACT** coordinates.
-# '''.strip()
 
 LOCALIZATION_INITIAL_PROMPT_VISUAL = '''I'm trying to perform a mouse click action, and I need your help to determine the exact coordinates of the content I need to click on.
 I will provide you with a screenshot of the screen. The coordinates are labeled along the edges of the screen.
@@ -319,23 +232,12 @@ def dispatch(func_name, args, kwargs):
 def enhance_image_clarity(image, scale_factor=1, 
                           sharpness_factor=2.0) -> Image.Image: 
     """
-    增强图像清晰度的函数。该函数可以通过放大图像以及应用锐化滤镜来提高图像的清晰度。
-    
-    参数：
-        image (PIL.Image): 待处理的图像。
-        scale_factor (float): 放大倍率，默认为 1（不放大）。如果大于 1，则图像会相应放大。
-        sharpness_factor (float): 锐化因子，默认为 2.0。1.0 表示原始图像，小于 1 会使图像更模糊，
-                                  大于 1 则会增强图像的锐度。
-    
-    返回：
-        PIL.Image: 经过增强后的图像。
+    Enhance the clarity of the image by resizing and sharpening it.
     """
-    # 如果需要放大图像，则按指定倍率调整尺寸
     if scale_factor != 1:
         new_size = (int(image.width * scale_factor), int(image.height * scale_factor))
         image = image.resize(new_size, resample=Image.LANCZOS)
     
-    # 使用 ImageEnhance 对图像进行锐化
     enhancer = ImageEnhance.Sharpness(image)
     enhanced_image = enhancer.enhance(sharpness_factor)
     
@@ -539,14 +441,14 @@ def image_to_base64(image_path: str) -> str:
     return image_url
 
 def extract_coordinates(result: list[str]):
-    # Step 1: 提取 <answer>...</answer> 中的内容
+    # Step 1: extract <answer>...</answer> content
     answer_match = re.search(r'<answer>\s*(.*?)\s*</answer>', result[0], re.DOTALL)
     if not answer_match:
         return (-1,-1)
 
     content = answer_match.group(1)
 
-    # Step 2: 尝试从中提取坐标 (x, y) 或 (x1, y1, x2, y2)
+    # Step 2: extract (x, y) or (x1, y1, x2, y2)
     point_match = re.search(r'\((\d+),\s*(\d+)\)', content)
     if point_match:
         x, y = map(int, point_match.groups())

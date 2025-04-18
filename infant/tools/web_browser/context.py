@@ -11,7 +11,7 @@ import os
 import re
 import time
 import uuid
-import subprocess
+import subprocess # for inner browser
 from dataclasses import dataclass, field
 from urllib.parse import quote
 from typing import TYPE_CHECKING, Optional, TypedDict
@@ -1417,12 +1417,11 @@ class BrowserContext:
 									XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
 								if (!node) return null;
 
-								// 如果是传统的 <select> 元素
 								if (node.tagName.toLowerCase() === 'select') {
 									return {
 										type: 'select',
 										options: Array.from(node.options).map(opt => ({
-											text: opt.text, // 不修剪文本，以便后续精确匹配
+											text: opt.text, 
 											value: opt.value,
 											index: opt.index
 										})),
@@ -1430,19 +1429,15 @@ class BrowserContext:
 										name: node.name
 									};
 								} 
-								// 如果是建议选择的 <ul> 列表
 								else if (node.tagName.toLowerCase() === 'ul') {
-									// 这里假设建议项为 <li>，根据需要也可以更改选择器
 									const listItems = Array.from(node.querySelectorAll('li'));
 									return {
 										type: 'Suggest to select',
 										options: listItems.map((li, index) => ({
-											text: li.innerText, // 获取显示文本
-											// 尝试获取 data-code 属性作为值，如没有则为空字符串
+											text: li.innerText, 
 											value: li.getAttribute("data-code") || "",
 											index: index
 										})),
-										// 如果 <ul> 有 id 或者其他属性可用，也可以根据实际情况调整
 										id: node.id || "",
 										name: node.getAttribute("aria-label") || ""
 									};
@@ -1549,7 +1544,6 @@ class BrowserContext:
 							return msg
 
 					elif dom_element.tag_name == 'ul':
-						# 针对自定义建议列表，查找 <ul> 下的 <li>，并模拟点击匹配文本的 li
 						select_li_js = """
 							({ xpath, text }) => {
 								const container = document.evaluate(xpath, document, null,

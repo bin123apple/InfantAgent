@@ -4,19 +4,10 @@ import copy
 import torch
 from vllm import LLM, SamplingParams
 from infant.config import VllmParams
-from infant.agent.state.state import State
 from vllm.distributed.parallel_state import destroy_model_parallel
 from infant.util.logger import infant_logger as logger
-from infant.agent.memory.memory import (Userrequest, 
-                                        Task, Memory, 
-                                        TaskFinish, 
-                                        Summarize, 
-                                        Finish, 
-                                        Message, 
-                                        Classification, 
-                                        Critic,
-                                        LocalizationFinish,
-                                        IPythonRun, CmdRun)
+from infant.agent.memory.memory import Message, CmdRun, IPythonRun
+
 class LLM_OSS_BASED:
     def __init__(self, args: VllmParams):
         logger.info(f'Initializing the api based LLM with the following parameters: {args}')

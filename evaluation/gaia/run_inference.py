@@ -1,27 +1,18 @@
-import re
 import os
-import sys
 import uuid
-import time
 import json
 import shutil
 import asyncio
-import tempfile
-import mimetypes
 import traceback
 import subprocess
-from typing import Tuple
 import concurrent.futures
-from datetime import datetime
 from infant.config import config, ComputerParams
-from datasets import load_dataset
 from infant.agent.agent import Agent
 from infant.computer.computer import Computer
 from infant.llm.llm_api_base import LLM_API_BASED
 from infant.llm.llm_oss_base import LLM_OSS_BASED
 from infant.agent.memory.memory import Userrequest, Finish, IPythonRun
 from infant.util.logger import infant_logger as logger
-from infant.util.save_dataset import save_to_dataset
 from infant.util.logger import reset_logger_for_multiprocessing, LOG_DIR
 from infant.prompt.tools_prompt import IMPORTS
 import infant.util.constant as constant
@@ -160,7 +151,6 @@ async def run_single_step(agent: Agent, user_request_text: str):
 async def run_single_instance(instance: dict, logger):
     # Intialize the docker and the Agent
     agent = await initialize_docker_agent(instance=instance, config=config)
-    # time.sleep(1000000000)
     task_id: str = instance.get("task_id", "unknown")
     logger.info(f"Running instance: {task_id}")
 

@@ -1,6 +1,6 @@
 #!/bin/bash
-# 创建用户
-echo "请设置$CreateUserAccount用户密码:"
+# setup user
+echo "Please set$CreateUserAccount user password:"
 sudo adduser $CreateUserAccount
 echo "Install NVIDIA Driver"
 sudo /etc/init.d/lightdm stop
@@ -20,10 +20,8 @@ if ! command -v nvidia-xconfig &> /dev/null; then
   cd ~
 fi
 
-# 判断是否设置Gpu渲染
 if [ "$RenderType" == "Gpu" ]; then
-  echo "使用Gpu渲染 开始配置虚拟显示器"
-  # Gpu渲染 配置虚拟显示器
+  echo "User Gpu Render"
   echo "X11 set"
 
   if [ -f "/etc/X11/xorg.conf" ]; then
@@ -68,7 +66,7 @@ if [ "$RenderType" == "Gpu" ]; then
   sudo sed -i '/SubSection\s\+"Display"/a\        Viewport 0 0' /etc/X11/xorg.conf
   sudo sed -i '/Section\s\+"ServerLayout"/a\    Option "AllowNVIDIAGPUScreens"' /etc/X11/xorg.conf
 else
-  echo "使用默认Cpu渲染模式"
+  echo "Use CPU Render"
 fi
 
 sudo gsettings set org.gnome.desktop.interface enable-animations false

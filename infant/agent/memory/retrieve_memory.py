@@ -7,12 +7,9 @@ from infant.agent.memory.memory import (
     Critic,
     Message,
     Task,
-    TaskFinish,
     LocalizationFinish,
     IPythonRun,
 )
-
-
 from infant.util.logger import infant_logger as logger
 
 def reasoning_memory_rtve_critic(memory_list: list, summarize_all_steps=False) -> list | None:
@@ -50,43 +47,6 @@ def reasoning_memory_rtve_critic(memory_list: list, summarize_all_steps=False) -
                 memory_block.append(memory)
     return memory_block
 
-
-# def reasoning_memory_rtve(memory_list: list, summarize_all_steps=False) -> list | None:
-#     """
-#     Retrieve the memory from the state.history for reaosning.
-    
-#     Input: memory_list: All the memory.
-#     output: retrieved memory block.
-    
-#     For intermediate steps, the memory should only contain:
-#     - Remove all the content between Task and Summarize pairs.
-#     - Keep all other content.
-#     - For the final step (Agent finished all the tasks), the memory should contain all the detailed memory.
-#     """
-#     if not isinstance(memory_list, list):
-#         memory_list = [memory_list]
-        
-#     dc_ml = copy.deepcopy(memory_list)
-#     memory_block = []
-#     if summarize_all_steps:
-#         memory_block = dc_ml
-#     else:
-#         skip = False
-#         for i in range(len(dc_ml)):
-#             memory = dc_ml[i]
-#             if isinstance(memory, Task):
-#                 # When encountering an Task, start skipping until an Summarize is found
-#                 skip = True
-#                 memory_block.append(memory)  # Keep the Task
-#             elif isinstance(memory, Summarize):
-#                 # Stop skipping when encountering an Summarize
-#                 skip = False
-#                 memory_block.append(memory)  # Keep the Summarize
-#             elif not skip:
-#                 # Keep everything outside the skip range
-#                 memory_block.append(memory)
-    
-#     return memory_block
 
 def reasoning_memory_rtve(memory_list: list, summarize_all_steps=False) -> list | None:
     """
@@ -153,61 +113,6 @@ def critic_memory_rtve(memory_list: list, summarize_all_steps=False) -> list | N
                 else:
                     memory_block.append(memory)
     return memory_block
-
-# def execution_memory_rtve(memory_list: list, summarize_all_steps=False) -> list | None:
-#     '''
-#     Retrieve the memory from the state.history for execution without user request.
-    
-#     Input: memory_list: All the memory.
-#     output: retrieved memory block.
-    
-#     For intermediate steps, the memory should only contain:
-#     - Keep the first memory. # FIXME: I assume the first memory is userrequest, for multi-turns, we need to update this.
-#     - Keep the last Task and all memory after it except the classification memory.
-#     - For prior memory before the last Task, only keep those where memory is Task.
-#     - For the final step (Agent finished all the tasks), the memory should contain all the detailed memory execpt Classification & Critic.
-#     '''
-#     memory_block = []
-#     dc_ml = copy.deepcopy(memory_list)
-
-#     # If all the tasks are finished and the agent is asked to summarize all the steps
-#     if summarize_all_steps:
-#         memory_block = dc_ml
-#     else:
-#         # Find the last index where action is Task
-#         last_task_index = None
-#         for i in reversed(range(len(dc_ml))):
-#             memory = dc_ml[i]
-#             if isinstance(memory, Task):
-#                 last_task_index = i
-#                 break
-
-#         if last_task_index is None:
-#             # No Task found; include only Task if any
-#             for memory in dc_ml:
-#                 if isinstance(memory, Task):
-#                     memory_block.append(memory)
-#         else:
-#             memory_block.append(dc_ml[0]) # Keep the user_request memory
-            
-#             # For indices before last_task_index, include only Task
-#             for i in range(1, last_task_index):
-#                 memory = dc_ml[i]
-#                 if isinstance(memory, Task):
-#                     memory_block.append(memory)
-#                 elif isinstance(memory, Critic):
-#                     memory_block.append(memory)
-#             for memory in dc_ml[last_task_index:]:
-#                 if not isinstance(memory, (Critic,
-#                                            Message,
-#                                            Classification, 
-#                                            LocalizationFinish)):  
-#                     if isinstance(memory, IPythonRun):
-#                         if 'localization(' not in memory.code:
-#                             memory_block.append(memory)
-#                     else:
-#                         memory_block.append(memory)
-#     return memory_block
 
 def execution_memory_rtve(memory_list: list, summarize_all_steps=False) -> list | None:
     '''

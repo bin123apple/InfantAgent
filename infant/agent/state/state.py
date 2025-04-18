@@ -1,8 +1,4 @@
-import base64
-import pickle
 from dataclasses import dataclass, field
-
-from infant.util.logger import infant_logger as logger
 from infant.util.metrics import Metrics
 from infant.agent.state.agent_state import AgentState
 

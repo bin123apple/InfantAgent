@@ -52,7 +52,7 @@ async def mouse_click(agent, memory, interactive_elements):
                 else:
                     logger.info(f"Mouse click failed at Element Index: ({element_index})")
             
-            # # Write some js code
+            # # Write some js code FIXME: Do we need this?
             # logger.info("Element Index is not a valid int. Trying to use js code")
             # # try to use execute the javascript to simulate the click
             # try_code = await image_description_to_executable_js(agent, computer, icon, 

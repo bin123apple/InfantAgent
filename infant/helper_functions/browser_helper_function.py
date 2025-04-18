@@ -1,20 +1,17 @@
 from __future__ import annotations
 
 import re
-import ast
 import json
-import base64
 from bs4 import BeautifulSoup
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from infant.agent.agent import Agent
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urljoin
 from infant.computer.computer import Computer
 from infant.agent.memory.memory import Memory, IPythonRun
-from infant.util.debug import print_messages
+from infant.util.debug import print_messages # for debug
 from infant.util.logger import infant_logger as logger
 from infant.prompt.tools_prompt import tool_web_browse
-from infant.agent.memory.restore_memory import truncate_output
 
 
 GET_STATE_CODE = """state = await context.get_state()
@@ -86,20 +83,16 @@ if you believe the information I've provided is insufficient, your can return <e
 DETECT_DROPDOWN = '''Detected a dropdown menu. Please carefully observe the contents of these dropdown menus. If needed, use the function `select_dropdown_option(selector_index: int, option: int)` to select your desired option.'''
 
 def extract_parameter_values(signature):
-    # 提取圆括号内的内容
     match = re.search(r'\((.*?)\)', signature)
     if not match:
         return {}
     content = match.group(1).strip()
     
-    # 判断是否包含 '='，决定使用哪种解析方式
     if '=' in content:
-        # 处理关键字参数形式，如 index=1, option=2
         pairs = re.findall(r'\s*(\w+)\s*=\s*([^,]+)', content)
         result = {}
         for key, value in pairs:
             value = value.strip()
-            # 尝试转换为数字类型
             if value.isdigit():
                 result[key] = int(value)
             else:
@@ -109,7 +102,6 @@ def extract_parameter_values(signature):
                     result[key] = value
         return result
     else:
-        # 处理位置参数形式，如 1,2
         values = [v.strip() for v in content.split(',') if v.strip()]
         converted = []
         for value in values:
@@ -120,7 +112,6 @@ def extract_parameter_values(signature):
                     converted.append(float(value))
                 except ValueError:
                     converted.append(value)
-        # 默认按照顺序映射到 index 和 option
         result = {}
         if len(converted) >= 1:
             result['selector_index'] = converted[0]
@@ -146,32 +137,27 @@ async def check_dropdown_options(agent: Agent, cmd: str, interactive_elements: l
     return result, dropdown_dict
 
 def parse_dropdown_options(text):
-    # 去掉前缀并strip
     prefix = "Use the exact text string in select_dropdown_option"
     text = text.replace(prefix, "").replace('(exit code=0)','').strip()
     
     result = {}
     current_key = None
     
-    # 按行分割
     lines = text.splitlines()
     for line in lines:
         line = line.strip()
         if not line:
             continue
-        # 检查是否为 Selector index 开头的行
         if line.startswith("Selector index"):
-            # 例如 "Selector index 18 dropdown options:" 分割后得到 ["Selector", "index", "18", ...]
+            # For example: "Selector index 18 dropdown options:" will get: ["Selector", "index", "18", ...]
             parts = line.split()
             if len(parts) >= 3:
                 current_key = parts[2]
                 result[current_key] = {}
         else:
-            # 处理选项行，例如： 0: text="New York\nCity in New York State"
             if ": text=" in line:
                 key_part, text_part = line.split(": text=", 1)
                 option_key = key_part.strip()
-                # 移除双引号
                 if text_part.startswith('"') and text_part.endswith('"'):
                     value = text_part[1:-1]
                 else:
@@ -213,7 +199,6 @@ def convert_web_browse_commands(memory: IPythonRun, dropdown_dict: dict, interac
     
 
 def parse_browser_state(s: str) -> dict:
-    # 去掉开头的 "BrowserState(" 和末尾的 ")"
     s = s.partition("BrowserState(")[1] + s.partition("BrowserState(")[2]
     prefix = "BrowserState("
     if s.startswith(prefix):
@@ -225,7 +210,7 @@ def parse_browser_state(s: str) -> dict:
     key = ""
     value = ""
     in_key = True
-    nesting = 0  # 用于跟踪 ()、[]、{} 的嵌套层级
+    nesting = 0
     i = 0
     while i < len(s):
         char = s[i]
@@ -236,26 +221,22 @@ def parse_browser_state(s: str) -> dict:
             else:
                 key += char
         else:
-            # 遇到嵌套符号时更新层级
             if char in "([{":
                 nesting += 1
             elif char in ")]}":
                 nesting -= 1
 
-            # 当逗号位于最外层时，则认为一个属性结束
             if char == ',' and nesting == 0:
                 result[key.strip()] = value.strip()
                 key = ""
                 value = ""
                 in_key = True
-                # 跳过逗号后可能的空格
                 i += 1
                 continue
             else:
                 value += char
         i += 1
 
-    # 最后如果还有剩余的 key-value 对也添加进去
     if key:
         result[key.strip()] = value.strip()
 
@@ -265,13 +246,12 @@ def parse_selector_map_string(selector_map_str: str) -> dict:
     pattern = r'(\d+):\s*(<.*?>\s*\[[^\]]+\])'
     matches = re.findall(pattern, selector_map_str)
 
-    # 构造字典，键转换为整数
     selector_map_dict = {int(key): value for key, value in matches}
     return selector_map_dict
 
 def get_sorted_selector_map(selector_map: dict) -> dict:
     """
-    根据键（假定为数字）从小到大排序 selector_map 字典。
+    Sort the selector map by keys and return it as a formatted string.
     """
     sorted_selector_map = ''
     for key in sorted(selector_map.keys()):

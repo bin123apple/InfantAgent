@@ -20,8 +20,8 @@ def generate_arxiv_search_url(
     keyword: str,
     start_date: str,
     end_date: str,
-    subject: str = "cs",  # 可选: cs, math, physics, q-bio, q-fin, stat
-    field: str = "title",  # 可选: title, abstract, comments, author, all
+    subject: str = "cs",  # options: cs, math, physics, q-bio, q-fin, stat
+    field: str = "title",  # options: title, abstract, comments, author, all
     size: int = 50,
     order: str = "-announced_date_first"
 ) -> str:
@@ -62,8 +62,8 @@ def search_arxiv(
     keyword: str,
     start_date: str,
     end_date: str,
-    subject: str = "cs",  # 可选: cs, math, physics, q-bio, q-fin, stat
-    field: str = "title",  # 可选: title, abstract, comments, author, all
+    subject: str = "cs",  # options: cs, math, physics, q-bio, q-fin, stat
+    field: str = "title",  # options: title, abstract, comments, author, all
 ) -> str:
     url = generate_arxiv_search_url(
         keyword=keyword,

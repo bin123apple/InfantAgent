@@ -3,7 +3,6 @@ import fitz
 import time
 import pandas as pd
 from PIL import Image
-from typing import List, Tuple
 
 from infant.tools.util import update_pwd_decorator, CURRENT_FILE, CURRENT_LINE, WINDOW, EXCEL_EXTENSIONS
 from infant.tools.util import _cur_file_header, _print_window, _check_current_file, _clamp, is_text_file
@@ -175,7 +174,6 @@ def parse_figure(figure_path: str):
             except Exception as e:
                 print(f"Fail to convert to .png {e}")
                 return
-        # 打印转换后（或原有）的 .png 路径
         print(f"<Screenshot saved at> {png_path}")
     elif ext == '.pdf':
         print(f'{figure_path} is not a supported figure type. '
@@ -189,32 +187,18 @@ def parse_figure(figure_path: str):
 @update_pwd_decorator
 def zoom_pdf(pdf_path: str, page: int, region: tuple):
     """
-    捕获PDF中指定页中某一特定区域的高分辨率截图，用于清晰查看局部图片。
-    
-    参数:
-        pdf_path (str): PDF文件路径。
-        page (int): 需要处理的页码（从1开始）。
-        region (tuple): 指定区域的元组，格式为 (x0, y0, x1, y1)，坐标使用PDF的坐标系。
-        zoom (float): 渲染时的缩放因子，默认值为5.0。
-        output_path (str, optional): 如果提供，则保存图片到此路径。
-    
-    返回:
-        pix (fitz.Pixmap): 截图的Pixmap对象。
+    Captures a high-resolution screenshot of a specified region of the PDF page and saves it as an image.
     """
-    # 打开PDF文件
     doc = fitz.open(pdf_path)
     total_pages = doc.page_count
     if page < 1 or page > total_pages:
         print(f"Page number {page} is out of range. Total pages: {total_pages}")
         return None
 
-    # 加载指定页（页码从0开始）
     pdf_page = doc.load_page(page - 1)
     
-    # 创建缩放矩阵
     mat = fitz.Matrix(5, 5)
     
-    # 使用指定区域进行裁剪（clip参数）
     clip_rect = fitz.Rect(*region)
     pix = pdf_page.get_pixmap(matrix=mat, clip=clip_rect)
     

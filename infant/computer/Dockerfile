@@ -66,7 +66,7 @@ RUN \
     remmina-common remmina-plugin-rdp remmina-plugin-vnc \
     # 3D figure tools
     mesa-utils \
-    # Install Display Manager and dependencies (改为安装 GDM3)
+    # Install Display Manager and dependencies
     gdm3 dbus-x11 && \
     # Default libgl1-mesa-dri causes "black window" issues
     # when software rendering. Use ppa to upgrade version.
@@ -84,10 +84,7 @@ RUN \
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
     DEBIAN_FRONTEND=noninteractive \
     dpkg-reconfigure tzdata && \
-    # （原 LightDM 相关配置已全部移除，此处添加 GDM3 配置）
-    # 配置 GDM3：禁用 Wayland（NoMachine 建议使用 Xorg）
     sed -i 's/#WaylandEnable=false/WaylandEnable=false/' /etc/gdm3/custom.conf && \
-    # 保持 /usr/share/xsessions 下的默认会话配置（Ubuntu Desktop 默认使用 GNOME）
     rm -f google-chrome-stable_current_amd64.deb
 
 # install 3D accelerated virtual desktops
@@ -113,7 +110,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive \
     # Ensure the nx user ID is not in the normal user range.
     groupadd -r -g 2000 nx && \
     useradd -u 2000 -r -g nx nx && \
-    # 安装 NoMachine Enterprise Desktop（版本号根据需要调整）
+    # Install NoMachine Enterprise Desktop
     NOMACHINE_MAJOR_VERSION="8.16-PRODUCTION" && \
     NOMACHINE_VERSION="8.16.1_1" && \
     echo "VERSION: ${NOMACHINE_VERSION}" && \
@@ -125,7 +122,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive \
     # the lightdm user but not for a normal user.
     echo 'mkdir -p ~/.config/pulse\nif [ ! -f ~/.config/pulse/client.conf ]; then\ncp /etc/pulse/client.conf ~/.config/pulse/client.conf\nsed -i "s/; default-server =/default-server = unix:\/tmp\/pulse-socket/g" ~/.config/pulse/client.conf\nfi' > /etc/profile.d/create-pulse-clientconf.sh && \
     echo 'load-module module-native-protocol-unix auth-anonymous=1 socket=/tmp/pulse-socket' >> /etc/pulse/default.pa && \
-   echo '[GDM]\n# GDM 默认配置，无需额外指定 xserver-command' > /etc/gdm3/custom.conf
+   echo '[GDM]\n# GDM default config, no need to set xserver-command' > /etc/gdm3/custom.conf
 
 
 # Install dbus-session

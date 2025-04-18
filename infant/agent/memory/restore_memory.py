@@ -1,69 +1,33 @@
-import re
 import os
 import base64
 import mimetypes
-import copy
 from PIL import Image
 from infant.agent.memory.memory import (
     Memory,
     Analysis,
     Userrequest,
     Message,
-    Summarize,
     Task,
     CmdRun,
     IPythonRun,
-    BrowseURL,
     TaskFinish,
     Critic,
     Finish
 )
-from infant.config import config
-from infant.agent.state.state import AgentState
-from infant.agent.state.state import State
 from infant.util.logger import infant_logger as logger
-from infant.prompt.critic_prompt import critic_system_prompt, critic_task_prompt_wo_target, critic_task_prompt_w_target
-from infant.prompt.reasoning_prompt import reasoning_sys_prompt, reasoning_provide_user_request, reasoning_task_end_prompt
-from infant.prompt.task_prompt import (
-    task_category,
-    task_to_str_w_target, 
-    task_to_str_wo_target,
-    task_to_str_wo_summary_hands,
-    task_to_str_wo_summary_wo_target_hands,
-)
-
+from infant.prompt.reasoning_prompt import reasoning_sys_prompt, reasoning_provide_user_request
+from infant.prompt.task_prompt import task_category
 from infant.prompt.classification_prompt import (
     clf_task_to_str_w_target,
     clf_task_to_str_wo_target,
     clf_sys_prompt
 )
-
-from infant.prompt.summary_prompt import (
-    smy_potential_issue_pt, 
-    smy_new_code_pt,
-    smy_git_diff_pt,
-    smy_key_steps_pt,
-    smy_reason_pt,
-    summary_sys_prompt,
-    summary_prompt_true,
-    summary_prompt_false,
-)
-
 from infant.prompt.execution_prompt import (
-    execution_split_userrequest_prompt,
     execution_critic_false_prompt,
     execution_critic_true_prompt,
-    execution_task_end_prompt
 )
-
-from infant.prompt.localization_prompt import localization_prompt, localization_user_initial_prompt
 from infant.prompt.tools_prompt import tool_document, tool_sys_msg, tool_example, tool_note, tool_advanced, tool_advanced_one_shot
-from infant.agent.memory.retrieve_memory import (
-    execution_memory_rtve, 
-    retrieve_memory_further, 
-    reasoning_memory_rtve_critic,
-    critic_memory_rtve,
-)
+
 
 def merge_text_image_content(text, images):
     content = [
@@ -137,16 +101,15 @@ def classification_memory_to_str(memory: Memory) -> str:
 
 def compress_image(image_path: str) -> str:
     """
-    如果是 PNG 且大小 > 5MB，就转换为 JPEG 并压缩到 ≤5MB。
-    返回最终写入的文件路径（如果转成了 .jpg，会返回新的路径）。
+    If the image is larger than 5MB, convert it to JPEG format.
     """
     max_bytes = 5 * 1024 * 1024  # 5MB
     try:
-        # 先检查文件大小
+        # check file size and extension
         size = os.path.getsize(image_path)
         ext = os.path.splitext(image_path)[1].lower()
 
-        # 仅对 PNG 做转换
+        # if the image is larger than 5MB and is a PNG, convert it to JPEG
         if ext == '.png' and size > max_bytes:
             jpeg_path = os.path.splitext(image_path)[0] + '.jpg'
             if os.path.exists(jpeg_path):
@@ -277,19 +240,6 @@ def execution_memory_to_diag(memory_block: list[Memory], cmd_set, end_prompt, mo
     messages.append({'role': 'user',
                     'content': end_prompt.format(note = note)})         
     return messages
-
-# def image_base64_to_url(image_path: str) -> str:
-#     '''
-#     convert the image to a base64 string.
-#     '''
-#     import base64
-#     import os
-#     if not os.path.exists(image_path):
-#         raise FileNotFoundError(f"File not found: {image_path}")
-#     with open(image_path, "rb") as img_file:
-#         base64_data = base64.b64encode(img_file.read()).decode("utf-8")
-#     image_url = f"data:image/png;base64,{base64_data}"
-#     return image_url
 
 def image_base64_to_url(image_path: str) -> str:
     """

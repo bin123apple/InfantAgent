@@ -1,4 +1,4 @@
-# OSWorld Evaluation  (Unfinish)
+# OSWorld Evaluation  (Unfinished)
 
 ## Download dataset
 The source dataset is from `https://github.com/xlang-ai/OSWorld/tree/main/evaluation_examples`

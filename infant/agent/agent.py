@@ -1,13 +1,10 @@
-import re
-import copy
 import traceback
-from infant.config import config
 from infant.agent.parser import parse
 from infant.config import AgentParams
 from infant.llm.llm_api_base import LLM_API_BASED
 from infant.llm.llm_oss_base import LLM_OSS_BASED
 from infant.computer.computer import Computer
-from infant.util.debug import print_messages
+from infant.util.debug import print_messages # For debugging
 from infant.agent.state.state import State, AgentState
 from infant.agent.memory.memory import ( 
     Task,
@@ -17,10 +14,8 @@ from infant.agent.memory.memory import (
     Message, 
     Summarize, 
     TaskFinish, 
-    IPythonRun,
     Userrequest,
     Classification, 
-    LocalizationFinish,
 )
 from infant.util.logger import infant_logger as logger
 from infant.util.backup_image import backup_image_memory
@@ -29,38 +24,25 @@ from infant.util.special_case_handler import handle_reasoning_repetition, check_
 from infant.prompt.parse_user_input import parse_user_input_prompt
 from infant.prompt.reasoning_prompt import reasoning_fake_user_response_prompt
 from infant.prompt.tools_prompt import tool_stop, tool_fake_user_response_prompt
-from infant.prompt.localization_prompt import (
-    localization_fake_user_response_prompt,
-    localization_check_dot_prompt,
-    localization_check_rectangle_prompt,
-)
-
 from infant.prompt.reasoning_prompt import (
     reasoning_task_end_prompt
 )
-
 from infant.prompt.execution_prompt import (
     execution_task_end_prompt
 )
-
 from infant.agent.memory.retrieve_memory import (
     reasoning_memory_rtve, 
     classification_memory_rtve,
+    execution_memory_rtve
 )
-
 from infant.agent.memory.restore_memory import (
     reasoning_memory_to_diag, 
     classification_memory_to_diag, 
-    execution_memory_rtve,
     execution_memory_to_diag,
-    truncate_output,
 )
-
 from infant.helper_functions.mouse_click import mouse_click
-from infant.helper_functions.visual_helper_functions import localization_visual
-from infant.helper_functions.browser_helper_function import localization_browser, convert_web_browse_commands, check_dropdown_options
+from infant.helper_functions.browser_helper_function import convert_web_browse_commands
 from infant.agent.memory.file_related_memory import get_diff_patch, git_add_or_not
-
 import asyncio
 import logging
 
@@ -153,7 +135,6 @@ class Agent:
         while not isinstance(self.state.memory_list[-1], (Task, Finish)):
             messages = await self.memory_to_input("reasoning", self.state.memory_list)
             # print_messages(messages, 'reasoning')
-            # input("For debugging") # For setting up the first-time user
             resp, mem_blc= self.llm.completion(messages=messages, stop=['</analysis>', '</task>'])
             if mem_blc:
                 self.state.memory_list.extend(mem_blc)
@@ -205,7 +186,6 @@ class Agent:
         while not isinstance(self.state.memory_list[-1], TaskFinish):
             messages = await self.memory_to_input("execution", self.state.memory_list, cmd_set = cmd_set)
             # print_messages(messages, 'execution')
-            # input("For debugging") # For setting up the first-time user
             resp, mem_blc= self.llm.completion(messages=messages, stop=stop_signals)
             if mem_blc:
                 self.state.memory_list.extend(mem_blc)
@@ -287,12 +267,6 @@ class Agent:
             memory.summary['reason'] = reason 
         logger.info(memory, extra={'msg_type': 'Summarize'})
         self.state.memory_list.append(memory)
-        # if not isinstance(memory, Summarize):
-        #     logger.warning("The summary is NOT a Summarize memory. Retry.")
-        #     sum_attempts += 1
-        #     if sum_attempts >= self.agent_config.max_sum_retries:
-        #         logger.error("Summary Max retries reached. Developer should fix the prompt!")    
-        #         await self.change_agent_state(new_state=AgentState.ERROR) 
     
     async def change_agent_state(self, new_state: AgentState):
         logger.info(f"Changing agent state to: {new_state}")

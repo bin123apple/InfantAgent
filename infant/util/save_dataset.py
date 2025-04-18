@@ -14,10 +14,6 @@ from infant.agent.memory.memory import (
     Finish,
 )
 
-from infant.prompt.task_prompt import (
-    task_to_str_w_target, 
-    task_to_str_wo_target,
-)
 
 def save_to_dataset(memory_list, log_folder, task_file_name="dataset.json"):
     """
