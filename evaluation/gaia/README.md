@@ -13,12 +13,16 @@ docker build -t gaia_base_image -f Dockerfile .
 ```
 
 ## Run inference 
+```
 export OPENAI_API_KEY='YOUR KEY'
 export ANTHROPIC_API_KEY='YOUR KEY'
 python run_inference.py
+```
 
 ## Evaluation
+```
 python evaluation.py
+```
 
 ## Performance
 All the predictions.jsonl files are stored in predictions folder 
