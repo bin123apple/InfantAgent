@@ -92,7 +92,7 @@ class Config:
     # litellm Attributes
     model: str = 'claude-3-7-sonnet-latest'
     api_key: str | None = os.getenv("ANTHROPIC_API_KEY")
-    # model: str = 'gpt-4o'
+    # model: str = 'o4-mini'
     # api_key: str | None = os.getenv("OPENAI_API_KEY")
     base_url: str | None = None
     api_version: str | None = None
@@ -103,11 +103,11 @@ class Config:
     aws_secret_access_key: str | None = None
     aws_region_name: str | None = None
     num_retries: int = 5
-    retry_min_wait: int = 3
+    retry_min_wait: int = 5
     retry_max_wait: int = 60
     timeout: int | None = None
     max_chars: int = 5_000_000  # fallback for token counting
-    temperature: float = 0.7
+    temperature: float = 0.9
     top_p: float = 0.5
     custom_llm_provider: str | None = None
     max_input_tokens: int | None = None
@@ -125,7 +125,7 @@ class Config:
     disable_custom_all_reduce: bool = True
     enable_prefix_caching: bool = False
     trust_remote_code: bool = True
-    gpu_memory_utilization: float = 0.7 # kv cache memory utilization
+    gpu_memory_utilization: float = 0.9 # kv cache memory utilization
     sampling_n: int = 1
     best_of: Optional[int] = None
     presence_penalty: float = 0.0

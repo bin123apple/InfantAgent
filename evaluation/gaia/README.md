@@ -13,3 +13,7 @@ docker build -t gaia_base_image -f Dockerfile .
 ```
 
 ## Run inference
+python run_inference.py
+
+## Evaluation
+python evaluation.py

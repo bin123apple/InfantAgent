@@ -598,6 +598,7 @@ You can use the following functions to perform advanced operations. These comman
 - download_arxiv_pdf(arxiv_id: str) : Downloads the specified arXiv paper based on its ID (eg: 1608.06816) and show the first page of the PDF.
 - scroll_pdf_page(direction: str, pages: int): When you're viewing a PDF document in the web interface, you can use this command to scroll the specified page of the PDF file up or down. direction: Direction to scroll ("up" or "down"). page: Page number to scroll.
 - watch_video(video_path_or_url: str): Please use this command to Watch a video file or YouTube URL. Especially when there is a sign-in prompt for Youtube. video_path_or_url: Local path or YouTube URL.
+- count_string_in_pdf(pdf_path: str, search_string: str): Count the number of occurrences of a specific string in a **Local** PDF file. pdf_path: Path to the PDF file. search_string: The string to search for.
 '''
 
 tool_advanced_one_shot = '''

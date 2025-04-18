@@ -5,7 +5,10 @@ import logging
 import asyncio
 import requests
 import subprocess
+from pathlib import Path
+from typing import Union
 from bs4 import BeautifulSoup
+from pypdf import PdfReader
 from urllib.parse import urlencode, quote_plus, quote
 from infant.tools.file_reader.filereader import parse_pdf
 from infant.tools.util import update_pwd_decorator
@@ -148,5 +151,25 @@ def scroll_pdf_page(direction: str, pages: int) -> str:
             subprocess.run(f"xdotool key {key}", shell=True)
             time.sleep(1)
     take_screenshot()
-        
 
+@update_pwd_decorator
+def count_string_in_pdf(
+    pdf_path: Union[str, Path],
+    target: str,
+    case_sensitive: bool = False
+) -> int:
+    try:
+        reader = PdfReader(str(pdf_path))
+    except:
+        print(f"No such PDF: {pdf_path}. Please download the PDF to local first.")
+        return
+    if not case_sensitive:
+        target = target.lower()
+
+    total = 0
+    for page in reader.pages:
+        text = page.extract_text() or ""
+        if not case_sensitive:
+            text = text.lower()
+        total += text.count(target)
+    print(f"'{target}' are found {total} times in {pdf_path}.")

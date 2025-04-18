@@ -178,8 +178,8 @@ async def run_single_instance(instance: dict, logger):
     user_request = (
         f"I have attached the {ext} file: {file_name} in /workspace.\n{problem_statement}"
         if whether_attach_file else
-        f"{problem_statement}\n"
-        "NOTE: If you want to search something online, please open the browser and use the command 'google_search' first."
+        f"{problem_statement}"
+        # "NOTE: If you want to search something online, please open the browser and use the command 'google_search' first."
     )
     logger.info(f"User request: {user_request}")
     # Run the agent

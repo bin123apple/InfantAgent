@@ -2,6 +2,7 @@ import os
 import fitz
 import time
 import pandas as pd
+from PIL import Image
 from typing import List, Tuple
 
 from infant.tools.util import update_pwd_decorator, CURRENT_FILE, CURRENT_LINE, WINDOW, EXCEL_EXTENSIONS
@@ -159,13 +160,23 @@ def parse_figure(figure_path: str):
     Returns:
         None
     """
-    ext = os.path.splitext(figure_path)[-1].lower()
+    base, ext = os.path.splitext(figure_path)
+    ext = ext.lower()
 
     # Image file types (you can extend this list as needed)
     image_extensions = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.tiff', '.webp'}
 
     if ext in image_extensions:
-        print(f"<Screenshot saved at> {figure_path}")
+        png_path = f"{base}.png"
+        if ext != '.png':
+            try:
+                with Image.open(figure_path) as img:
+                    img.convert("RGBA").save(png_path, "PNG")
+            except Exception as e:
+                print(f"Fail to convert to .png {e}")
+                return
+        # 打印转换后（或原有）的 .png 路径
+        print(f"<Screenshot saved at> {png_path}")
     elif ext == '.pdf':
         print(f'{figure_path} is not a supported figure type. '
             'Please use `parse_pdf(pdf_path: str, page: int)` command to view the PDF.')

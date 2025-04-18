@@ -3,6 +3,7 @@ import os
 import base64
 import mimetypes
 import copy
+from PIL import Image
 from infant.agent.memory.memory import (
     Memory,
     Analysis,
@@ -20,6 +21,7 @@ from infant.agent.memory.memory import (
 from infant.config import config
 from infant.agent.state.state import AgentState
 from infant.agent.state.state import State
+from infant.util.logger import infant_logger as logger
 from infant.prompt.critic_prompt import critic_system_prompt, critic_task_prompt_wo_target, critic_task_prompt_w_target
 from infant.prompt.reasoning_prompt import reasoning_sys_prompt, reasoning_provide_user_request, reasoning_task_end_prompt
 from infant.prompt.task_prompt import (
@@ -132,7 +134,35 @@ def classification_memory_to_str(memory: Memory) -> str:
             return clf_task_to_str_w_target.format(task=memory.task, target=memory.target)
         else:
             return clf_task_to_str_wo_target.format(task=memory.task)
-        
+
+def compress_image(image_path: str) -> str:
+    """
+    如果是 PNG 且大小 > 5MB，就转换为 JPEG 并压缩到 ≤5MB。
+    返回最终写入的文件路径（如果转成了 .jpg，会返回新的路径）。
+    """
+    max_bytes = 5 * 1024 * 1024  # 5MB
+    try:
+        # 先检查文件大小
+        size = os.path.getsize(image_path)
+        ext = os.path.splitext(image_path)[1].lower()
+
+        # 仅对 PNG 做转换
+        if ext == '.png' and size > max_bytes:
+            jpeg_path = os.path.splitext(image_path)[0] + '.jpg'
+            if os.path.exists(jpeg_path):
+                return jpeg_path
+            logger.info(f"The size of current image is {size}, converting {image_path} (>5MB) to JPEG…")
+
+            img = Image.open(image_path).convert('RGB')
+            img.save(jpeg_path, 'JPEG')
+            return jpeg_path
+
+        return image_path
+
+    except Exception as e:
+        logger.error(f"Fail to compress/convert image: {e}")
+        return image_path
+  
 def merge_mutimodal_content(memory: Memory, messages: list, mount_path: str):
     content = []
     text = memory.result
@@ -150,6 +180,7 @@ def merge_mutimodal_content(memory: Memory, messages: list, mount_path: str):
             screenshot_path = last_line.split('<Screenshot saved at>')[-1].strip()
         if screenshot_path.startswith("/workspace"):
             image_path = screenshot_path.replace("/workspace", mount_path, 1)
+            image_path = compress_image(image_path)
         image_url = image_base64_to_url(image_path)
         content.append({"type": "image_url","image_url": {"url": image_url}})
     messages.append({'role': 'user','content': content}) 
@@ -247,18 +278,33 @@ def execution_memory_to_diag(memory_block: list[Memory], cmd_set, end_prompt, mo
                     'content': end_prompt.format(note = note)})         
     return messages
 
+# def image_base64_to_url(image_path: str) -> str:
+#     '''
+#     convert the image to a base64 string.
+#     '''
+#     import base64
+#     import os
+#     if not os.path.exists(image_path):
+#         raise FileNotFoundError(f"File not found: {image_path}")
+#     with open(image_path, "rb") as img_file:
+#         base64_data = base64.b64encode(img_file.read()).decode("utf-8")
+#     image_url = f"data:image/png;base64,{base64_data}"
+#     return image_url
+
 def image_base64_to_url(image_path: str) -> str:
-    '''
-    convert the image to a base64 string.
-    '''
-    import base64
-    import os
+    """
+    Convert an image file to a base64 data URL, auto-detecting the MIME type.
+    """
     if not os.path.exists(image_path):
         raise FileNotFoundError(f"File not found: {image_path}")
+    mime_type, _ = mimetypes.guess_type(image_path)
+    if not mime_type:
+        mime_type = "image/png"
+
     with open(image_path, "rb") as img_file:
-        base64_data = base64.b64encode(img_file.read()).decode("utf-8")
-    image_url = f"data:image/png;base64,{base64_data}"
-    return image_url
+        b64 = base64.b64encode(img_file.read()).decode("utf-8")
+
+    return f"data:{mime_type};base64,{b64}"
 
 def check_dialogue_length(messages: list[dict[str, str]], max_chars: int = 10_000) -> bool:
     '''

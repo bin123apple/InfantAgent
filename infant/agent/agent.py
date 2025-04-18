@@ -223,10 +223,10 @@ class Agent:
                 if not memory.result:
                     memory.result = await method(memory)
                     
-                # For web_browser, we need to check the dropdown menu
-                chk_dropdown_result, dropdown_dict = await check_dropdown_options(self, cmd, interactive_elements)
-                memory.result += f'\n{chk_dropdown_result}'    
-                memory.result = truncate_output(output = memory.result)
+                # # For web_browser, we need to check the dropdown menu
+                # chk_dropdown_result, dropdown_dict = await check_dropdown_options(self, cmd, interactive_elements)
+                # memory.result += f'\n{chk_dropdown_result}'    
+                # memory.result = truncate_output(output = memory.result)
                 
                 # convert the coordinate back to image description
                 if hasattr(memory, 'code') and memory.code:
