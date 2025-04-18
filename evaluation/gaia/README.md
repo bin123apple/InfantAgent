@@ -12,7 +12,9 @@ python download_dataset.py
 docker build -t gaia_base_image -f Dockerfile .
 ```
 
-## Run inference
+## Run inference 
+export OPENAI_API_KEY='YOUR KEY'
+export ANTHROPIC_API_KEY='YOUR KEY'
 python run_inference.py
 
 ## Evaluation
