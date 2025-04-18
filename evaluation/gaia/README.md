@@ -23,5 +23,5 @@ All the predictions.jsonl files are stored in predictions folder
 
 | Model            | Visual localization Model            | Agent Version          | dataset        | Accuracy     |
 |:------------------:|:------------------:|:---------------------:|:-------------------:|:------------:|
-| Claude-3.7-Sonnet          | InfantAgent-2025-04-01   | SWE-Bench-Lite    | 29.3%        |
-| Claude-3.7-Sonnet| InfantAgent-2025-04-01  | SWE-Bench-Verified         | TODO       |
+| Claude-3.7-Sonnet   |RL-Qwen2.5VL-lora-7B-ckpt500| InfantAgent-2025-04-15   | gaia-validation    | 56.97%        |
+| o4-mini |-| - | -       | TODO       |
