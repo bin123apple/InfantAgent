@@ -17,3 +17,11 @@ python run_inference.py
 
 ## Evaluation
 python evaluation.py
+
+## Performance
+All the predictions.jsonl files are stored in predictions folder 
+
+| Model            | Visual localization Model            | Agent Version          | dataset        | Accuracy     |
+|:------------------:|:------------------:|:---------------------:|:-------------------:|:------------:|
+| Claude-3.7-Sonnet          | InfantAgent-2025-04-01   | SWE-Bench-Lite    | 29.3%        |
+| Claude-3.7-Sonnet| InfantAgent-2025-04-01  | SWE-Bench-Verified         | TODO       |
