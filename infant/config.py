@@ -125,7 +125,7 @@ class Config:
     disable_custom_all_reduce: bool = True
     enable_prefix_caching: bool = False
     trust_remote_code: bool = True
-    gpu_memory_utilization: float = 0.9 # kv cache memory utilization
+    gpu_memory_utilization: float = 0.7 # kv cache memory utilization
     sampling_n: int = 1
     best_of: Optional[int] = None
     presence_penalty: float = 0.0

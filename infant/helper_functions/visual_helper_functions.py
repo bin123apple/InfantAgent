@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Tuple
 if TYPE_CHECKING:
     from infant.agent.agent import Agent
 from PIL import Image, ImageDraw, ImageEnhance
-
 import infant.util.constant as constant
 from infant.util.debug import print_messages # for debugging
 from infant.agent.memory.memory import Memory, IPythonRun

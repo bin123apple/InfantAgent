@@ -19,30 +19,46 @@ code = sys.stdin.read()
 def execute_code(code, print_output=True):
     PORT = os.environ.get('JUPYTER_EXEC_SERVER_PORT')
     POST_URL = f'http://localhost:{PORT}/execute'
-
-    # Set the default kernel ID
     kernel_id = 'default'
+
+    max_retries = 5     
+    base_delay = 1   
     output = ''
-    for i in range(3):
+
+    for attempt in range(1, max_retries + 1):
         try:
             response = requests.post(
-                POST_URL, json={'kernel_id': kernel_id, 'code': code}
+                POST_URL,
+                json={'kernel_id': kernel_id, 'code': code},
+                timeout=5
             )
+            response.raise_for_status()
+
             output = response.text
-            if '500: Internal Server Error' not in output:
-                if print_output:
-                    print(output)
-                break
-        except requests.exceptions.ConnectionError:
-            if i == 2:
+            if '500: Internal Server Error' in output:
+                raise requests.exceptions.HTTPError("Server returned 500 in body")
+
+            if print_output:
+                print(output)
+            break
+
+        except (requests.exceptions.ConnectionError,
+                requests.exceptions.HTTPError) as e:
+            if attempt == max_retries:
                 traceback.print_exc()
-        time.sleep(2)
+            else:
+                delay = base_delay * attempt
+                print(f"[Attempt {attempt}/{max_retries}] Error: {e!r}. Retrying in {delay}s…")
+                time.sleep(delay)
+
     else:
         if not output:
-            with open('/infant/logs/jupyter_execute_server.log', 'r') as f:
-                output = f.read()
-        print('Failed to connect to the Jupyter server', output)
-
+            try:
+                with open('/infant/logs/jupyter_execute_server.log', 'r') as f:
+                    output = f.read()
+            except FileNotFoundError:
+                output = "<no server log available>"
+        print('Failed to connect to the Jupyter server:', output)
 
 if jupyter_pwd := os.environ.get('JUPYTER_PWD'):
     execute_code(

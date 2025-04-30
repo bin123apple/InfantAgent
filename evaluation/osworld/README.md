@@ -1,15 +1,15 @@
-# OSWorld Evaluation  (Unfinished)
+# OSWorld Evaluation 
 
-## Download dataset
-The source dataset is from `https://github.com/xlang-ai/OSWorld/tree/main/evaluation_examples`
+We use [osworld benchmark](https://os-world.github.io/) to test the **pure vision** ability of our agent.
 
-##  Build Base Image
-```
-docker build -t gaia_base_image -f Dockerfile .
-```
+Because their test scripts contain a large number of evaluation functions, we consolidated all tests into a single script (`run_infer_script.py`) and ran it using their official repository. The testing steps are as follows:
 
-## Run inference 
-```
-export ANTHROPIC_API_KEY='YOUR KEY'
-python run_inference.py
-```
+1. Configure the test environment according to the `README` of [OSWorld](https://github.com/xlang-ai/OSWorld) until you can successfully execute the official `run.py` script.  
+2. Place our script in the root directory of the OSWorld project, replace `run.py` with `run_infer_script.py` in the run command, and then execute the command.
+
+## Performance
+
+| Model            | Visual localization Model            | Agent Version          | dataset        | Accuracy     |
+|:------------------:|:------------------:|:---------------------:|:-------------------:|:------------:|
+| Claude-3.7-Sonnet   |UI-TARS-1.5-7B| InfantAgent-2025-04-25   | osworld-test-all    | 35.27%        |
+| Gemini-2.5-pro |-| - | -       | TODO       |

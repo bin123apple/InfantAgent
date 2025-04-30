@@ -1082,6 +1082,19 @@ class Computer:
             return f'{output}'
         return f'{output}'
 
+    def run_python(self, code: str) -> str:
+        
+        # The real output from the code.
+        obs = self._run_command(
+            ("cat > /tmp/infant_jupyter_temp.py <<'EOL'\n" f'{code}\n' 'EOL'),
+        )
+        # run the code
+        obs = self._run_command(
+            ('cat /tmp/infant_jupyter_temp.py | execute_cli.sh'), 
+        )
+        output = obs
+        
+        return f'{output}'
 
     def get_file(self, file_path: str) -> Optional[bytes]:
         """
@@ -1091,7 +1104,7 @@ class Computer:
         vm_ip = '172.17.0.2'
         server_port = '5000'
         http_server = f"http://{vm_ip}:{server_port}"
-        for _ in range(3):
+        for _ in range(5):
             try:
                 response = requests.post(http_server + "/file", data={"file_path": file_path})
                 if response.status_code == 200:
@@ -1115,7 +1128,7 @@ class Computer:
         vm_ip = '172.17.0.2'
         server_port = '5000'
         http_server = f"http://{vm_ip}:{server_port}"
-        for _ in range(3):
+        for _ in range(5):
             try:
                 response = requests.post(http_server + "/desktop_path")
                 if response.status_code == 200:
@@ -1141,7 +1154,7 @@ class Computer:
         http_server = f"http://{vm_ip}:{server_port}"
         payload = json.dumps({"path": path})
 
-        for _ in range(3):
+        for _ in range(5):
             try:
                 response = requests.post(http_server + "/list_directory", headers={'Content-Type': 'application/json'}, data=payload)
                 if response.status_code == 200:
@@ -1166,7 +1179,7 @@ class Computer:
         server_port = '5000'
         http_server = f"http://{vm_ip}:{server_port}"
         
-        for _ in range(3):
+        for _ in range(5):
             try:
                 response: requests.Response = requests.get(http_server + "/accessibility")
                 if response.status_code == 200:
@@ -1190,7 +1203,7 @@ class Computer:
         vm_ip = '172.17.0.2'
         server_port = '5000'
         http_server = f"http://{vm_ip}:{server_port}"
-        for _ in range(3):
+        for _ in range(5):
             try:
                 response = requests.post(http_server + "/wallpaper")
                 if response.status_code == 200:
@@ -1214,7 +1227,7 @@ class Computer:
         vm_ip = '172.17.0.2'
         server_port = '5000'
         http_server = f"http://{vm_ip}:{server_port}"
-        for _ in range(3):
+        for _ in range(5):
             try:
                 response = requests.get(http_server + "/terminal")
                 if response.status_code == 200:

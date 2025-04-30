@@ -99,7 +99,7 @@ async def initialize_docker_agent(instance: dict, config=config)-> Agent:
     import_memory = IPythonRun(code = "press_key('Escape')")
     await computer.run_ipython(import_memory)
     
-    # set up initial workspace
+    # set up initial environment
     computer.execute(f'sudo DEBIAN_FRONTEND=noninteractive apt remove -s -y gnome-keyring')
     return agent
 
