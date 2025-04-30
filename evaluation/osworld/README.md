@@ -1,6 +1,6 @@
 # OSWorld Evaluation 
 
-We use [osworld benchmark](https://os-world.github.io/) to test the **pure vision** ability of our agent.
+We use [OSWorld benchmark](https://os-world.github.io/) to test the **pure vision** ability of our agent.
 
 Because their test scripts contain a large number of evaluation functions, we consolidated all tests into a single script (`run_infer_script.py`) and ran it using their official repository. The testing steps are as follows:
 
