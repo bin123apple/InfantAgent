@@ -10,11 +10,13 @@ python download_dataset.py
 ```
 
 ## Run 
+```
 python run_inference.py \
   --model_name ByteDance-Seed/UI-TARS-1.5-7B \
   --inst_style instruction \
   --language cn \
   --gt_type positive
+```
 
 ## Performance
 
