@@ -1,8 +1,9 @@
 FROM ubuntu:22.04
 
 # language & timezone
-ENV LANG=en_GB.UTF-8
-ENV TZ=Europe/London
+ENV LANG=en_US.UTF-8
+ENV TZ=America/Los_Angeles
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 # install gnome desktop and other tools
@@ -134,13 +135,7 @@ RUN sudo sed -i '$a WaylandModes "egl,compositor,drm"' /usr/NX/etc/node.cfg
 RUN gsettings set org.gnome.desktop.interface enable-animations false
 # Install Vim
 RUN sudo apt install -y vim
-# Copy Install Script
-COPY GeForce-XorgDisplaySettingAuto.sh /home
-COPY Tesla-XorgDisplaySettingAuto.sh /home
-# RUN chmod +x /home/Tesla-XorgDisplaySettingAuto.sh && \
-#     /home/Tesla-XorgDisplaySettingAuto.sh
-# COPY vulkan-ubuntu-18.04.sh /home
-COPY vulkan-ubuntu-22.04.sh /home
+
 WORKDIR /home
 
 # install basic packages
@@ -187,8 +182,14 @@ RUN /infant/miniforge3/bin/pip install jupyterlab notebook jupyter_kernel_gatewa
 RUN /infant/miniforge3/bin/pip install python-docx PyPDF2 python-pptx pylatexenc openai
 RUN /infant/miniforge3/bin/pip install python-dotenv toml termcolor pydantic python-docx pyyaml docker pexpect tenacity e2b browsergym minio
 
-# No password login
 
+# Copy Install Script
+COPY GeForce-XorgDisplaySettingAuto.sh /home
+COPY Tesla-XorgDisplaySettingAuto.sh /home
+
+COPY vulkan-ubuntu-22.04.sh /home
+# No password login
+# CMD ["/sbin/init"]
 
 # Build
 # docker build -t ubuntu-gnome-nomachine:22.04 -f Dockerfile .
