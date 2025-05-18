@@ -20,10 +20,10 @@ conda install -c conda-forge uv
 uv pip install -e .
 ```
 
-2. Build Docker 
+2. Pull the Docker
+Only required on first use. It will pull the docker image from the Docker Hub.
 ```
-cd computer
-docker build -t ubuntu-gnome-nomachine:22.04 -f Dockerfile .
+docker pull bin12345/ubuntu-gnome-nomachine:22.04
 ```
 
 3. Run
