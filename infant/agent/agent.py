@@ -57,11 +57,12 @@ logger = logging.getLogger(__name__)
 class Agent:
     def __init__(self, 
                  agent_config: AgentParams, 
-                 api_llm: LLM_API_BASED | None = None, 
                  planning_llm: LLM_API_BASED | None = None,
                  classification_llm: LLM_API_BASED | None = None,
                  execution_llm: LLM_API_BASED | None = None,
-                 oss_llm: LLM_OSS_BASED | None = None, 
+                 vg_llm: LLM_OSS_BASED | None = None,
+                 fe_llm: LLM_API_BASED | None = None,
+                 ap_llm: LLM_API_BASED | None = None,
                  computer: Computer | None = None,
         ) -> None:
         """
@@ -71,11 +72,12 @@ class Agent:
         - llm (LLM): The llm to be used by this agent
         """
         logger.info(f"Initializing Agent with parameters: agent_config: {agent_config}")
-        self.llm = api_llm
-        self.oss_llm = oss_llm
-        self.planning_llm = planning_llm or api_llm
-        self.classification_llm = classification_llm or api_llm
-        self.execution_llm = execution_llm or api_llm
+        self.planning_llm = planning_llm
+        self.classification_llm = classification_llm
+        self.execution_llm = execution_llm
+        self.vg_llm = vg_llm
+        self.fe_llm = fe_llm
+        self.ap_llm = ap_llm
         self.computer = computer
         self.agent_config = agent_config
         self.state = State()

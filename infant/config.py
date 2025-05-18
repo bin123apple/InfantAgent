@@ -1,15 +1,14 @@
-import logging
 import os
-import pathlib
-import platform
+import toml
 import uuid
+import pathlib
+import logging
+import platform
+from pathlib import Path
 from dataclasses import dataclass
-from typing import Optional, Union, List
-from dotenv import load_dotenv
+from typing import Optional, Union, List, Any, Dict
 
 logger = logging.getLogger(__name__)
-
-load_dotenv() # FIXME: Access api-key from environment variable
 
 @dataclass
 class Config:
@@ -38,9 +37,8 @@ class Config:
     input_cost_per_token: The cost per input token. This will available in logs for the user to check.
     output_cost_per_token: The cost per output token. This will available in logs for the user to check.
     
-    
     ### vllm Attributes: # for OSS-LLM inference ###
-    model_name: The name of the model to use.
+    model_oss: The name of the model to use.
     tensor_parallel_size: The size of the tensor parallelism.
     max_model_len: The maximum length of the model.
     disable_custom_all_reduce: Whether to disable custom all-reduce operations.
@@ -51,7 +49,6 @@ class Config:
     vllm_temperature: Sampling temperature for randomness in generation.
     sampling_top_p: Top-p sampling threshold.
     stop: Stop tokens for text generation.    
-    
     
     ### agent Attributes: # for agent ###
     run_as_infant: Whether to run as AI.
@@ -89,11 +86,17 @@ class Config:
     computer_timeout: The timeout for the computer.
     """
     
+    # other model config
+    planning_llm: dict | None = None
+    classification_llm: dict | None = None
+    execution_llm: dict | None = None
+    vg_llm: dict | None = None
+    fe_llm: dict | None = None
+    ap_llm: dict | None = None
+    
     # litellm Attributes
     model: str = 'claude-3-7-sonnet-latest'
     api_key: str | None = os.getenv("ANTHROPIC_API_KEY")
-    # model: str = 'o4-mini'
-    # api_key: str | None = os.getenv("OPENAI_API_KEY")
     base_url: str | None = None
     api_version: str | None = None
     embedding_model: str = 'local'
@@ -119,7 +122,7 @@ class Config:
     gift_key: bool = False
     
     ## vllm Attributes
-    model_name: str = 'weitaikang/RL-Qwen2.5VL-lora-7B-ckpt500'
+    model_oss: str = 'ByteDance-Seed/UI-TARS-1.5-7B'
     tensor_parallel_size: int = 2 # Tensor parallelism splits the model's tensors across n GPUs
     max_model_len: int = 9632
     disable_custom_all_reduce: bool = True
@@ -204,7 +207,7 @@ class Config:
         sections = [
             ("### litellm Attributes ###", self.get_litellm_params()),
             ("### vllm Attributes ###", self.get_vllm_params()),
-            ("### agent Attributes ###", self.get_agent_params()),
+            ("### Agent Attributes ###", self.get_agent_params()),
             ("### Computer Attributes ###", self.get_computer_params()),
         ]
 
@@ -244,51 +247,67 @@ class Config:
         if self.cache_dir:
             pathlib.Path(self.cache_dir).mkdir(parents=True, exist_ok=True)
             
-            
-    def get_litellm_params(self):
-        return LitellmParams(
-            model=self.model,
-            api_key=self.api_key,
-            base_url=self.base_url,
-            api_version=self.api_version,
-            embedding_model=self.embedding_model,
-            embedding_base_url=self.embedding_base_url,
-            embedding_deployment_name=self.embedding_deployment_name,
-            aws_access_key_id=self.aws_access_key_id,
-            aws_secret_access_key=self.aws_secret_access_key,
-            aws_region_name=self.aws_region_name,
-            num_retries=self.num_retries,
-            retry_min_wait=self.retry_min_wait,
-            retry_max_wait=self.retry_max_wait,
-            timeout=self.timeout,
-            max_chars=self.max_chars,
-            temperature=self.temperature,
-            top_p=self.top_p,
-            cost_metric_supported = self.cost_metric_supported,
-            custom_llm_provider=self.custom_llm_provider,
-            max_input_tokens=self.max_input_tokens,
-            max_output_tokens=self.max_output_tokens,
-            input_cost_per_token=self.input_cost_per_token,
-            output_cost_per_token=self.output_cost_per_token,
-            feedback_mode = self.feedback_mode,
-            gift_key=self.gift_key
+    def get_litellm_params(self, overrides: Dict[str, Any] | None = None):
+        """
+        Returns the parameters for the Litellm API.
+        """
+        overrides = overrides or {}
+
+        base_kwargs = dict(
+            model                     = self.model,
+            api_key                   = self.api_key,
+            base_url                  = self.base_url,
+            api_version               = self.api_version,
+            embedding_model           = self.embedding_model,
+            embedding_base_url        = self.embedding_base_url,
+            embedding_deployment_name = self.embedding_deployment_name,
+            aws_access_key_id         = self.aws_access_key_id,
+            aws_secret_access_key     = self.aws_secret_access_key,
+            aws_region_name           = self.aws_region_name,
+            num_retries               = self.num_retries,
+            retry_min_wait            = self.retry_min_wait,
+            retry_max_wait            = self.retry_max_wait,
+            timeout                   = self.timeout,
+            max_chars                 = self.max_chars,
+            temperature               = self.temperature,
+            top_p                     = self.top_p,
+            cost_metric_supported     = self.cost_metric_supported,
+            custom_llm_provider       = self.custom_llm_provider,
+            max_input_tokens          = self.max_input_tokens,
+            max_output_tokens         = self.max_output_tokens,
+            input_cost_per_token      = self.input_cost_per_token,
+            output_cost_per_token     = self.output_cost_per_token,
+            feedback_mode             = self.feedback_mode,
+            gift_key                  = self.gift_key,
         )
 
-    def get_vllm_params(self):
-        return VllmParams(
-            model_name=self.model_name,
-            tensor_parallel_size=self.tensor_parallel_size,
-            max_model_len=self.max_model_len,
-            disable_custom_all_reduce=self.disable_custom_all_reduce,
-            enable_prefix_caching=self.enable_prefix_caching,
-            trust_remote_code=self.trust_remote_code,
-            sampling_n=self.sampling_n,
-            max_tokens=self.max_tokens,
-            vllm_temperature=self.vllm_temperature,
-            vllm_top_p=self.vllm_top_p,
-            stop=self.stop,
-            gpu_memory_utilization=self.gpu_memory_utilization
+        base_kwargs.update(overrides)
+
+        return LitellmParams(**base_kwargs)
+
+    def get_vllm_params(self, overrides: Dict[str, Any] | None = None):
+        """
+        Returns the parameters for the VLLM API.
+        """
+        overrides = overrides or {}
+
+        base_kwargs = dict(
+            model_oss              = self.model_oss,
+            tensor_parallel_size    = self.tensor_parallel_size,
+            max_model_len           = self.max_model_len,
+            disable_custom_all_reduce = self.disable_custom_all_reduce,
+            enable_prefix_caching   = self.enable_prefix_caching,
+            trust_remote_code       = self.trust_remote_code,
+            sampling_n              = self.sampling_n,
+            max_tokens              = self.max_tokens,
+            vllm_temperature        = self.vllm_temperature,
+            vllm_top_p              = self.vllm_top_p,
+            stop                    = self.stop,
+            gpu_memory_utilization  = self.gpu_memory_utilization,
         )
+
+        base_kwargs.update(overrides) 
+        return VllmParams(**base_kwargs)
 
     def get_agent_params(self):
         return AgentParams(
@@ -343,6 +362,15 @@ class Config:
             text_only_docker = self.text_only_docker,
             intermediate_results_dir = self.intermediate_results_dir
         )
+
+    def _load(self) -> Dict[str, Any]:
+        """Read and cache the TOML configuration file."""
+        if not CONFIG_FILE.exists():
+            raise FileNotFoundError(
+                f"Configuration file '{CONFIG_FILE}' was not found – please create it "
+                "(see docs/agent_config_example.toml)."
+            )
+        return toml.load(CONFIG_FILE)
 
 class ComputerParams:
     def __init__(
@@ -463,11 +491,11 @@ class LitellmParams:
         self.input_cost_per_token = input_cost_per_token
         self.output_cost_per_token = output_cost_per_token
         self.feedback_mode = feedback_mode
-        
+
 class VllmParams:
     def __init__(
         self,
-        model_name,
+        model_oss,
         tensor_parallel_size,
         max_model_len,
         disable_custom_all_reduce,
@@ -480,7 +508,7 @@ class VllmParams:
         stop,
         gpu_memory_utilization,
     ):
-        self.model_name = model_name
+        self.model_oss = model_oss
         self.tensor_parallel_size = tensor_parallel_size
         self.max_model_len = max_model_len
         self.disable_custom_all_reduce = disable_custom_all_reduce
@@ -529,6 +557,11 @@ class AgentParams:
         self.use_oss_llm = use_oss_llm
         self.debug = debug
         self.fake_response_mode = fake_response_mode
-        
+
 config = Config()
 config.finalize_config()
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = Path(current_dir).resolve().parent
+CONFIG_FILE = root_dir / "config.toml"
+user_config = config._load()
+config.__dict__.update(user_config)

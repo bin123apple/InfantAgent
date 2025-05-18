@@ -44,16 +44,19 @@ async def run_single_step(agent: Agent, user_request_text: str, image = None):
 
 async def initialize_agent():
     # Initialize the API Based LLM
-    litellm_parameter = config.get_litellm_params()
-    api_llm = LLM_API_BASED(litellm_parameter)
-    
-    # Initialize the OSS Based LLM
-    if config.use_oss_llm:
-        vllm_parameter = config.get_vllm_params()
-        oss_llm = LLM_OSS_BASED(vllm_parameter)
-    else:
-        oss_llm = None
-
+    plan_parameter = config.get_litellm_params(overrides = config.planning_llm)
+    planning_llm = LLM_API_BASED(plan_parameter)
+    classification_parameter = config.get_litellm_params(overrides = config.classification_llm)
+    classification_llm = LLM_API_BASED(classification_parameter)
+    execution_parameter = config.get_litellm_params(overrides = config.execution_llm)
+    execution_llm = LLM_API_BASED(execution_parameter)
+    vg_parameter = config.get_vllm_params(overrides = config.vg_llm)
+    vg_llm = LLM_OSS_BASED(vg_parameter)
+    fe_parameter = config.get_litellm_params(overrides = config.fe_llm)
+    fe_llm = LLM_API_BASED(fe_parameter)
+    ap_parameter = config.get_litellm_params(overrides = config.ap_llm)
+    ap_llm = LLM_API_BASED(ap_parameter)
+     
     # Initialize the computer
     computer_parameter = config.get_computer_params()
     sid = str(uuid.uuid4())
@@ -82,8 +85,9 @@ async def initialize_agent():
     
     # Initialize the Agent
     agent_parameter = config.get_agent_params()
-    agent = Agent(agent_config = agent_parameter, api_llm = api_llm, 
-                  oss_llm = oss_llm, computer = computer)
+    agent = Agent(agent_config = agent_parameter, planning_llm = planning_llm, 
+                  classification_llm = classification_llm, execution_llm = execution_llm, 
+                  vg_llm = vg_llm, fe_llm = fe_llm, ap_llm = ap_llm, computer = computer)
     logger.info(f'Agent initialized successfully.')
     exit_code, output = computer.execute(f'cd /workspace && rm -rf *')
     
@@ -93,7 +97,7 @@ async def initialize_agent():
     return agent, computer
 
 async def main():
-    
+
     try:
         # Initialize the agent
         agent, computer = await initialize_agent()
