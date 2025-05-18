@@ -5,18 +5,19 @@
 
 2. This agent system will be used for subsequent reinforcement learning training of agents.
 
+# Installation Requirements
+
+NOTE: Now, it is only tested on `linux` server with `Nvidia Tesla GPU (A100, H200 ...)`. There may be some bugs for Mac/Windows.
 
 ## Setup 
-
-NOTE: Now, it is only tested on linux server. There may be some bugs for Mac/Windows
 
 1. Setup enviroment
 ```
 cd InfantAgent
 conda create --name infant python=3.11
 conda activate infant
-pip install poetry==1.7.1
-poetry install
+conda install -c conda-forge uv
+uv pip install -e .
 ```
 
 2. Build Docker 
