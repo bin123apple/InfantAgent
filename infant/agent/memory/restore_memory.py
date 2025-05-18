@@ -15,7 +15,7 @@ from infant.agent.memory.memory import (
     Finish
 )
 from infant.util.logger import infant_logger as logger
-from infant.prompt.reasoning_prompt import reasoning_sys_prompt, reasoning_provide_user_request
+from infant.prompt.planning_prompt import planning_sys_prompt, planning_provide_user_request
 from infant.prompt.task_prompt import task_category
 from infant.prompt.classification_prompt import (
     clf_task_to_str_w_target,
@@ -55,7 +55,7 @@ def base_memory_to_str(memory: Memory) -> str:
         content = merge_text_image_content(text_content, memory.images)
         return content
     elif isinstance(memory, Userrequest):
-        text_content = reasoning_provide_user_request.format(user_request=memory.text)
+        text_content = planning_provide_user_request.format(user_request=memory.text)
         content = merge_text_image_content(text_content, memory.images)        
         return content
     elif isinstance(memory, IPythonRun):
@@ -149,13 +149,13 @@ def merge_mutimodal_content(memory: Memory, messages: list, mount_path: str):
     messages.append({'role': 'user','content': content}) 
     return messages    
     
-def reasoning_memory_to_diag(memory_block: list[Memory], end_prompt: str, mount_path: str) -> str:
+def planning_memory_to_diag(memory_block: list[Memory], end_prompt: str, mount_path: str) -> str:
     '''
-    Use reasoning prompt to convert the memory_block to a string.
+    Use planning prompt to convert the memory_block to a string.
     '''
     messages = []
     messages.append({'role': 'user',
-                     'content': reasoning_sys_prompt.format(task_category = task_category)})    
+                     'content': planning_sys_prompt.format(task_category = task_category)})    
     for memory in memory_block:
         message = base_memory_to_str(memory)
         if message != '':
@@ -169,7 +169,7 @@ def reasoning_memory_to_diag(memory_block: list[Memory], end_prompt: str, mount_
 
 def classification_memory_to_diag(memory_block: list[Memory]) -> str:
     '''
-    Use reasoning prompt to convert the memory_block to a string.
+    Use planning prompt to convert the memory_block to a string.
     '''
     messages = []
     assert isinstance(memory_block[-1], Task)

@@ -1,11 +1,11 @@
 from infant.agent.memory.memory import Analysis, TaskFinish
 from infant.util.logger import infant_logger as logger
-from infant.prompt.reasoning_prompt import reasoning_task_end_prompt_avoid_repetition
+from infant.prompt.planning_prompt import planning_task_end_prompt_avoid_repetition
 
-def handle_reasoning_repetition(memory_list, max_repetition):
+def handle_planning_repetition(memory_list, max_repetition):
     """
-    Handles the repetition of reasoning outputs in the reasoning phase.
-    If the number of repeated outputs exceeds a certain threshold, it updates the reasoning_task_end_prompt to encourage new ideas.
+    Handles the repetition of planning outputs in the planning phase.
+    If the number of repeated outputs exceeds a certain threshold, it updates the planning_task_end_prompt to encourage new ideas.
     """
     # define the threshold for repeated analysis  
     analysis_repetition_threshold = max_repetition
@@ -19,12 +19,12 @@ def handle_reasoning_repetition(memory_list, max_repetition):
         if isinstance(mem, Analysis):
             analysis_count += 1
 
-    # If the number of repeated analysis outputs exceeds the threshold, update the reasoning_task_end_prompt
+    # If the number of repeated analysis outputs exceeds the threshold, update the planning_task_end_prompt
     if analysis_count > analysis_repetition_threshold:
-        new_prompt = reasoning_task_end_prompt_avoid_repetition
+        new_prompt = planning_task_end_prompt_avoid_repetition
         logger.info(
-            f"Reasoning repetition detected: {analysis_count} analysis messages since last TaskFinish. "
-            f"Updating reasoning_task_end_prompt."
+            f"planning repetition detected: {analysis_count} analysis messages since last TaskFinish. "
+            f"Updating planning_task_end_prompt."
         )
         return new_prompt
     return None

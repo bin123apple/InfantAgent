@@ -24,23 +24,23 @@ from infant.util.logger import infant_logger as logger
 from infant.util.backup_image import backup_image_memory
 import infant.util.constant as constant
 from infant.agent.memory.restore_memory import truncate_output
-from infant.util.special_case_handler import handle_reasoning_repetition, check_accumulated_cost
+from infant.util.special_case_handler import handle_planning_repetition, check_accumulated_cost
 from infant.prompt.parse_user_input import parse_user_input_prompt
-from infant.prompt.reasoning_prompt import reasoning_fake_user_response_prompt
+from infant.prompt.planning_prompt import planning_fake_user_response_prompt
 from infant.prompt.tools_prompt import tool_stop, tool_fake_user_response_prompt
-from infant.prompt.reasoning_prompt import (
-    reasoning_task_end_prompt
+from infant.prompt.planning_prompt import (
+    planning_task_end_prompt
 )
 from infant.prompt.execution_prompt import (
     execution_task_end_prompt
 )
 from infant.agent.memory.retrieve_memory import (
-    reasoning_memory_rtve, 
+    planning_memory_rtve, 
     classification_memory_rtve,
     execution_memory_rtve
 )
 from infant.agent.memory.restore_memory import (
-    reasoning_memory_to_diag, 
+    planning_memory_to_diag, 
     classification_memory_to_diag, 
     execution_memory_to_diag,
 )
@@ -58,7 +58,7 @@ class Agent:
     def __init__(self, 
                  agent_config: AgentParams, 
                  api_llm: LLM_API_BASED | None = None, 
-                 reasoning_llm: LLM_API_BASED | None = None,
+                 planning_llm: LLM_API_BASED | None = None,
                  classification_llm: LLM_API_BASED | None = None,
                  execution_llm: LLM_API_BASED | None = None,
                  oss_llm: LLM_OSS_BASED | None = None, 
@@ -73,9 +73,9 @@ class Agent:
         logger.info(f"Initializing Agent with parameters: agent_config: {agent_config}")
         self.llm = api_llm
         self.oss_llm = oss_llm
-        self.reasoning_llm = reasoning_llm
-        self.classification_llm = classification_llm
-        self.execution_llm = execution_llm
+        self.planning_llm = planning_llm or api_llm
+        self.classification_llm = classification_llm or api_llm
+        self.execution_llm = execution_llm or api_llm
         self.computer = computer
         self.agent_config = agent_config
         self.state = State()
@@ -88,14 +88,14 @@ class Agent:
         self.summarize_execution = False
         
         # prompts
-        self.reasoning_task_end_prompt = reasoning_task_end_prompt
+        self.planning_task_end_prompt = planning_task_end_prompt
         self.execution_task_end_prompt = execution_task_end_prompt
 
     def _active_llms(self):
         """Return a tuple of all non‑None LLM instances owned by the agent."""
         return tuple(
             llm for llm in (
-                self.reasoning_llm,
+                self.planning_llm,
                 self.classification_llm,
                 self.execution_llm,
                 self.llm,      
@@ -112,8 +112,9 @@ class Agent:
                 if self.parse_request:
                     await self.usrreq_to_usrreqmty() 
                     
-                # CoT reasoning until design a task
-                await self.reasoning()
+                # Planning
+                # await self.planning()
+                await self.planning()
                 
                 # Determine the task category
                 await self.classification()
@@ -153,20 +154,45 @@ class Agent:
                     'msg_type': 'User_Request',}
             )
                 
-    async def reasoning(self,) -> Task:
+    # async def reasoning(self,) -> Task:
+    #     while not isinstance(self.state.memory_list[-1], (Task, Finish)):
+    #         messages = await self.memory_to_input("reasoning", self.state.memory_list)
+    #         # print_messages(messages, 'reasoning')
+    #         resp, mem_blc= self.reasoning_llm.completion(messages=messages, stop=['</analysis>', '</task>'])
+    #         if mem_blc:
+    #             self.state.memory_list.extend(mem_blc)
+    #         memory = parse(resp) 
+    #         if isinstance(memory, Message):
+    #             self.state.memory_list.append(memory)
+    #             if self.agent_config.fake_response_mode:
+    #                 reasoning_fake_user_response = Message(content=reasoning_fake_user_response_prompt)
+    #                 reasoning_fake_user_response.source = 'user'
+    #                 self.state.memory_list.append(reasoning_fake_user_response)
+    #             else:
+    #                 user_response = await asyncio.get_event_loop().run_in_executor(None, input, "Witing for user input:")
+    #                 user_message = Message(content=user_response)
+    #                 user_message.source = 'user'
+    #                 self.state.memory_list.append(user_message)
+    #         else:
+    #             self.state.memory_list.append(memory)
+    #         await asyncio.sleep(0.3)
+    #     if isinstance(self.state.memory_list[-1], Finish):
+    #         await self.change_agent_state(new_state=AgentState.FINISHED)
+            
+    async def planning(self,) -> Task:
         while not isinstance(self.state.memory_list[-1], (Task, Finish)):
-            messages = await self.memory_to_input("reasoning", self.state.memory_list)
-            # print_messages(messages, 'reasoning')
-            resp, mem_blc= self.reasoning_llm.completion(messages=messages, stop=['</analysis>', '</task>'])
+            messages = await self.memory_to_input("planning", self.state.memory_list)
+            # print_messages(messages, 'planning')
+            resp, mem_blc= self.planning_llm.completion(messages=messages, stop=['</analysis>', '</task>'])
             if mem_blc:
                 self.state.memory_list.extend(mem_blc)
             memory = parse(resp) 
             if isinstance(memory, Message):
                 self.state.memory_list.append(memory)
                 if self.agent_config.fake_response_mode:
-                    reasoning_fake_user_response = Message(content=reasoning_fake_user_response_prompt)
-                    reasoning_fake_user_response.source = 'user'
-                    self.state.memory_list.append(reasoning_fake_user_response)
+                    planning_fake_user_response = Message(content=planning_fake_user_response_prompt)
+                    planning_fake_user_response.source = 'user'
+                    self.state.memory_list.append(planning_fake_user_response)
                 else:
                     user_response = await asyncio.get_event_loop().run_in_executor(None, input, "Witing for user input:")
                     user_message = Message(content=user_response)
@@ -330,7 +356,7 @@ class Agent:
         Based on different cases and memory block.
 
         Args:
-        - case (str): The specific case to handle (e.g., reasoning, classification).
+        - case (str): The specific case to handle (e.g., planning, classification).
         - memory_block (list): A list of Memory objects to process.
 
         Returns:
@@ -381,9 +407,9 @@ class Agent:
                     })
             messages.append({"role": "user", "content": content})
 
-        elif case == "reasoning":
-            memory_block = await process_memory_block(memory_block, reasoning_memory_rtve)
-            messages = reasoning_memory_to_diag(memory_block, end_prompt=self.reasoning_task_end_prompt, 
+        elif case == "planning":
+            memory_block = await process_memory_block(memory_block, planning_memory_rtve)
+            messages = planning_memory_to_diag(memory_block, end_prompt=self.planning_task_end_prompt, 
                                                 mount_path = self.computer.workspace_mount_path)
 
         elif case == "classification":
@@ -418,13 +444,13 @@ class Agent:
         Handles special cases.
         """
         while True:
-            # check if the reasoning output is repeated
-            new_prompt = handle_reasoning_repetition(self.state.memory_list, 
-                                                     max_repetition=self.agent_config.max_reasoning_iterations)
+            # check if the planning output is repeated
+            new_prompt = handle_planning_repetition(self.state.memory_list, 
+                                                     max_repetition=self.agent_config.max_planning_iterations)
             if new_prompt:
-                self.reasoning_task_end_prompt = new_prompt
+                self.planning_task_end_prompt = new_prompt
             else:
-                self.reasoning_task_end_prompt = reasoning_task_end_prompt
+                self.planning_task_end_prompt = planning_task_end_prompt
             total_cost = sum(
                 llm.metrics.accumulated_cost for llm in self._active_llms()
             )

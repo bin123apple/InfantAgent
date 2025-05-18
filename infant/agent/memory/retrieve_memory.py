@@ -12,7 +12,7 @@ from infant.agent.memory.memory import (
 )
 from infant.util.logger import infant_logger as logger
 
-def reasoning_memory_rtve_critic(memory_list: list, summarize_all_steps=False) -> list | None:
+def planning_memory_rtve_critic(memory_list: list, summarize_all_steps=False) -> list | None:
     """
     Retrieve the memory from the state.history for reaosning with critic.
     
@@ -48,7 +48,7 @@ def reasoning_memory_rtve_critic(memory_list: list, summarize_all_steps=False) -
     return memory_block
 
 
-def reasoning_memory_rtve(memory_list: list, summarize_all_steps=False) -> list | None:
+def planning_memory_rtve(memory_list: list, summarize_all_steps=False) -> list | None:
     """
     Retrieve the memory from the state.history for reaosning.
     
