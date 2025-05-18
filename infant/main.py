@@ -82,7 +82,8 @@ async def initialize_agent():
     
     # Initialize the Agent
     agent_parameter = config.get_agent_params()
-    agent = Agent(agent_parameter, api_llm, oss_llm, computer)
+    agent = Agent(agent_config = agent_parameter, api_llm = api_llm, 
+                  oss_llm = oss_llm, computer = computer)
     logger.info(f'Agent initialized successfully.')
     exit_code, output = computer.execute(f'cd /workspace && rm -rf *')
     

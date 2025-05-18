@@ -30,12 +30,13 @@ Now, Please help me to solve the real request.
 '''
 
 tool_code_exe = '''
-You can use any Bash commands.
+If no suitable command is available, you can also use bash commands to interact with the terminal.
+Do not use bash commands to edit/create the files. Instead, use the file editing functions provided.
 Please put the Bash commands you think need to be executed within <execute_bash>...</execute_bash> tags.
 '''
 
 tool_file_understand = '''
-You can use the following functions to understand the content of files. Such as reading files, view images, listen to audios, watch videos, etc.
+Please use the following functions to understand the content of files. Such as reading files, view images, listen to audios, watch videos, etc.
 - open_file(path: str, line_number: int | None = 1, context_lines: int = 100): Opens a file (txt, csv, word, code file, etc.) and optionally moves to a specific line. path: Path to the file. line_number: Line number to move to. context_lines: Number of lines to display.
 - parse_pdf(pdf_path: str, page: int): View the specified page of a PDF file. pdf_path: Path to the PDF file. page: Page number to view.
 - parse_figure(figure_path: str): View the specified figure. figure_path: Path to the figure file.
@@ -124,11 +125,12 @@ exit
 
 
 tool_file_edit = '''
-You can use the following file editing functions to view, add, delete, search, and modify files.
-- create_file(filename): Creates and opens a new file with the given name.
+Please use the following file editing functions to add, delete, search, and modify files.
+- create_file(filename: str, content: str | None): Creates and opens a new file with the given name. Add the content to the file if content is not None.
 - search_dir(search_term, dir_path='./'): Searches for a term in all files in the specified directory.
 - find_file(file_name, dir_path='./'): Finds all files with the given name in the specified directory.
-- replace_content(file_path, old_content, new_content): Replaces the old content with the new content in the specified file.
+- replace_content(file_path, old_content, new_content): Replaces the old content with the new content in the specified file. For the old_content/new_content argument, please focus only on the parts that actually need to be changed.
+- edit_file(file_name: str, start_line: int, start_str: str, end_line: int, end_str: str, content: str): Edits the specified file by replacing the content between start and end lines with the new content. file_name: Name of the file. start_line: Starting line number. start_str: String content in Starting line. end_line: Ending line number. end_str: String content in Ending line. content: New content to replace.
 - append_file(file_name, content, start_line): Appends given content to a file. file_name: Name of the file. content: Content to append. start_line: Line number to start appending from (default is the end of the file).
 - search_function(file_path, function_signature): Search and show a function in the file. For the function_signature, you should only input the function name.
 Please put the file editing commands you think need to be executed within <execute_ipython>...</execute_ipython> tags.
@@ -146,18 +148,6 @@ Current Task: Let's first create a list of numbers from 1 to 10, and display the
 ASSISTANT:
 Sure! Let me create a Python file `app.py`:
 <execute_ipython>
-create_file('app.py')
-</execute_ipython>
-
-USER:
-OBSERVATION:
-[File: /workspace/app.py (1 lines total)]
-1|
-[File app.py created.]
-
-ASSISTANT:
-Now I will write the Python code for starting a web server and save it to the file `app.py`:
-<execute_ipython>
 EDITED_CODE=\"\"\"from flask import Flask
 app = Flask(__name__)
 
@@ -168,7 +158,7 @@ def index():
 
 if __name__ == '__main__':
     app.run(port=5000)\"\"\"
-append_file('app.py', EDITED_CODE)
+create_file('app.py', EDITED_CODE)
 </execute_ipython>
 
 USER:
@@ -343,6 +333,28 @@ Observation:
 8|
 9|if __name__ == '__main__':
 10|    app.run(port=5000)
+[File updated. Please review the changes and make sure they are correct (correct indentation, no duplicate lines, etc). Edit the file again if necessary.]
+
+ASSISTANT:
+Let's add the print() statement again to confirm the server is running correctly.
+<execute_ipython>
+edit_file(file_name= 'app.py', start_line=6, start_str='    numbers = list(range(1, 11))', end_line=6, end_str:'    numbers = list(range(1, 11))', content: '    numbers = list(range(1, 11))\n    print("Server is running on port 5000...")')
+</execute_ipython>
+
+USER:
+Observation:
+[File: /workspace/app.py (10 lines total after edit)]
+1|from flask import Flask
+2|app = Flask(__name__)
+3|
+4|@app.route('/')
+5|def index():
+6|    numbers = list(range(1, 11))
+7|    print("Server is running on port 5000...")
+8|    return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) + '</table>'
+9|
+10|if __name__ == '__main__':
+11|    app.run(port=5000)
 [File updated. Please review the changes and make sure they are correct (correct indentation, no duplicate lines, etc). Edit the file again if necessary.]
 
 ASSISTANT:

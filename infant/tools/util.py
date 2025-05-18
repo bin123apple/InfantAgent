@@ -11,7 +11,7 @@ CURRENT_FILE: str | None = None
 CURRENT_LINE = 1
 WINDOW = 100
 
-ENABLE_AUTO_LINT = os.getenv('ENABLE_AUTO_LINT', 'false').lower() == 'true'
+ENABLE_AUTO_LINT = os.getenv('ENABLE_AUTO_LINT', 'true').lower() == 'true'
 EXCEL_EXTENSIONS = {".xls", ".xlsx"}
 # This is also used in unit tests!
 MSG_FILE_UPDATED = '[File updated. Please review the changes and make sure they are correct (correct indentation, no duplicate lines, etc). Edit the file again if necessary.]'

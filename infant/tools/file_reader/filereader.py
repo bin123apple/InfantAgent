@@ -9,7 +9,7 @@ from infant.tools.util import _cur_file_header, _print_window, _check_current_fi
 
 @update_pwd_decorator
 def open_file(
-    path: str, line_number: int | None = 1, context_lines: int | None = 150
+    path: str, line_number: int | None = 1, context_lines: int | None = 50
 ) -> None:
     """
     Opens the file at the given path in the editor. If line_number is provided, the window will be moved to include that line.
@@ -48,7 +48,7 @@ def open_file(
 
     # Override WINDOW with context_lines
     if context_lines is None or context_lines < 1:
-        context_lines = 150
+        context_lines = 50
     WINDOW = _clamp(context_lines, 1, 2000)
 
     output = _cur_file_header(CURRENT_FILE, total_lines)

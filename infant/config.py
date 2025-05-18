@@ -58,7 +58,7 @@ class Config:
     max_iterations: The maximum number of iterations.
     max_voting: The maximum number of voting iterations.
     max_budget_per_task: The maximum budget allowed per task, beyond which the agent will stop.
-    max_reasoning_iterations: max number of retries for basic tasks
+    max_planning_iterations: max number of retries for basic tasks
     max_execution_iterations: max number of retries for evaluation tasks
     max_self_modify_basic: max number of self-modifications allowed (code linting, etc.)
     max_critic_retries: max number of retries for critic
@@ -112,8 +112,8 @@ class Config:
     custom_llm_provider: str | None = None
     max_input_tokens: int | None = None
     max_output_tokens: int | None = 8191
-    input_cost_per_token: float | None = 0.0000025
-    output_cost_per_token: float | None = 0.00001
+    input_cost_per_token: float | None = 0.000003
+    output_cost_per_token: float | None = 0.000015
     cost_metric_supported: bool = True
     feedback_mode: bool = False
     gift_key: bool = False
@@ -152,7 +152,7 @@ class Config:
     max_voting: int = 5
     max_sum_retries: int = 3
     max_budget_per_task: float | None = 4
-    max_reasoning_iterations: int = 5 # max number of retries for reasoning
+    max_planning_iterations: int = 5 # max number of retries for planning
     max_execution_iterations: int = 10 # max number of retries for execution
     max_self_modify_basic: int = 20 # max number of self-modifications allowed (code linting, etc.)
     max_self_modify_advanced: int = 7
@@ -295,7 +295,7 @@ class Config:
             max_iterations=self.max_iterations,
             max_voting=self.max_voting,
             max_budget_per_task=self.max_budget_per_task,
-            max_reasoning_iterations=self.max_reasoning_iterations,
+            max_planning_iterations=self.max_planning_iterations,
             max_execution_iterations=self.max_execution_iterations,
             max_self_modify_basic=self.max_self_modify_basic,
             max_self_modify_advanced=self.max_self_modify_advanced,
@@ -499,7 +499,7 @@ class AgentParams:
         max_iterations,
         max_voting,
         max_budget_per_task,
-        max_reasoning_iterations,
+        max_planning_iterations,
         max_execution_iterations,
         max_sum_retries,
         max_self_modify_basic,
@@ -516,7 +516,7 @@ class AgentParams:
         self.max_iterations = max_iterations
         self.max_voting = max_voting
         self.max_budget_per_task = max_budget_per_task
-        self.max_reasoning_iterations = max_reasoning_iterations
+        self.max_planning_iterations = max_planning_iterations
         self.max_execution_iterations = max_execution_iterations
         self.max_sum_retries = max_sum_retries
         self.max_self_modify_basic = max_self_modify_basic

@@ -67,6 +67,9 @@ dataset/*
 # workspace
 workspace/
 
+# egg
+InfantAI.egg-info/
+
 # evaluation
 evaluation/swe_bench/predictions.jsonl
 evaluation/swe_bench/gpt-4o.evaluation.json

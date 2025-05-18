@@ -1,4 +1,5 @@
 import traceback
+from typing import Any, Dict, Optional
 from infant.agent.parser import parse
 from infant.config import AgentParams
 from infant.llm.llm_api_base import LLM_API_BASED
@@ -14,33 +15,37 @@ from infant.agent.memory.memory import (
     Message, 
     Summarize, 
     TaskFinish, 
+    IPythonRun,
     Userrequest,
     Classification, 
 )
+from infant.config import LitellmParams
 from infant.util.logger import infant_logger as logger
 from infant.util.backup_image import backup_image_memory
 import infant.util.constant as constant
-from infant.util.special_case_handler import handle_reasoning_repetition, check_accumulated_cost
+from infant.agent.memory.restore_memory import truncate_output
+from infant.util.special_case_handler import handle_planning_repetition, check_accumulated_cost
 from infant.prompt.parse_user_input import parse_user_input_prompt
-from infant.prompt.reasoning_prompt import reasoning_fake_user_response_prompt
+from infant.prompt.planning_prompt import planning_fake_user_response_prompt
 from infant.prompt.tools_prompt import tool_stop, tool_fake_user_response_prompt
-from infant.prompt.reasoning_prompt import (
-    reasoning_task_end_prompt
+from infant.prompt.planning_prompt import (
+    planning_task_end_prompt
 )
 from infant.prompt.execution_prompt import (
     execution_task_end_prompt
 )
 from infant.agent.memory.retrieve_memory import (
-    reasoning_memory_rtve, 
+    planning_memory_rtve, 
     classification_memory_rtve,
     execution_memory_rtve
 )
 from infant.agent.memory.restore_memory import (
-    reasoning_memory_to_diag, 
+    planning_memory_to_diag, 
     classification_memory_to_diag, 
     execution_memory_to_diag,
 )
 from infant.helper_functions.mouse_click import mouse_click
+from infant.helper_functions.file_edit_helper_function import line_drift_correction
 from infant.helper_functions.browser_helper_function import convert_web_browse_commands
 from infant.agent.memory.file_related_memory import get_diff_patch, git_add_or_not
 import asyncio
@@ -53,6 +58,9 @@ class Agent:
     def __init__(self, 
                  agent_config: AgentParams, 
                  api_llm: LLM_API_BASED | None = None, 
+                 planning_llm: LLM_API_BASED | None = None,
+                 classification_llm: LLM_API_BASED | None = None,
+                 execution_llm: LLM_API_BASED | None = None,
                  oss_llm: LLM_OSS_BASED | None = None, 
                  computer: Computer | None = None,
         ) -> None:
@@ -65,6 +73,9 @@ class Agent:
         logger.info(f"Initializing Agent with parameters: agent_config: {agent_config}")
         self.llm = api_llm
         self.oss_llm = oss_llm
+        self.planning_llm = planning_llm or api_llm
+        self.classification_llm = classification_llm or api_llm
+        self.execution_llm = execution_llm or api_llm
         self.computer = computer
         self.agent_config = agent_config
         self.state = State()
@@ -77,8 +88,19 @@ class Agent:
         self.summarize_execution = False
         
         # prompts
-        self.reasoning_task_end_prompt = reasoning_task_end_prompt
+        self.planning_task_end_prompt = planning_task_end_prompt
         self.execution_task_end_prompt = execution_task_end_prompt
+
+    def _active_llms(self):
+        """Return a tuple of all non‑None LLM instances owned by the agent."""
+        return tuple(
+            llm for llm in (
+                self.planning_llm,
+                self.classification_llm,
+                self.execution_llm,
+                self.llm,      
+            ) if llm is not None
+        )
 
     async def step(self):
         """
@@ -90,8 +112,9 @@ class Agent:
                 if self.parse_request:
                     await self.usrreq_to_usrreqmty() 
                     
-                # CoT reasoning until design a task
-                await self.reasoning()
+                # Planning
+                # await self.planning()
+                await self.planning()
                 
                 # Determine the task category
                 await self.classification()
@@ -131,20 +154,45 @@ class Agent:
                     'msg_type': 'User_Request',}
             )
                 
-    async def reasoning(self,) -> Task:
+    # async def reasoning(self,) -> Task:
+    #     while not isinstance(self.state.memory_list[-1], (Task, Finish)):
+    #         messages = await self.memory_to_input("reasoning", self.state.memory_list)
+    #         # print_messages(messages, 'reasoning')
+    #         resp, mem_blc= self.reasoning_llm.completion(messages=messages, stop=['</analysis>', '</task>'])
+    #         if mem_blc:
+    #             self.state.memory_list.extend(mem_blc)
+    #         memory = parse(resp) 
+    #         if isinstance(memory, Message):
+    #             self.state.memory_list.append(memory)
+    #             if self.agent_config.fake_response_mode:
+    #                 reasoning_fake_user_response = Message(content=reasoning_fake_user_response_prompt)
+    #                 reasoning_fake_user_response.source = 'user'
+    #                 self.state.memory_list.append(reasoning_fake_user_response)
+    #             else:
+    #                 user_response = await asyncio.get_event_loop().run_in_executor(None, input, "Witing for user input:")
+    #                 user_message = Message(content=user_response)
+    #                 user_message.source = 'user'
+    #                 self.state.memory_list.append(user_message)
+    #         else:
+    #             self.state.memory_list.append(memory)
+    #         await asyncio.sleep(0.3)
+    #     if isinstance(self.state.memory_list[-1], Finish):
+    #         await self.change_agent_state(new_state=AgentState.FINISHED)
+            
+    async def planning(self,) -> Task:
         while not isinstance(self.state.memory_list[-1], (Task, Finish)):
-            messages = await self.memory_to_input("reasoning", self.state.memory_list)
-            # print_messages(messages, 'reasoning')
-            resp, mem_blc= self.llm.completion(messages=messages, stop=['</analysis>', '</task>'])
+            messages = await self.memory_to_input("planning", self.state.memory_list)
+            # print_messages(messages, 'planning')
+            resp, mem_blc= self.planning_llm.completion(messages=messages, stop=['</analysis>', '</task>'])
             if mem_blc:
                 self.state.memory_list.extend(mem_blc)
             memory = parse(resp) 
             if isinstance(memory, Message):
                 self.state.memory_list.append(memory)
                 if self.agent_config.fake_response_mode:
-                    reasoning_fake_user_response = Message(content=reasoning_fake_user_response_prompt)
-                    reasoning_fake_user_response.source = 'user'
-                    self.state.memory_list.append(reasoning_fake_user_response)
+                    planning_fake_user_response = Message(content=planning_fake_user_response_prompt)
+                    planning_fake_user_response.source = 'user'
+                    self.state.memory_list.append(planning_fake_user_response)
                 else:
                     user_response = await asyncio.get_event_loop().run_in_executor(None, input, "Witing for user input:")
                     user_message = Message(content=user_response)
@@ -159,11 +207,12 @@ class Agent:
     async def classification(self,) -> Classification:
         messages = await self.memory_to_input("classification", self.state.memory_list)
         # print(f'Messages in classification: {messages}')
-        # resp, mem_blc= self.llm.completion(messages=messages, stop=['</clf_task>'])
+        # resp, mem_blc= self.classification_llm.completion(messages=messages, stop=['</clf_task>'])
         # if mem_blc:
         #     self.state.memory_list.extend(mem_blc)
         # Try all prompts
-        resp = '<clf_task>file_edit, code_exec, computer_interaction, web_browse, file_understand</clf_task>'
+        # resp = '<clf_task>file_edit, code_exec, computer_interaction, web_browse, file_understand</clf_task>'
+        resp = '<clf_task>file_edit, file_understand,  code_exec</clf_task>'
         memory = parse(resp) 
         self.state.memory_list.append(memory)
 
@@ -173,9 +222,9 @@ class Agent:
         # print(f'cmd_set: {cmd_set}')
         interactive_elements = []
         # if the task is web_browse, we only need to execute the web_browse command
-        if "web_browse" in cmd_set:
-            # cmd_set = {"web_browse"} # in-place change the cmd_set   
-            dropdown_dict = None
+        # if "web_browse" in cmd_set:
+        #     # cmd_set = {"web_browse"} # in-place change the cmd_set   
+        dropdown_dict = None # FIXME: Do we still need this dropdown?
             
         stop_signals = ['</task_finish>', '</task>', '</execute_ipython>', '</execute_bash>'] # stop signals for the LLM to stop generating
         for cmd in cmd_set:
@@ -186,27 +235,35 @@ class Agent:
         while not isinstance(self.state.memory_list[-1], TaskFinish):
             messages = await self.memory_to_input("execution", self.state.memory_list, cmd_set = cmd_set)
             # print_messages(messages, 'execution')
-            resp, mem_blc= self.llm.completion(messages=messages, stop=stop_signals)
+            resp, mem_blc= self.execution_llm.completion(messages=messages, stop=stop_signals)
             if mem_blc:
                 self.state.memory_list.extend(mem_blc)
 
-            memory = parse(resp) 
+            memory = parse(resp)
             if memory.runnable:
                 # record the descritpion of the image
                 if hasattr(memory, 'code') and memory.code:
                     tmp_code = memory.code
                 
-                # check if the mouse click is needed
+                # check if the mouse click is needed FIXME: Move this logic to tools?
                 memory, interactive_elements = await mouse_click(self, memory, interactive_elements) # check if the memory is a localization task
                 memory = convert_web_browse_commands(memory, dropdown_dict, interactive_elements) # convert the commands to correct format     
                 method = getattr(self.computer, memory.action)
                 if not memory.result:
                     memory.result = await method(memory)
                     
+                # Make sure the edit_file() command is correct
+                if isinstance(memory, IPythonRun):
+                    if 'edit_file' in memory.code and "Here is the code that you are trying to modified:" in memory.result:
+                        result, modified_command = await line_drift_correction(memory, self.computer)
+                        logger.info(f"Modified command: {modified_command}")
+                        memory.result = result # restore result
+                        tmp_code = modified_command # restore code
+                        
                 # # For web_browser, we need to check the dropdown menu
                 # chk_dropdown_result, dropdown_dict = await check_dropdown_options(self, cmd, interactive_elements)
-                # memory.result += f'\n{chk_dropdown_result}'    
-                # memory.result = truncate_output(output = memory.result)
+                # memory.result += f'\n{chk_dropdown_result}'  # FIXME: check if this is needed  
+                memory.result = truncate_output(output = memory.result)
                 
                 # convert the coordinate back to image description
                 if hasattr(memory, 'code') and memory.code:
@@ -299,7 +356,7 @@ class Agent:
         Based on different cases and memory block.
 
         Args:
-        - case (str): The specific case to handle (e.g., reasoning, classification).
+        - case (str): The specific case to handle (e.g., planning, classification).
         - memory_block (list): A list of Memory objects to process.
 
         Returns:
@@ -350,9 +407,9 @@ class Agent:
                     })
             messages.append({"role": "user", "content": content})
 
-        elif case == "reasoning":
-            memory_block = await process_memory_block(memory_block, reasoning_memory_rtve)
-            messages = reasoning_memory_to_diag(memory_block, end_prompt=self.reasoning_task_end_prompt, 
+        elif case == "planning":
+            memory_block = await process_memory_block(memory_block, planning_memory_rtve)
+            messages = planning_memory_to_diag(memory_block, end_prompt=self.planning_task_end_prompt, 
                                                 mount_path = self.computer.workspace_mount_path)
 
         elif case == "classification":
@@ -387,15 +444,17 @@ class Agent:
         Handles special cases.
         """
         while True:
-            # check if the reasoning output is repeated
-            new_prompt = handle_reasoning_repetition(self.state.memory_list, 
-                                                     max_repetition=self.agent_config.max_reasoning_iterations)
+            # check if the planning output is repeated
+            new_prompt = handle_planning_repetition(self.state.memory_list, 
+                                                     max_repetition=self.agent_config.max_planning_iterations)
             if new_prompt:
-                self.reasoning_task_end_prompt = new_prompt
+                self.planning_task_end_prompt = new_prompt
             else:
-                self.reasoning_task_end_prompt = reasoning_task_end_prompt
-            
+                self.planning_task_end_prompt = planning_task_end_prompt
+            total_cost = sum(
+                llm.metrics.accumulated_cost for llm in self._active_llms()
+            )
             # check if the accumulated cost exceeds the maximum allowed cost
-            if check_accumulated_cost(self.llm.metrics.accumulated_cost, self.agent_config.max_budget_per_task):
+            if check_accumulated_cost(total_cost, self.agent_config.max_budget_per_task):
                 await self.change_agent_state(new_state=AgentState.ERROR)
             await asyncio.sleep(1)

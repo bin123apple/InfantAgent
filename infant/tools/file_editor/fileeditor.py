@@ -10,8 +10,9 @@ from infant.tools.file_reader.filereader import open_file
 
 
 @update_pwd_decorator
-def create_file(filename: str) -> None:
+def create_file(filename: str, content: str | None) -> None:
     """Creates and opens a new file with the given name.
+    And add the content to the file if content is not None.
 
     Args:
         filename: str: The name of the file to create.
@@ -19,9 +20,12 @@ def create_file(filename: str) -> None:
     if os.path.exists(filename):
         raise FileExistsError(f"File '{filename}' already exists.")
 
-    with open(filename, 'w') as file:
-        file.write('\n')
-
+    if content is not None:
+        with open(filename, 'a') as file:
+            file.write(content)
+    else:
+        with open(filename, 'w') as file:
+            file.write('\n')
     open_file(filename)
     print(f'[File {filename} created.]')
 
@@ -146,7 +150,8 @@ def replace_function(
                 result = '\n'.join(remaining_lines)
                 return result
             if origianl_lint_error:
-                lint_error = subtract_strings(origianl_lint_error, lint_error)
+                if lint_error is not None:
+                    lint_error = subtract_strings(origianl_lint_error, lint_error)
                 if lint_error == "":
                     lint_error = None
                     first_error_line = None
@@ -450,6 +455,8 @@ def _edit_or_append_file(
         is_append: bool = False: Whether to append content to the file instead of editing.
     """
     global CURRENT_FILE, CURRENT_LINE, WINDOW
+    
+    original_file_backup_path = None
 
     ERROR_MSG = f'[Error editing file {file_name}. Please confirm the file is correct.]'
     ERROR_MSG_SUFFIX = (
@@ -571,7 +578,7 @@ def _edit_or_append_file(
                         'Please double-check whether this part of the code is what you originally planned to modify\n'
                         "If you want to use the edit_file() command, please provide the correct start line and end line along with the corresponding strings on those lines. And don't forget to provide the `content` argument.\n"
                         "You should first try to use the information above to modify your edit_file() command.\n"
-                        'However, if you have already tried to fix this edit_file() command multiple times and the same issue persists, please try using replace_function() to modify the code.'
+                        'However, if you have already tried to fix this edit_file() command multiple times and the same issue persists, please try using replace_content() to modify the file.'
                     )
                     return
 
@@ -654,7 +661,8 @@ def _edit_or_append_file(
                     '2) Correct your edit code;\n' 
                     '3) Choose another command (Such as replace_function(file_name,code_to_replace,new_code) command).\n'
                     '4) Use open_file(path, line_number, context_lines) command to check the details of where you want to modify and improve your command\n'
-                    'DO NOT re-run the same failed edit command. Running it again will lead to the same error.'
+                    'DO NOT re-run the same failed edit command. Running it again will lead to the same error.\n'
+                    'Do NOT use the bash command to modify the file, as it may lead to unexpected errors.'
                 )
 
                 # recover the original file
@@ -664,6 +672,8 @@ def _edit_or_append_file(
                     fout.write(fin.read())
                 os.remove(original_file_backup_path)
                 return
+            if os.path.exists(original_file_backup_path):
+                os.remove(original_file_backup_path)
 
     except FileNotFoundError as e:
         
@@ -681,7 +691,18 @@ def _edit_or_append_file(
             os.remove(temp_file_path)
         print(f'An unexpected error occurred: {e}')
         raise e
-
+    finally:
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.remove(temp_file_path)
+            except OSError:
+                pass
+        if original_file_backup_path and os.path.exists(original_file_backup_path):
+            try:
+                os.remove(original_file_backup_path)
+            except OSError:
+                pass
+            
     # Update the file information and print the updated content
     with open(file_name, 'r', encoding='utf-8') as file:
         n_total_lines = max(1, len(file.readlines()))
@@ -701,9 +722,10 @@ def _edit_or_append_file(
     CURRENT_FILE = file_name
     _print_window(CURRENT_FILE, CURRENT_LINE, WINDOW)
     print(MSG_FILE_UPDATED)
+    
 
 @update_pwd_decorator
-def edit_file(file_name: str, start: int, start_str: str, end: int, end_str: str, content: str) -> None:
+def edit_file(file_name: str, start_line: int, start_str: str, end_line: int, end_str: str, content: str) -> None:
     """Edit a file.
 
     Replaces in given file `file_name` the lines `start` through `end` (inclusive) with the given text `content`.
@@ -727,7 +749,7 @@ def edit_file(file_name: str, start: int, start_str: str, end: int, end_str: str
         content: str: The content to replace the lines with.
     """
     _edit_or_append_file(
-        file_name, start=start, start_str=start_str, end=end, end_str=end_str, content=content, is_append=False
+        file_name, start=start_line, start_str=start_str, end=end_line, end_str=end_str, content=content, is_append=False
     )
 
 @update_pwd_decorator
@@ -744,95 +766,150 @@ def append_file(file_name: str, content: str, start_line: int | None = None) -> 
 
 @update_pwd_decorator
 def replace_content(file_name: str, old_content: str, new_content: str | None = None) -> None:
-    """Implement the str_replace command, which replaces old_content with new_content in the file content"""
+    """
+    Replace content in a file.
+    """
+    # -------- 参数校验 --------
     if not _is_valid_filename(file_name):
         raise FileNotFoundError('Invalid file name.')
-
     if not _is_valid_path(file_name):
         raise FileNotFoundError('Invalid path or file name.')
-
     if not _create_paths(file_name):
         raise PermissionError('Could not access or create directories.')
-
     if not os.path.isfile(file_name):
         raise FileNotFoundError(f'File {file_name} not found.')
-        
-    # Read the file content
-    with open(file_name, 'r') as file:
-        file_content = file.read().expandtabs()
-    old_content = old_content.expandtabs()
-    new_content = new_content.expandtabs() if new_content is not None else ""
 
-    # Check if old_content is unique in the file
+    # -------- 读取原始内容 --------
+    with open(file_name, 'r', encoding='utf-8') as f:
+        file_content = f.read().expandtabs()
+
+    old_content = old_content.expandtabs()
+    new_content = (new_content or "").expandtabs()
+
     occurrences = file_content.count(old_content)
     if occurrences == 0:
         raise Exception(
-        f"No replacement was performed, old_content `{old_content}` did not appear verbatim in {file_name}."
+            f"No replacement was performed, old_content `{old_content}` did not appear verbatim in {file_name}. "
+            "Please ensure it appears exactly once.\n"
+            "If the issue presists, please use edit_file() function to modify the file."
         )
-    elif occurrences > 1:
-        start_indices = []
-        start = 0
+    if occurrences > 1:
+        # 计算所有出现位置对应的行号，提示用户
+        starts, pos = [], 0
         while True:
-            idx = file_content.find(old_content, start)
+            idx = file_content.find(old_content, pos)
             if idx == -1:
                 break
-            start_indices.append(idx)
-            start = idx + 1
+            starts.append(idx)
+            pos = idx + 1
 
-        file_content_line_starts = [0]
+        line_offsets = [0]
         for line in file_content.split("\n"):
-            file_content_line_starts.append(file_content_line_starts[-1] + len(line) + 1)
+            line_offsets.append(line_offsets[-1] + len(line) + 1)
 
-        def byte_offset_to_line(offset: int) -> int:
-            for i in range(len(file_content_line_starts) - 1):
-                if file_content_line_starts[i] <= offset < file_content_line_starts[i + 1]:
+        def byte_to_line(off: int) -> int:
+            for i in range(len(line_offsets) - 1):
+                if line_offsets[i] <= off < line_offsets[i + 1]:
                     return i + 1
-            return len(file_content_line_starts) - 1
+            return len(line_offsets) - 1
 
-        lines = list(dict.fromkeys([byte_offset_to_line(idx) for idx in start_indices]))
-
+        lines = sorted({byte_to_line(idx) for idx in starts})
         raise Exception(
-            f"No replacement was performed. Multiple occurrences of old_content `{old_content}` in lines {lines}. Please ensure it is unique"
+            f"No replacement was performed. Multiple occurrences of old_content `{old_content}` "
+            f"in lines {lines}. Please ensure it appears exactly once"
+            "If the issue presists, please use edit_file() function to modify the file."
         )
-    else:  # occurrences == 1
-        start_idx = file_content.find(old_content)
-        end_idx = start_idx + len(old_content)
 
-        file_content_line_starts = [0]
-        for line in file_content.split("\n"):
-            file_content_line_starts.append(file_content_line_starts[-1] + len(line) + 1)
+    # -------- 记录替换范围行号（用于打印）--------
+    start_idx = file_content.find(old_content)
+    end_idx = start_idx + len(old_content)
 
-        def byte_offset_to_line(offset: int) -> int:
-            for i in range(len(file_content_line_starts) - 1):
-                if file_content_line_starts[i] <= offset < file_content_line_starts[i + 1]:
-                    return i + 1
-            return len(file_content_line_starts) - 1
+    line_offsets = [0]
+    for line in file_content.split("\n"):
+        line_offsets.append(line_offsets[-1] + len(line) + 1)
 
-        start_line = byte_offset_to_line(start_idx)
-        end_line = byte_offset_to_line(end_idx - 1)
+    def byte_to_line(off: int) -> int:
+        for i in range(len(line_offsets) - 1):
+            if line_offsets[i] <= off < line_offsets[i + 1]:
+                return i + 1
+        return len(line_offsets) - 1
 
+    start_line = byte_to_line(start_idx)
+    end_line   = byte_to_line(end_idx - 1)
 
-    # Replace old_content with new_content
-    new_file_content = file_content.replace(old_content, new_content)
+    # -------- 自动 lint 及回滚逻辑 --------
+    temp_backup_path = None
+    try:
+        # 先记录原始 lint 错误（若开启）
+        if ENABLE_AUTO_LINT:
+            orig_lint_err, _ = _lint_file(file_name)
 
-    # Write the new content to the file
-    with open(file_name, 'w') as file:
-        file.write(new_file_content)
+        # 1. 备份原文件
+        temp_backup_path = os.path.join(
+            os.path.dirname(file_name),
+            f'.backup.{os.path.basename(file_name)}',
+        )
+        shutil.copy2(file_name, temp_backup_path)
 
-    # Create a snippet of the edited section
+        # 2. 执行替换并写回
+        new_file_content = file_content.replace(old_content, new_content)
+        with open(file_name, 'w', encoding='utf-8') as f:
+            f.write(new_file_content)
+
+        # 3. lint 检查
+        if ENABLE_AUTO_LINT:
+            lint_err, first_err_line = _lint_file(file_name)
+
+            # 过滤掉原本就存在的错误，保留新引入的
+            def _extract_last_part(line: str) -> str:
+                parts = line.split(':')
+                return parts[-1].strip() if len(parts) > 1 else line.strip()
+
+            if orig_lint_err:
+                orig_set = {_extract_last_part(l) for l in orig_lint_err.splitlines()}
+                new_err_lines = [
+                    l for l in (lint_err.splitlines() if lint_err else [])
+                    if _extract_last_part(l) not in orig_set
+                ]
+                lint_err = "\n".join(new_err_lines) or None
+                first_err_line = first_err_line if new_err_lines else None
+
+            # 若引入了新错误 → 回滚并报错
+            if lint_err:
+                with open(temp_backup_path, 'r', encoding='utf-8') as fin, \
+                     open(file_name, 'w', encoding='utf-8') as fout:
+                    fout.write(fin.read())          # 回滚
+
+                print('[Your proposed replace_content() introduced new syntax error(s).]')  # 用户提示
+                print(lint_err)
+                raise Exception('Replacement aborted due to new lint errors. Please fix them first.')
+
+        # 4. lint 通过 → 删除备份
+        if temp_backup_path and os.path.exists(temp_backup_path):
+            os.remove(temp_backup_path)
+
+    finally:
+        # 保底清理：若函数异常退出也不残留备份
+        if temp_backup_path and os.path.exists(temp_backup_path):
+            try:
+                os.remove(temp_backup_path)
+            except OSError:
+                pass
+
+    # -------- 打印成功窗口 --------
     middle_line = (start_line + end_line) // 2
-    window = end_line - start_line + 10
+    window      = end_line - start_line + 10
 
-    # Prepare the success message
-    with open(file_name, 'r', encoding='utf-8') as file:
-        n_total_lines = max(1, len(file.readlines()))
-    print(
-        f'[File: {os.path.abspath(file_name)} ({n_total_lines} lines total after edit)]'
-    )
+    with open(file_name, 'r', encoding='utf-8') as f:
+        n_total_lines = max(1, len(f.readlines()))
+
+    print(f'[File: {os.path.abspath(file_name)} ({n_total_lines} lines total after edit)]')
+    global CURRENT_FILE, CURRENT_LINE, WINDOW
     CURRENT_FILE = file_name
     CURRENT_LINE = middle_line
-    WINDOW = window
+    WINDOW       = window
     _print_window(CURRENT_FILE, CURRENT_LINE, WINDOW)
     print(MSG_FILE_UPDATED)
+
 
     
