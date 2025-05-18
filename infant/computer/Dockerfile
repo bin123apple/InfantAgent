@@ -1,8 +1,8 @@
 FROM ubuntu:22.04
 
 # language & timezone
-ENV LANG=en_GB.UTF-8
-ENV TZ=Europe/London
+ENV LANG=en_US.UTF-8
+ENV TZ=America/New_York
 ENV DEBIAN_FRONTEND=noninteractive
 
 # install gnome desktop and other tools
@@ -134,14 +134,6 @@ RUN sudo sed -i '$a WaylandModes "egl,compositor,drm"' /usr/NX/etc/node.cfg
 RUN gsettings set org.gnome.desktop.interface enable-animations false
 # Install Vim
 RUN sudo apt install -y vim
-# Copy Install Script
-COPY GeForce-XorgDisplaySettingAuto.sh /home
-COPY Tesla-XorgDisplaySettingAuto.sh /home
-# RUN chmod +x /home/Tesla-XorgDisplaySettingAuto.sh && \
-#     /home/Tesla-XorgDisplaySettingAuto.sh
-# COPY vulkan-ubuntu-18.04.sh /home
-COPY vulkan-ubuntu-22.04.sh /home
-WORKDIR /home
 
 # install basic packages
 RUN apt-get update && apt-get install -y \
@@ -172,6 +164,40 @@ RUN mkdir -p -m0755 /var/run/sshd
 # symlink python3 to python
 RUN ln -s /usr/bin/python3 /usr/bin/python
 
+# language and locale settings
+RUN apt-get update && \
+    apt-get install -y language-pack-zh-hans && \
+    sudo sed -i '$a LANG="en_US.UTF-8"\nLANGUAGE="en_US:en:zh_CN:zh"' /etc/environment && \
+    touch /var/lib/locales/supported.d/local && \
+    sed -i '$a en_US.UTF-8 UTF-8\nzh_CN.UTF-8 UTF-8\nzh_CN.GBK GBK\nzh_CN GB2312' /var/lib/locales/supported.d/local && \
+    locale-gen && \
+    apt-get install -y fonts-droid-fallback ttf-wqy-zenhei ttf-wqy-microhei fonts-arphic-ukai fonts-arphic-uming fonts-noto-color-emoji && \
+    rm -rf /var/lib/apt/lists/*
+ENV LANGUAGE=en_US:en
+
+# prevent automatic updates and notifications
+RUN apt-get remove -y update-notifier update-manager-core update-manager && \
+    systemctl disable --now apt-daily-upgrade.timer apt-daily.timer || true && \
+    rm -rf /usr/lib/ubuntu-release-upgrader/ && \
+    gsettings set org.gnome.software download-updates false && \
+    sed -i 's/^Prompt=lts/Prompt=never/' /etc/update-manager/release-upgrades && \
+    sed -i 's/^APT::Periodic::Unattended-Upgrade "1";/APT::Periodic::Unattended-Upgrade "0";/' /etc/apt/apt.conf.d/20auto-upgrades && \
+    sed -i 's|Exec=/usr/bin/google-chrome-stable %U|Exec=/usr/bin/google-chrome-stable --new-tab chrome://newtab|' /usr/share/applications/google-chrome.desktop
+
+# install xvfb and gnome-session-flashback for headless mode
+RUN apt-get update && \
+    apt-get install -y xvfb gnome-session-flashback && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy Install Script
+COPY GeForce-XorgDisplaySettingAuto.sh /home
+COPY Tesla-XorgDisplaySettingAuto.sh /home
+COPY vulkan-ubuntu-22.04.sh /home
+WORKDIR /home
+
+# RUN chmod +x /home/Tesla-XorgDisplaySettingAuto.sh && \
+#     /home/Tesla-XorgDisplaySettingAuto.sh
+
 # ==== infant Runtime Client ====
 RUN mkdir -p /infant && mkdir -p /infant/logs && chmod 777 /infant/logs
 RUN wget --progress=bar:force -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
@@ -184,11 +210,8 @@ RUN rm -f Miniforge3.sh
 # - agentskills dependencies
 RUN /infant/miniforge3/bin/pip install --upgrade pip
 RUN /infant/miniforge3/bin/pip install jupyterlab notebook jupyter_kernel_gateway flake8 Pillow
-RUN /infant/miniforge3/bin/pip install python-docx PyPDF2 python-pptx pylatexenc openai
+RUN /infant/miniforge3/bin/pip install python-docx PyPDF2 python-pptx pylatexenc openai openpyxl
 RUN /infant/miniforge3/bin/pip install python-dotenv toml termcolor pydantic python-docx pyyaml docker pexpect tenacity e2b browsergym minio
-
-# No password login
-
 
 # Build
 # docker build -t ubuntu-gnome-nomachine:22.04 -f Dockerfile .
