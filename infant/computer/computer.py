@@ -11,6 +11,7 @@ import tempfile
 import requests
 import subprocess
 from glob import glob
+from pathlib import Path
 from pexpect import pxssh
 from typing import Optional, Dict, Any
 from tenacity import retry, stop_after_attempt, wait_fixed
@@ -361,7 +362,8 @@ class Computer:
             raise Exception(f'Failed to set PermitRootLogin in computer: {logs}')
 
     def remove_known_host_entry(self, port, hostname):
-        command = f'ssh-keygen -f "/home/uconn/.ssh/known_hosts" -R "[localhost]:{port}"'
+        home = Path.home()
+        command = f'ssh-keygen -f "{home}/.ssh/known_hosts" -R "[localhost]:{port}"'
         try:
             result = subprocess.run(command, shell=True, check=True, text=True, capture_output=True)
             logger.info(f"result.stdout while trying to remove known host port {port}", result.stdout)
