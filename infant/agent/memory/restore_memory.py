@@ -78,7 +78,7 @@ def base_memory_to_str(memory: Memory) -> str:
         return f'<finish>{memory.thought}</finish>'
     return ''
 
-def truncate_output(output: str, max_chars: int = 10_000) -> str:
+def truncate_output(output: str, max_chars: int = 6_000) -> str:
     """
     Truncate the middle of the output if it is too long.
     This will happen if some file content is too long.
@@ -196,8 +196,9 @@ def execution_memory_to_diag(memory_block: list[Memory], cmd_set, end_prompt, mo
     for cmd in cmd_set:
         if cmd in tool_document:
             tools_instructions = tools_instructions + tool_document[cmd] + tool_advanced
-            example = tool_example[cmd] + tool_advanced_one_shot
-            note = tool_note[cmd] + '\n'
+            # example = tool_example[cmd] + tool_advanced_one_shot
+            example = tool_example[cmd] # FIXME: Rearrange the tool_advanced_one_shot
+            # note = tool_note[cmd] + '\n'
     messages.append({'role': 'user',
                      'content': tool_sys_msg.format(tools = tools_instructions, one_shot = example)})  
     # find the last Task in the memory block
@@ -238,7 +239,7 @@ def execution_memory_to_diag(memory_block: list[Memory], cmd_set, end_prompt, mo
         if hasattr(memory, 'result') and memory.result: 
             messages = merge_mutimodal_content(memory, messages, mount_path)
     messages.append({'role': 'user',
-                    'content': end_prompt.format(note = note)})         
+                    'content': end_prompt.format(task = last_task.task)})         
     return messages
 
 def image_base64_to_url(image_path: str) -> str:

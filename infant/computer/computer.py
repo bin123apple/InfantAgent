@@ -6,6 +6,7 @@ import atexit
 import docker
 import socket
 import tarfile
+import pexpect
 import tempfile
 import requests
 import subprocess
@@ -605,7 +606,29 @@ class Computer:
             return 0, all_output
 
         self.ssh.sendline(cmd)
+        # --- 检查是否掉进交互环境，若是则 10 s 后自动退出 ---
+        try:
+            # 0,1,2 = REPL/pdb   3,4,5 = 分页器   6 = EOF
+            idx = self.ssh.expect([
+                    r'>>> $',                 # 0  Python REPL
+                    r'\(Pdb\)\s*',            # 1  pdb / ipdb
+                    r'In \[\d+\]:\s*',        # 2  IPython
+                    r'--More--',              # 3  less/more 翻页提示
+                    pexpect.EOF               # 6  子进程正常结束
+                ],
+                timeout=1
+            )
 
+            # ---------- 根据 idx 采取动作 -------------------
+            if idx in (0, 1, 2):                 # 掉进 Python / pdb / IPython
+                time.sleep(10)                   # 留 10 秒调试
+                self.ssh.sendline('q')           # pdb 退出
+                self.ssh.sendline('quit()')      # Python REPL 退出
+                self.ssh.sendintr()              # 兜底 Ctrl-C
+            elif idx in (3, 4):               # 正在分页器
+                self.ssh.send('q') 
+        except Exception:
+            pass
         success = self.ssh.prompt(timeout=timeout)
         if not success:
             return self._send_interrupt(cmd)

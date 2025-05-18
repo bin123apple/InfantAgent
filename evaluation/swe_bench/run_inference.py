@@ -2,6 +2,7 @@ import re
 import os
 import ast
 import uuid
+import yaml
 import json
 import shutil
 import asyncio
@@ -23,8 +24,8 @@ from infant.agent.memory.memory import Userrequest, Finish, IPythonRun
 from infant.util.logger import reset_logger_for_multiprocessing, LOG_DIR
 from infant.prompt.tools_prompt import IMPORTS
 
-MAX_FEEDBACK_TIME = 3
-MAX_CHECK_TIME = 2
+MAX_FEEDBACK_TIME = 1
+MAX_CHECK_TIME = 1
 
 def check_missing_instance_ids(original_instance_ids, predictions_file):
     valid_instance_ids = []
@@ -102,14 +103,24 @@ def get_instance_docker_image(instance_id: str) -> str:
 async def initialize_docker_agent(instance: dict, config=config)-> Agent:
     # Initialize the API Based LLM
     litellm_parameter = config.get_litellm_params()
-    litellm_parameter.model = 'deepseek-chat'
-    litellm_parameter.base_url = 'https://api.deepseek.com/v1'
+    litellm_parameter.model = 'o3-mini'
+    # litellm_parameter.base_url = 'https://api.deepseek.com/v1'
     litellm_parameter.api_key = os.environ.get('OPENAI_API_KEY', '')
-    litellm_parameter.gift_key = False
     # litellm_parameter.model = 'claude-3-7-sonnet-20250219'
     # litellm_parameter.gift_key = True
     api_llm = LLM_API_BASED(litellm_parameter)
-    
+
+    reason_litellm_parameter = config.get_litellm_params()
+    reason_litellm_parameter.model = 'claude-3-7-sonnet-20250219'
+    reason_litellm_parameter.api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+    reasoning_llm = LLM_API_BASED(reason_litellm_parameter)
+
+    execution_litellm_parameter = config.get_litellm_params()
+    execution_litellm_parameter.model = 'claude-3-7-sonnet-20250219'
+    # execution_litellm_parameter.base_url = 'https://api.deepseek.com/v1'
+    execution_litellm_parameter.api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+    execution_llm = LLM_API_BASED(execution_litellm_parameter)    
+
     # Initialize the OSS Based LLM
     if config.use_oss_llm:
         vllm_parameter = config.get_vllm_params()
@@ -125,7 +136,7 @@ async def initialize_docker_agent(instance: dict, config=config)-> Agent:
     logger.info(f"🔨 Building new Docker image: {new_instance_image}")
     build_command = f"docker build --build-arg BASE_IMAGE={instance_base_image} -t {new_instance_image} ."
     subprocess.run(build_command, shell=True, check=True)
-    
+
     # initialize the computer
     computer_parameter: ComputerParams = config.get_computer_params()
     computer_parameter.computer_container_image = new_instance_image
@@ -180,7 +191,8 @@ async def initialize_docker_agent(instance: dict, config=config)-> Agent:
     agent_parameter = config.get_agent_params()
     agent_parameter.fake_response_mode = True
     agent_parameter.max_budget_per_task = 10
-    agent = Agent(agent_parameter, api_llm, oss_llm, computer)
+    agent = Agent(agent_parameter, api_llm, reasoning_llm, 
+                  api_llm, execution_llm, oss_llm, computer)
     logger.info(f'Agent initialized successfully.')
     
     import_memory = IPythonRun(code = IMPORTS)
@@ -232,12 +244,13 @@ def unit_test(agent: Agent, instance: dict):
                 print(f"Error parsing test: {test} - {e}")
     elif 'sympy/sympy' in instance['repo']:
         exit_code, output = agent.computer.execute(f"pip install pytest")
+        exit_code, output = agent.computer.execute(f"pip install py")
         for test in original_unit_test_file:
             test_files.add(test)
     else:
         for test in original_unit_test_file:
             file_path = test.split("::")[0]
-            test_files.add(file_path)        
+            test_files.add(file_path)
     failed_tests_info = []
     logger.info(f"Running unit tests on {test_files}...")
     all_tests = ''
@@ -264,7 +277,7 @@ def unit_test(agent: Agent, instance: dict):
                 exit_code = 0
                 output = "Folder or file does not exist"
         elif 'sympy/sympy' in instance['repo']:
-            exit_code, output = agent.computer.execute(f"pytest -k {test_file}")
+            exit_code, output = agent.computer.execute(f"pytest -k {test_file}", timeout=300)
         elif 'psf/requests' in instance['repo']:
             exit_code = 0
         else:
@@ -383,7 +396,7 @@ async def run_single_instance(instance: dict, logger):
             break
         else:
             if error_detail:
-                error_detail = truncate_output(error_detail)
+                error_detail = truncate_output(error_detail, max_chars = 4_000)
             logger.info(f"Unit test failed with error: {error_detail}")
             feedback_message = (
                 f'Your modifications have caused some unit test code to fail, with the following error message:\n'
@@ -505,12 +518,12 @@ def filter_dataset(dataset, start_idx=None, end_idx=None, limit=None, instance_i
 
 
 def one_turn(predictions_file, instance_ids):
-    dataset = load_dataset("princeton-nlp/SWE-bench_Lite", split="test")
+    dataset = load_dataset("princeton-nlp/SWE-bench_Verified", split="test")
     start_idx = None
     end_idx = None
     dataset = filter_dataset(dataset, start_idx=start_idx, end_idx=end_idx, limit=None, instance_ids=instance_ids)
 
-    with concurrent.futures.ProcessPoolExecutor(max_workers=8) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
         future_to_instance = {executor.submit(process_instance, instance): instance for instance in dataset}
         for future in concurrent.futures.as_completed(future_to_instance):
             instance = future_to_instance[future]
@@ -528,7 +541,7 @@ def one_turn(predictions_file, instance_ids):
                                 
                 result = {
                     "instance_id": instance['instance_id'],
-                    "model_name_or_path": "InfantAgent_0402_DeepSeek-V3-0324",
+                    "model_name_or_path": "Claude_3.7_Sonnet_Reason_gpt_4o_Execute",
                     "final_answer": final_answer,
                     "model_patch": git_diff,
                 }
@@ -580,8 +593,42 @@ def main(predictions_file, instance_ids):
 
 if __name__ == "__main__":
     instance_ids = [
-        "astropy__astropy-12907",
-    ] # Add more instance IDs here
+  "django__django-11451",
+  "django__django-11603",
+  "django__django-12858",
+  "django__django-13417",
+  "django__django-14500",
+  "django__django-15930",
+  "django__django-16032",
+  "django__django-16256",
+  "matplotlib__matplotlib-20859",
+  "matplotlib__matplotlib-22719",
+  "matplotlib__matplotlib-24970",
+  "matplotlib__matplotlib-25122",
+  "mwaskom__seaborn-3069",
+  "psf__requests-1766",
+  "psf__requests-1921",
+  "psf__requests-5414",
+  "pydata__xarray-4075",
+  "pydata__xarray-6599",
+  "pydata__xarray-6744",
+  "pydata__xarray-6938",
+  "pylint-dev__pylint-4661",
+  "pylint-dev__pylint-6386",
+  "pylint-dev__pylint-6528",
+  "pytest-dev__pytest-10081",
+  "pytest-dev__pytest-7432",
+  "scikit-learn__scikit-learn-10297",
+  "scikit-learn__scikit-learn-12585",
+  "scikit-learn__scikit-learn-12973",
+  "scikit-learn__scikit-learn-13135",
+  "sphinx-doc__sphinx-11445",
+  "sphinx-doc__sphinx-7454",
+  "sphinx-doc__sphinx-8551",
+  "sympy__sympy-13798",
+  "sympy__sympy-14531",
+  "sympy__sympy-16792",
+  "sympy__sympy-17630"
+]
 
-
-    main(predictions_file = "six_step_predictions.jsonl", instance_ids = instance_ids)
+    main(predictions_file = "predictions.jsonl", instance_ids = instance_ids)
