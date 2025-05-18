@@ -5,7 +5,7 @@
 
 2. This agent system will be used for subsequent reinforcement learning training of agents.
 
-# Installation Requirements
+## Installation Requirements
 
 NOTE: Now, it is only tested on `linux` server with `Nvidia Tesla GPU (A100, H200 ...)`. There may be some bugs for Mac/Windows.
 
