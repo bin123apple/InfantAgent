@@ -277,7 +277,6 @@ class Agent:
                 if not isinstance(item, (Memory, Userrequest)):
                     raise TypeError(f"Invalid item in memory_block: {item}, type: {type(item)}")
 
-            #print(f"Flat block for processing: {flat_block}")
             if asyncio.iscoroutinefunction(processing_fn):
                 results = await processing_fn(flat_block)
             else:
