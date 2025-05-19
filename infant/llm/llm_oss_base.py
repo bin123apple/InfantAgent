@@ -12,8 +12,8 @@ class LLM_OSS_BASED:
     def __init__(self, args: VllmParams):
         logger.info(f'Initializing the api based LLM with the following parameters: {args}')
         self.args = args
-        self.model = args.model_name
-        self.tokenizer = args.model_name
+        self.model = args.model_oss
+        self.tokenizer = args.model_oss
         self.llm = None
         self.sampling_params = SamplingParams(
             n=self.args.sampling_n,

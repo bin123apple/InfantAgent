@@ -22,11 +22,7 @@ from infant.prompt.classification_prompt import (
     clf_task_to_str_wo_target,
     clf_sys_prompt
 )
-from infant.prompt.execution_prompt import (
-    execution_critic_false_prompt,
-    execution_critic_true_prompt,
-)
-from infant.prompt.tools_prompt import tool_document, tool_sys_msg, tool_example, tool_note, tool_advanced, tool_advanced_one_shot
+from infant.prompt.tools_prompt import tool_document, tool_sys_msg, tool_example, tool_advanced
 
 
 def merge_text_image_content(text, images):
@@ -222,14 +218,7 @@ def execution_memory_to_diag(memory_block: list[Memory], cmd_set, end_prompt, mo
                 else:
                     messages.append({'role': 'user',
                         'content': f'{memory.task}'})     
-
-        elif isinstance(memory, Critic):
-            if memory.reason is not None:
-                messages.append({'role': 'assistant',
-                    'content': f'{execution_critic_false_prompt} reason: {memory.reason}'})
-            else:
-                messages.append({'role': 'assistant',
-                    'content': execution_critic_true_prompt})                  
+                
         else:
             message = base_memory_to_str(memory)
             if message != '':

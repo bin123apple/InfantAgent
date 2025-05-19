@@ -216,32 +216,6 @@ class Message(Memory):
         ret = f'**Message** (source={self.source})\n'
         ret += f'CONTENT: {self.content}'
         return ret
-    
-@dataclass
-class Critic(Memory):
-    critic_result: bool
-    reason: str | None = None
-
-    def __str__(self) -> str:
-        ret = f'**Critic**\n'
-        ret += f'RESULT: {self.critic_result}'
-        if self.reason:
-            ret += f'\nREASON: {self.reason}'
-        return ret
-    
-@dataclass
-class Summarize(Memory):
-    summary: dict
-    action: str = 'summarize'
-
-    def __str__(self) -> str:
-        ret = '**Summarizen**\n'
-        tags = ['git_diff', 'key_steps', 'reason', ]
-        for tag in tags:
-            if tag in self.summary:
-                tag_ = tag.upper().replace('_', ' ')
-                ret += f'{tag_}: {self.summary[tag]}\n'
-        return ret
 
 @dataclass
 class Finish(Memory):
