@@ -76,7 +76,7 @@ async def initialize_agent():
     exit_code, output = computer.execute(f'source ~/.bashrc')
     logger.info(f'Conda environment activated successfully.')
 
-    # git initial commit 
+    # git initial commit
     exit_code, output = computer.execute(f'git init') # initialize git
     exit_code, output = computer.execute('git config --global core.pager ""')
     exit_code, output = computer.execute(f'git add .') # initial add
@@ -85,8 +85,8 @@ async def initialize_agent():
     
     # Initialize the Agent
     agent_parameter = config.get_agent_params()
-    agent = Agent(agent_config = agent_parameter, planning_llm = planning_llm, 
-                  classification_llm = classification_llm, execution_llm = execution_llm, 
+    agent = Agent(agent_config = agent_parameter, planning_llm = planning_llm,
+                  classification_llm = classification_llm, execution_llm = execution_llm,
                   vg_llm = vg_llm, fe_llm = fe_llm, ap_llm = ap_llm, computer = computer)
     logger.info(f'Agent initialized successfully.')
     exit_code, output = computer.execute(f'cd /workspace && rm -rf *')

@@ -111,11 +111,7 @@ class Agent:
         logger.info("Agent step started.")
         while True:
             try:
-                if self.parse_request:
-                    await self.usrreq_to_usrreqmty() 
-                    
                 # Planning
-                # await self.planning()
                 await self.planning()
                 
                 # Determine the task category
@@ -124,62 +120,12 @@ class Agent:
                 # Execute the task
                 await self.execution()
                 
-                # critic the task
-                if self.critic_execution:
-                    await self.critic() 
-                        
-                # Summarize the task
-                if self.summarize_execution: 
-                    await self.summarize() 
-                
                 # upload to git
                 git_add_or_not(user_response=True, computer=self.computer)
                 await asyncio.sleep(1)
             except Exception as e:
                 logger.error(f"Error in agent step: {e}\n{traceback.format_exc()}")
                 await self.change_agent_state(new_state=AgentState.ERROR)
-            
-    async def usrreq_to_usrreqmty(self,) -> Userrequest:
-        if isinstance(self.state.memory_list[-1], Userrequest): # FIXME: implement a function to convert the user input to Userrequest class
-            messages = await self.parse_user_request() 
-            print(f'Messages in usrreq_to_usrreqmty: {messages}')
-            resp, mem_blc= self.llm.completion(messages=messages, 
-                                               stop=['</mandatory_standards>'])
-            if mem_blc:
-                self.state.memory_list.extend(mem_blc)
-            mandatory_standards = parse(resp)
-            if mandatory_standards != 'None':
-                self.state.memory_list[-1].mandatory_standards = mandatory_standards
-            logger.info(
-                f"User Request: {self.state.memory_list[-1]}", 
-                extra={
-                    'msg_type': 'User_Request',}
-            )
-                
-    # async def reasoning(self,) -> Task:
-    #     while not isinstance(self.state.memory_list[-1], (Task, Finish)):
-    #         messages = await self.memory_to_input("reasoning", self.state.memory_list)
-    #         # print_messages(messages, 'reasoning')
-    #         resp, mem_blc= self.reasoning_llm.completion(messages=messages, stop=['</analysis>', '</task>'])
-    #         if mem_blc:
-    #             self.state.memory_list.extend(mem_blc)
-    #         memory = parse(resp) 
-    #         if isinstance(memory, Message):
-    #             self.state.memory_list.append(memory)
-    #             if self.agent_config.fake_response_mode:
-    #                 reasoning_fake_user_response = Message(content=reasoning_fake_user_response_prompt)
-    #                 reasoning_fake_user_response.source = 'user'
-    #                 self.state.memory_list.append(reasoning_fake_user_response)
-    #             else:
-    #                 user_response = await asyncio.get_event_loop().run_in_executor(None, input, "Witing for user input:")
-    #                 user_message = Message(content=user_response)
-    #                 user_message.source = 'user'
-    #                 self.state.memory_list.append(user_message)
-    #         else:
-    #             self.state.memory_list.append(memory)
-    #         await asyncio.sleep(0.3)
-    #     if isinstance(self.state.memory_list[-1], Finish):
-    #         await self.change_agent_state(new_state=AgentState.FINISHED)
             
     async def planning(self,) -> Task:
         while not isinstance(self.state.memory_list[-1], (Task, Finish)):
@@ -283,50 +229,6 @@ class Agent:
                 self.state.memory_list.append(memory)
             await asyncio.sleep(0.3)
     
-    async def critic(self,) -> bool:
-        messages = await self.memory_to_input("critic", self.state.memory_list)
-        # print_messages(messages, 'critic')
-        resp, mem_blc= self.llm.completion(messages=messages)
-        if mem_blc:
-            self.state.memory_list.extend(mem_blc)
-        critic_result = '<|exit_code=0|>' in resp
-        if critic_result:
-            memory= Critic(critic_result=critic_result)
-        else:
-            memory= Critic(critic_result=critic_result, reason=resp)
-        memory.source = 'assistant'
-        logger.info(memory, extra={'msg_type': 'Critic'})
-        self.state.memory_list.append(memory)
-        
-        # If we delete the summarize, we should add the summary memory after the critic
-        if not memory.critic_result:
-            summary_memory = Summarize(summary = {})
-            summary_memory.summary['reason'] = resp
-            summary_memory.source = 'assistant'
-            self.state.memory_list.append(summary_memory)
-        
-    async def summarize(self,) -> Summarize:
-        # sum_attempts = 0
-        assert isinstance(self.state.memory_list[-1], Critic)
-        task_critic_result = self.state.memory_list[-1].critic_result
-        reason = self.state.memory_list[-1].reason
-        git_diff = get_diff_patch(self.computer)
-        messages = await self.memory_to_input(
-            "summary_true" if task_critic_result else "summary_false",
-            self.state.memory_list,
-            git_patch=git_diff,
-        )
-        # print_messages(messages, 'summarize')
-        resp, mem_blc= self.llm.completion(messages=messages, stop=['</key_steps>'])
-        if mem_blc:
-            self.state.memory_list.extend(mem_blc)
-        memory: Summarize = parse(resp)
-        memory.summary['git_diff'] = git_diff
-        if reason:
-            memory.summary['reason'] = reason 
-        logger.info(memory, extra={'msg_type': 'Summarize'})
-        self.state.memory_list.append(memory)
-    
     async def change_agent_state(self, new_state: AgentState):
         logger.info(f"Changing agent state to: {new_state}")
         self.state.agent_state = new_state
@@ -343,15 +245,7 @@ class Agent:
             #    break
             if self.state.agent_state in ('finished', 'error', 'awaiting_user_input'):
                 break
-
-    async def parse_user_request(self) -> dict:
-        """
-        Parse the user request into a structured input data format asynchronously.
-        """
-        memory_block = [self.state.memory_list[-1]]
-        input_message = await self.memory_to_input("parse_user_request", memory_block)
-        return input_message
-
+            
     async def memory_to_input(self, case: str, memory_block: list | None = None, *args, **kwargs) -> list[dict]:
         """
         Asynchronously convert the agent's memory to a structured input data format.
@@ -390,26 +284,7 @@ class Agent:
                 results = processing_fn(flat_block) 
             return results
 
-        if case == "parse_user_request":
-            userrequest: Userrequest = memory_block[0]
-            question = parse_user_input_prompt.format(user_request=userrequest.text)
-            content = [
-                    {
-                        "type": "text",
-                        "text": question
-                    }
-                ]
-            if userrequest.images:
-                for image in userrequest.images:
-                    content.append({
-                        "type": "image_url",
-                        "image_url": {
-                        "url": image
-                        }
-                    })
-            messages.append({"role": "user", "content": content})
-
-        elif case == "planning":
+        if case == "planning":
             memory_block = await process_memory_block(memory_block, planning_memory_rtve)
             messages = planning_memory_to_diag(memory_block, end_prompt=self.planning_task_end_prompt, 
                                                 mount_path = self.computer.workspace_mount_path)
