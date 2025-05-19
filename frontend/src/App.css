@@ -1,42 +1,241 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
+/* src/App.css */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f4f7f6;
+  color: #333;
+  height: 100vh;
+  overflow: hidden; /* Prevent body scroll */
+}
+
+.App {
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* Full viewport height */
+}
+
+.App-header {
+  background-color: #282c34;
+  padding: 10px 20px;
+  color: white;
   text-align: center;
+  flex-shrink: 0; /* Prevent header from shrinking */
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.App-main {
+  display: flex;
+  flex-grow: 1; /* Takes remaining vertical space */
+  overflow: hidden; /* Prevent App-main from scrolling, panels will handle their own */
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.left-panel {
+  width: 35%; /* Adjust width as needed */
+  padding: 15px;
+  box-sizing: border-box;
+  border-right: 1px solid #ddd;
+  display: flex; /* To make ChatClient take full height */
+  flex-direction: column;
+  overflow-y: auto; /* Allow chat to scroll if content exceeds height */
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.right-panel-grid-container {
+  width: 65%; /* Adjust width as needed */
+  padding: 15px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* 2 columns */
+  grid-template-rows: 1fr 1fr;    /* 2 rows */
+  gap: 15px; /* Space between grid items */
+  overflow: hidden; /* Let individual grid items handle their scroll */
 }
 
-.card {
-  padding: 2em;
+.grid-item {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 10px;
+  box-sizing: border-box;
+  display: flex; /* Allow content within grid item to flex */
+  flex-direction: column;
+  overflow: hidden; /* Important: parent of scrolling content */
 }
 
-.read-the-docs {
-  color: #888;
+.grid-item h3 { /* Style for the titles within each grid component */
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1.1em;
+  color: #333;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #eee;
+}
+
+/* Ensure components within grid items can scroll their own content */
+.chat-client,
+.terminal-client,
+.vm-client,
+.planner-client {
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* Make component fill the grid item */
+  overflow: hidden; /* Parent controls scroll, specific areas inside will scroll */
+}
+
+/* ChatClient Styles (ensure messages area scrolls) */
+.chat-client .messages-area {
+  flex-grow: 1;
+  border: 1px solid #ccc;
+  padding: 10px;
+  margin-bottom: 10px;
+  overflow-y: auto; /* THIS IS KEY FOR SCROLLING */
+  background-color: #fff;
+  border-radius: 4px;
+}
+.chat-client .input-area {
+  flex-shrink: 0; /* Prevent input area from shrinking */
+}
+
+/* TerminalClient Styles (ensure xterm container can take height and xterm itself scrolls) */
+.terminal-client > div[style*="height: 300px"], /* Target the xterm container more reliably */
+.terminal-client .xterm-viewport-hack /* Add a class to xterm container if needed */
+ {
+  flex-grow: 1;
+  min-height: 150px; /* Minimum height for the terminal view */
+  overflow: hidden; /* Xterm's own viewport handles scrolling */
+  border: none !important; /* Remove default border if any from inline style */
+}
+.terminal-client .terminal-container-wrapper { /* New wrapper for xterm */
+  flex-grow: 1;
+  overflow: hidden; /* Let xterm handle its scroll */
+  border: 1px solid #ccc; /* Optional border for the terminal area */
+  padding: 5px; /* Optional padding around xterm */
+}
+
+
+/* VMClient Styles (ensure iframe container can take height) */
+.vm-client .nomachine-iframe-container {
+  flex-grow: 1;
+  width: 100%;
+  min-height: 150px; /* Minimum height for the iframe area */
+  overflow: hidden; /* Iframe will scroll its own content */
+}
+.vm-client .nomachine-iframe-container iframe {
+  width: 100%;
+  height: 100%;
+  border: 1px solid #ccc;
+}
+.vm-client > p { /* Reduce margin for descriptive paragraphs */
+    margin-top: 5px;
+    margin-bottom: 5px;
+    font-size: 0.9em;
+}
+.vm-client ol {
+    font-size: 0.9em;
+    padding-left: 20px;
+    margin-top: 5px;
+}
+
+
+/* PlannerClient Styles (ensure its content area scrolls if needed) */
+.planner-client .planner-details-container {
+  flex-grow: 1;
+  overflow-y: auto; /* Allow planner details to scroll */
+  padding-right: 5px; /* Space for scrollbar if it appears */
+}
+.planner-client button {
+    margin-bottom: 10px; /* Space below refresh button */
+}
+.planner-details {
+  background-color: #fff;
+  /* border: 1px solid #eee; Removed, as grid-item has border */
+  padding: 0px; /* Padding is now on grid-item */
+  border-radius: 4px;
+}
+.planner-details h4 {
+  margin-top: 10px;
+  margin-bottom: 5px;
+}
+.planner-details ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+.planner-details li {
+  padding: 5px;
+  border-bottom: 1px dashed #f0f0f0;
+}
+.planner-details li:last-child {
+  border-bottom: none;
+}
+
+
+/* Message Styles (from before, ensure they are still good) */
+.message {
+  margin-bottom: 8px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  word-wrap: break-word;
+}
+.message.you {
+  background-color: #e1ffc7;
+  text-align: right;
+  margin-left: auto;
+  max-width: 80%;
+}
+.message.agent {
+  background-color: #f0f0f0;
+  text-align: left;
+  margin-right: auto;
+  max-width: 80%;
+}
+.message.server, .message.system {
+  background-color: #fffacd;
+  font-style: italic;
+  font-size: 0.9em;
+  text-align: center;
+  max-width: 90%;
+  margin-left: auto;
+  margin-right: auto;
+}
+.input-area {
+  display: flex;
+  flex-shrink: 0;
+}
+.input-area input {
+  flex-grow: 1;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px 0 0 4px;
+}
+.input-area button {
+  padding: 8px 15px;
+  border: 1px solid #61dafb;
+  background-color: #61dafb;
+  color: white;
+  cursor: pointer;
+  border-radius: 0 4px 4px 0;
+  border-left: none;
+}
+.input-area button:disabled {
+  background-color: #ccc;
+  border-color: #ccc;
+  cursor: not-allowed;
+}
+
+.vm-client .loading-message,
+.vm-client .error-message {
+  padding: 10px;
+  border-radius: 4px;
+  margin: 10px 0;
+  font-size: 0.9em;
+}
+.vm-client .loading-message {
+  background-color: #e6f7ff;
+  border: 1px solid #91d5ff;
+}
+.vm-client .error-message {
+  background-color: #fff2f0;
+  border: 1px solid #ffccc7;
+  color: #a8071a;
 }
