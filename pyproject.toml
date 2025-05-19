@@ -80,7 +80,7 @@ dependencies = [
   "chromadb",
   "llama-index-embeddings-huggingface",
   "torch>=2.4.0,<3",
-  "vllm==0.6.0",
+  "vllm==0.8.3",
   "llama-index-embeddings-azure-openai",
   "llama-index-embeddings-ollama",
 ]

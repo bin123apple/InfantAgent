@@ -25,9 +25,11 @@ uv pip install -e .
 docker pull bin12345/ubuntu-gnome-nomachine:22.04
 ```
 
-3. Run
+3. (Optional) Config the config.toml file. If `Claude-3.7-Sonnet` is the default model.
+
+4. Run
 ```
-export OPENAI_API_KEY='Your LLM API Key'
+export ANTHROPIC_API_KEY='Your LLM API Key'
 python infant/main.py
 ```
 

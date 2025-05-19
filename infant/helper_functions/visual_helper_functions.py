@@ -187,7 +187,7 @@ def localization_point(x: int, y: int)-> Tuple[Image.Image, tuple, tuple, tuple]
     global CURRENT_RED_POINT
     
     if x < 0 or x >= CURRENT_WHOLE_IMAGE.width or y < 0 or y >= CURRENT_WHOLE_IMAGE.height:
-        return None, None, None, "Invalid coordinates: x and y must be within the image dimensions."
+        return None, None, None, (-1,-1)
     
     # Draw a red dot on the image at the specified coordinates
     CURRENT_RED_POINT = (x, y)
@@ -462,119 +462,69 @@ def extract_coordinates(result: list[str]):
 
     return (-1,-1)
 
-async def image_description_to_coordinate(agent: Agent, icon: str, desc: str, 
-                                          image: Image.Image, x_range: tuple, y_range: tuple):
+def highlight_and_save_region(center: tuple[int, int], half_size_x: int = 700, half_size_y: int = 450):
+    """
+    Highlight a region around the specified center point in the current image.
+    """
+    global CURRENT_WHOLE_IMAGE
+    image = CURRENT_WHOLE_IMAGE.copy()
+    width, height = image.size
+    x, y = center
+    left = max(0, x - half_size_x)
+    top = max(0, y - half_size_y)
+    right = min(width, x + half_size_x)
+    bottom = min(height, y + half_size_y)
+    
+    if left >= right or top >= bottom:
+        raise ValueError(f"Invalid region: {(left, top, right, bottom)}")
+    cropped = image.crop((left, top, right, bottom))
+    byte_cropped = save_image_and_convert_to_byte(cropped)
+    offset = (left, top)
+    return byte_cropped, offset
+
+def _ask_llm_for_coordinate(agent: Agent, image_bytes: bytes, description: str) -> tuple[int,int]:
+    """Send a request to oss_llm_completion, parse and return (x,y)."""
+    b64 = encode_image(image_bytes)
+    text = (
+        "Please provide the ONE point coordinates (x, y) "
+        f"of the element described as: {description}"
+    )
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
+                {"type": "text", "text": text},
+            ]
+        }
+    ]
+    result = agent.vg_llm.completion(messages)
+    coord = extract_coordinates(result)
+    return coord
+
+def image_description_to_coordinate(agent: Agent, icon, desc, image):
     """
     Convert the image description to coordinate for accurate mouse click.
     """
-    # Initialize the localization memory block
+    # Crop the image
     global CURRENT_WHOLE_IMAGE
     CURRENT_WHOLE_IMAGE = image
-    computer = agent.computer
-    if not agent.oss_llm is None:
-        byte_image = save_image_and_convert_to_byte(constant.MOUNT_PATH, image) 
-        base64_image = encode_image(byte_image)
-        prefix = 'Please provide the ONE point coordinates (x, y) of a specific element based on this sentence: '
-        suffix = ' First, think about the reasoning process in the mind within <think> </think> tags. Then, output the point coordinates within <answer> </answer> tags.'
-        text = prefix + "{description}" + suffix
-        messages = [
-            {"role": "user", "content": [
-                {"type": "image_url", 
-                "image_url": {"url": f"data:image/png;base64,{base64_image}"}},
-                {"type": "text", 
-                "text": text.format(description=icon+" ("+desc+")")},
-            ]}
-        ]
-        result = agent.oss_llm.completion(messages) # No vote for now
-        logger.info(f"Response in image_description_to_coordinate: {result}")
-        coordination = extract_coordinates(result)
-        # save the image with the red dot
-        copy_img, x_range, y_range, (x, y) = localization_point(coordination[0], coordination[1])
-        save_image_and_convert_to_byte(constant.MOUNT_PATH, copy_img)
-        return coordination
-    byte_image = save_image_and_convert_to_byte(constant.MOUNT_PATH, image) 
-    base64_image = encode_image(byte_image)
-    messages = []
-    messages.append({
-        "role": "user",
-        "content": [
-            {
-                "type": "text",
-                "text": LOCALIZATION_INITIAL_PROMPT_VISUAL.format(item_to_click=icon, Location=desc,
-                                                                  x_range=x_range, y_range=y_range)
-            },
-            {
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/png;base64,{base64_image}",
-                    "detail": "high"
-                }
-            }
-        ]
-    })
+    byte_image = save_image_and_convert_to_byte(image)
+    coordination = _ask_llm_for_coordinate(agent, byte_image, icon+" ("+desc+")")
     
-    iterations = 0
-    while True:
-        if iterations > 10:
-            return (0, 0)
-        
-        try:
-            response = agent.llm.completion(messages=messages, stop=['</localize>'])
-            logger.info(f"Response in image_description_to_coordinate: {response}")
-            messages.append({
-                "role": "assistant",
-                "content": [{"type": "text", "text": response}]
-            })
-        except Exception as e:
-            raise RuntimeError("Failed to call LLM, Error: " + str(e))
-
-        action = parse_action(response)
-        fname, args, kwargs = parse_command(action)
-
-        if 'localization_area' in action:
-            enhanced_image, x_range, y_range = dispatch(fname, args, kwargs)
-            text = (
-                f"The current screen's x-axis range is {x_range[0]} to {x_range[1]},\n" 
-                f"and the y-axis range is {y_range[0]} to {y_range[1]}."
-            )
-        elif 'localization_point' in action:
-            enhanced_image, x_range, y_range, coordination = dispatch(fname, args, kwargs)
-            if enhanced_image is None:
-                text = coordination
-            text = (
-                f"The current screen's x-axis range is {x_range[0]} to {x_range[1]},\n"
-                f"and the y-axis range is {y_range[0]} to {y_range[1]}.\n"
-                f"The red dot is located at ({coordination[0]}, {coordination[1]})."
-            )
-        elif 'move' in action:
-            enhanced_image, x_range, y_range, coordination = dispatch(fname, args, kwargs)
-            if enhanced_image is None:
-                text = coordination
-            text = (
-                f"The current screen's x-axis range is {x_range[0]} to {x_range[1]},\n"
-                f"and the y-axis range is {y_range[0]} to {y_range[1]}.\n"
-                f"The red dot is located at ({coordination[0]}, {coordination[1]})."
-            )
-
-        elif 'localization_done' in action:
-            return dispatch(fname, args, kwargs)
-        else:
-            text = f"Invalid command: {action}. Please try again."
-            enhanced_image = None
-
-        message = [{"type": "text", "text": text}]
-        if enhanced_image:
-            byte_image = save_image_and_convert_to_byte(constant.MOUNT_PATH, enhanced_image) 
-            base64_image = encode_image(byte_image)
-            message.append({
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/png;base64,{base64_image}",
-                    "detail": "high"
-                }
-            })
-        messages.append({"role": "user", "content": message})
-        iterations += 1
+    # localization
+    if not coordination[0] == -1:
+        byte_cropped, offset = highlight_and_save_region(coordination, half_size_x = 700, half_size_y = 450)
+        coordination = _ask_llm_for_coordinate(agent, byte_cropped, icon+" ("+desc+")")
+        dx = offset[0]
+        dy = offset[1]
+        coordination = (coordination[0] + dx, coordination[1] + dy)
+                    
+    # save the image with the red dot
+    copy_img, _, _, _ = localization_point(coordination[0], coordination[1])
+    if copy_img:
+        save_image_and_convert_to_byte(copy_img)
+    return coordination
 
 
 async def localization_visual(agent: Agent, memory: Memory):
@@ -608,18 +558,21 @@ async def localization_visual(agent: Agent, memory: Memory):
             
             # Add grid to the image
             img = Image.open(image_path)
-            x_range = (0, img.size[0])
-            y_range = (0, img.size[1])
             
             # Find the coordination
-            coordination = await image_description_to_coordinate(agent, icon, desc, 
-                                                                 img, x_range, y_range)
+            coordination = await image_description_to_coordinate(agent, icon, desc, img)
             logger.info(f"Coordination: {coordination}")
             
-            try: 
+            try:
                 if isinstance(coordination, tuple) and len(coordination) == 2:
-                    x, y = coordination 
+                    x, y = coordination
+                    
+                    # Execute the click action
+                    tmp_code = memory.code
                     memory.code = replace_icon_desc_with_coordinates(memory.code, x, y) # replace the image description with the coordinate
+                    method = getattr(agent.computer, memory.action)
+                    memory.result = await method(memory)
+                    memory.code = tmp_code
                     logger.info(f"Mouse clicked at coordinates: ({x}, {y})")
                     logger.info(f"=========End localization=========")
                     return memory
