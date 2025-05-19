@@ -95,8 +95,7 @@ class Agent:
             llm for llm in (
                 self.planning_llm,
                 self.classification_llm,
-                self.execution_llm,
-                self.llm,      
+                self.execution_llm,   
             ) if llm is not None
         )
 

@@ -6,7 +6,7 @@ from infant.util.logger import infant_logger as logger
 def backup_image_memory(memory, mount_path):
     # get current file abs path
     current_path= os.path.abspath(__file__)
-    root_dir = Path(current_path).resolve().parent.parent
+    root_dir = Path(current_path).resolve().parent.parent.parent
     backup_dir = root_dir / "backup_images"
     if '<Screenshot saved at>' in memory.result: # image situation
         lines = memory.result.splitlines()

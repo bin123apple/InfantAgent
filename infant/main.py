@@ -94,6 +94,9 @@ async def initialize_agent():
     # imports
     import_memory = IPythonRun(code = IMPORTS)
     await computer.run_ipython(import_memory)
+
+    import_memory = IPythonRun(code = "press_key('Escape')")
+    await computer.run_ipython(import_memory)
     return agent, computer
 
 async def main():
