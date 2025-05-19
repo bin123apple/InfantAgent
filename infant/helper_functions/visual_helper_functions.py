@@ -392,7 +392,7 @@ def save_image_and_convert_to_byte(mount_path: str, img: Image.Image) -> bytes:
     filename = f"{mount_path}/intermediate_steps/{timestamp}.png"
     img.save(filename)
     logger.info(f"Intermediate Image saved as: {filename}")
-    backup_image(filename, '/home/uconn/BinLei/Backup/gaia/images')
+    backup_image(filename)
     with open(filename, "rb") as file:
         image_bytes = file.read()
     return image_bytes
@@ -440,25 +440,26 @@ def image_to_base64(image_path: str) -> str:
     return image_url
 
 def extract_coordinates(result: list[str]):
-    # Step 1: extract <answer>...</answer> content
-    answer_match = re.search(r'<answer>\s*(.*?)\s*</answer>', result[0], re.DOTALL)
-    if not answer_match:
-        return (-1,-1)
+    text = result[0].strip()
 
-    content = answer_match.group(1)
+    # 如果有 <answer> 标签，就提取标签内的内容；否则就直接用 text
+    answer_match = re.search(r'<answer>\s*(.*?)\s*</answer>', text, re.DOTALL)
+    if answer_match:
+        content = answer_match.group(1)
+    else:
+        content = text  
 
-    # Step 2: extract (x, y) or (x1, y1, x2, y2)
-    point_match = re.search(r'\((\d+),\s*(\d+)\)', content)
+    # 按 (x, y) 形式提取
+    point_match = re.search(r'\(\s*(\d+)\s*,\s*(\d+)\s*\)', content)
     if point_match:
         x, y = map(int, point_match.groups())
         return (x, y)
 
-    box_match = re.search(r'\((\d+),\s*(\d+),\s*(\d+),\s*(\d+)\)', content)
+    # 如果是 (x1, y1, x2, y2) 形式，取中心点
+    box_match = re.search(r'\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)', content)
     if box_match:
         x1, y1, x2, y2 = map(int, box_match.groups())
-        x = (x1 + x2) // 2
-        y = (y1 + y2) // 2
-        return (x, y)
+        return ((x1 + x2)//2, (y1 + y2)//2)
 
     return (-1,-1)
 
@@ -478,7 +479,7 @@ def highlight_and_save_region(center: tuple[int, int], half_size_x: int = 700, h
     if left >= right or top >= bottom:
         raise ValueError(f"Invalid region: {(left, top, right, bottom)}")
     cropped = image.crop((left, top, right, bottom))
-    byte_cropped = save_image_and_convert_to_byte(cropped)
+    byte_cropped = save_image_and_convert_to_byte(constant.MOUNT_PATH, cropped)
     offset = (left, top)
     return byte_cropped, offset
 
@@ -509,7 +510,7 @@ def image_description_to_coordinate(agent: Agent, icon, desc, image):
     # Crop the image
     global CURRENT_WHOLE_IMAGE
     CURRENT_WHOLE_IMAGE = image
-    byte_image = save_image_and_convert_to_byte(image)
+    byte_image = save_image_and_convert_to_byte(constant.MOUNT_PATH, image)
     coordination = _ask_llm_for_coordinate(agent, byte_image, icon+" ("+desc+")")
     
     # localization
@@ -523,7 +524,7 @@ def image_description_to_coordinate(agent: Agent, icon, desc, image):
     # save the image with the red dot
     copy_img, _, _, _ = localization_point(coordination[0], coordination[1])
     if copy_img:
-        save_image_and_convert_to_byte(copy_img)
+        save_image_and_convert_to_byte(constant.MOUNT_PATH, copy_img)
     return coordination
 
 
@@ -560,7 +561,7 @@ async def localization_visual(agent: Agent, memory: Memory):
             img = Image.open(image_path)
             
             # Find the coordination
-            coordination = await image_description_to_coordinate(agent, icon, desc, img)
+            coordination = image_description_to_coordinate(agent, icon, desc, img)
             logger.info(f"Coordination: {coordination}")
             
             try:
