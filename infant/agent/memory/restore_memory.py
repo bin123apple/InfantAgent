@@ -11,7 +11,6 @@ from infant.agent.memory.memory import (
     CmdRun,
     IPythonRun,
     TaskFinish,
-    Critic,
     Finish
 )
 from infant.util.logger import infant_logger as logger

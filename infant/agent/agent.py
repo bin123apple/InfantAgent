@@ -10,10 +10,8 @@ from infant.agent.state.state import State, AgentState
 from infant.agent.memory.memory import ( 
     Task,
     Finish, 
-    Critic,
     Memory, 
     Message, 
-    Summarize, 
     TaskFinish, 
     IPythonRun,
     Userrequest,
@@ -25,7 +23,7 @@ from infant.util.backup_image import backup_image_memory
 import infant.util.constant as constant
 from infant.agent.memory.restore_memory import truncate_output
 from infant.util.special_case_handler import handle_planning_repetition, check_accumulated_cost
-from infant.prompt.parse_user_input import parse_user_input_prompt
+# from infant.prompt.parse_user_input import parse_user_input_prompt
 from infant.prompt.planning_prompt import planning_fake_user_response_prompt
 from infant.prompt.tools_prompt import tool_stop, tool_fake_user_response_prompt
 from infant.prompt.planning_prompt import (

@@ -3,7 +3,6 @@ from infant.agent.memory.memory import (
     Memory,
     Analysis,
     Message,
-    Summarize,
     Task,
     CmdRun,
     IPythonRun,
