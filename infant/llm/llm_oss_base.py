@@ -26,7 +26,8 @@ class LLM_OSS_BASED:
         )
         logger.info(f"Finished initializing parameters of the OSS LLM\n"
                     f"Args: {self.args}." )
-    
+        
+        self.load_model()
 
     def generate_actions(self, messages: list) -> None:
         """

@@ -123,12 +123,12 @@ class Config:
     
     ## vllm Attributes
     model_oss: str = 'ByteDance-Seed/UI-TARS-1.5-7B'
-    tensor_parallel_size: int = 2 # Tensor parallelism splits the model's tensors across n GPUs
+    tensor_parallel_size: int = 4 # Tensor parallelism splits the model's tensors across n GPUs
     max_model_len: int = 9632
     disable_custom_all_reduce: bool = True
     enable_prefix_caching: bool = False
     trust_remote_code: bool = True
-    gpu_memory_utilization: float = 0.7 # kv cache memory utilization
+    gpu_memory_utilization: float = 0.5 # kv cache memory utilization
     sampling_n: int = 1
     best_of: Optional[int] = None
     presence_penalty: float = 0.0

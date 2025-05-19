@@ -1,5 +1,4 @@
 import traceback
-from typing import Any, Dict, Optional
 from infant.agent.parser import parse
 from infant.config import AgentParams
 from infant.llm.llm_api_base import LLM_API_BASED
@@ -10,22 +9,18 @@ from infant.agent.state.state import State, AgentState
 from infant.agent.memory.memory import ( 
     Task,
     Finish, 
-    Critic,
     Memory, 
     Message, 
-    Summarize, 
     TaskFinish, 
     IPythonRun,
     Userrequest,
     Classification, 
 )
-from infant.config import LitellmParams
 from infant.util.logger import infant_logger as logger
 from infant.util.backup_image import backup_image_memory
 import infant.util.constant as constant
 from infant.agent.memory.restore_memory import truncate_output
 from infant.util.special_case_handler import handle_planning_repetition, check_accumulated_cost
-from infant.prompt.parse_user_input import parse_user_input_prompt
 from infant.prompt.planning_prompt import planning_fake_user_response_prompt
 from infant.prompt.tools_prompt import tool_stop, tool_fake_user_response_prompt
 from infant.prompt.planning_prompt import (
@@ -44,7 +39,8 @@ from infant.agent.memory.restore_memory import (
     classification_memory_to_diag, 
     execution_memory_to_diag,
 )
-from infant.helper_functions.mouse_click import mouse_click
+
+from infant.helper_functions.visual_helper_functions import localization_visual
 from infant.helper_functions.file_edit_helper_function import line_drift_correction
 from infant.helper_functions.browser_helper_function import convert_web_browse_commands
 from infant.agent.memory.file_related_memory import get_diff_patch, git_add_or_not
@@ -159,20 +155,14 @@ class Agent:
         # if mem_blc:
         #     self.state.memory_list.extend(mem_blc)
         # Try all prompts
-        # resp = '<clf_task>file_edit, code_exec, computer_interaction, web_browse, file_understand</clf_task>'
-        resp = '<clf_task>file_edit, file_understand,  code_exec</clf_task>'
+        resp = '<clf_task>file_edit, code_exec, computer_interaction, web_browse, file_understand</clf_task>'
+        # resp = '<clf_task>file_edit, file_understand,  code_exec</clf_task>'
         memory = parse(resp) 
         self.state.memory_list.append(memory)
 
     async def execution(self) -> TaskFinish:
         assert isinstance(self.state.memory_list[-1], Classification)
         cmd_set = self.state.memory_list[-1].cmd_set
-        # print(f'cmd_set: {cmd_set}')
-        interactive_elements = []
-        # if the task is web_browse, we only need to execute the web_browse command
-        # if "web_browse" in cmd_set:
-        #     # cmd_set = {"web_browse"} # in-place change the cmd_set   
-        dropdown_dict = None # FIXME: Do we still need this dropdown?
             
         stop_signals = ['</task_finish>', '</task>', '</execute_ipython>', '</execute_bash>'] # stop signals for the LLM to stop generating
         for cmd in cmd_set:
@@ -192,14 +182,13 @@ class Agent:
                 # record the descritpion of the image
                 if hasattr(memory, 'code') and memory.code:
                     tmp_code = memory.code
-                
-                # check if the mouse click is needed FIXME: Move this logic to tools?
-                memory, interactive_elements = await mouse_click(self, memory, interactive_elements) # check if the memory is a localization task
-                memory = convert_web_browse_commands(memory, dropdown_dict, interactive_elements) # convert the commands to correct format     
+
+                memory = await localization_visual(self, memory)
+                memory = convert_web_browse_commands(memory) # convert the commands to correct format     
                 method = getattr(self.computer, memory.action)
                 if not memory.result:
                     memory.result = await method(memory)
-                    
+
                 # Make sure the edit_file() command is correct
                 if isinstance(memory, IPythonRun):
                     if 'edit_file' in memory.code and "Here is the code that you are trying to modified:" in memory.result:
@@ -207,12 +196,9 @@ class Agent:
                         logger.info(f"Modified command: {modified_command}")
                         memory.result = result # restore result
                         tmp_code = modified_command # restore code
-                        
-                # # For web_browser, we need to check the dropdown menu
-                # chk_dropdown_result, dropdown_dict = await check_dropdown_options(self, cmd, interactive_elements)
-                # memory.result += f'\n{chk_dropdown_result}'  # FIXME: check if this is needed  
+
                 memory.result = truncate_output(output = memory.result)
-                
+
                 # convert the coordinate back to image description
                 if hasattr(memory, 'code') and memory.code:
                     memory.code = tmp_code

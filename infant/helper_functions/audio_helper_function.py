@@ -29,10 +29,8 @@ def parse_audio(audio_path: str, question: str) -> str:
     '''
     output = ''
     try:
-        litellm_parameter = config.get_litellm_params()
-        litellm_parameter.model = 'gpt-4o-audio-preview'  # Specify the model you want to use
-        litellm_parameter.api_key = os.getenv("OPENAI_API_KEY")
-        llm = LLM_API_BASED(litellm_parameter)
+        ap_parameter = config.get_litellm_params(overrides = config.ap_llm)
+        ap_llm = LLM_API_BASED(ap_parameter)
         audio_path = audio_path.replace("/workspace", constant.MOUNT_PATH, 1)
         audio_base64, audio_type = audio_base64_to_url(audio_path)
         messages=[
@@ -47,7 +45,7 @@ def parse_audio(audio_path: str, question: str) -> str:
                 ],
             },
         ]
-        answer, _ = llm.completion(messages=messages)
+        answer, _ = ap_llm.completion(messages=messages)
         output += answer
     except Exception as e:
         output += "\n<Error occurred>\n"

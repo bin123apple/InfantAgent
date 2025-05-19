@@ -5,9 +5,7 @@ from infant.agent.memory.memory import (
     Analysis,
     Userrequest,
     Message,
-    Summarize,
     Task,
-    Critic,
     CmdRun,
     IPythonRun,
     TaskFinish,
@@ -105,21 +103,9 @@ def memory_list_to_dialogue(memory_list):
             else:
                 dialogue.append({'role': 'assistant',
                                 'content': f'{memory.thought}<task>{memory.task}</task>'})
-        elif isinstance(memory, Summarize):
-            summary = ''
-            summary += memory.summary['git_diff']
-            dialogue.append({'role': 'assistant',
-                            'content': summary})
         elif isinstance(memory, Finish):
             dialogue.append({'role': 'assistant',
                             'content': f'{memory.thought}<finish>exit</finish>'})
-        elif isinstance(memory, Critic):
-            if memory.reason is not None:
-                dialogue.append({'role': 'assistant',
-                                'content': f'result: {memory.critic_result} reason: {memory.reason}'})
-            else:
-                dialogue.append({'role': 'assistant',
-                                'content': f'result: {memory.critic_result}'})
         if hasattr(memory, 'result') and memory.result is not None:
             dialogue.append({'role': 'user',
                             'content': memory.result})

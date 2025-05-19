@@ -12,11 +12,8 @@ async def line_drift_correction(memory: IPythonRun, computer: Computer) -> str:
     fix the line drift problem with in the edit_file() function
     '''
     try:
-        litellm_parameter = config.get_litellm_params()
-        litellm_parameter.model = 'deepseek-chat'
-        litellm_parameter.base_url = 'https://api.deepseek.com/v1'
-        litellm_parameter.api_key = os.environ.get('OPENAI_API_KEY', '')
-        llm = LLM_API_BASED(litellm_parameter)
+        fe_parameter = config.get_litellm_params(overrides = config.fe_llm)
+        fe_llm = LLM_API_BASED(fe_parameter)
         iteration_times = 0
         code = memory.code
         result = memory.result
@@ -83,7 +80,7 @@ Observation:
         ]
         while iteration_times < 3:
             iteration_times += 1
-            answer, _ = llm.completion(messages=messages,stop=['</execute_ipython>'])
+            answer, _ = fe_llm.completion(messages=messages,stop=['</execute_ipython>'])
             logger.info(f"{iteration_times} TURN in line_drift_correction. LLM result: {answer}")
             ipython_memory = parse(answer)
             message = {

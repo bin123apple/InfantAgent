@@ -170,7 +170,7 @@ def extract_web_commands(tool_str: str):
     matches = re.findall(r'-\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(', tool_str)
     return set(matches)
 
-def convert_web_browse_commands(memory: IPythonRun, dropdown_dict: dict, interactive_elements: list) -> Memory:
+def convert_web_browse_commands(memory: IPythonRun) -> Memory:
 
     if hasattr(memory, 'code'):
         if memory.code == 'open_browser()':
@@ -183,16 +183,6 @@ def convert_web_browse_commands(memory: IPythonRun, dropdown_dict: dict, interac
         
         if matched_cmd is None:
             return memory
-        
-        if  'select_dropdown_option' in memory.code and dropdown_dict:
-            dropdown_option = extract_parameter_values(memory.code) # dict
-            if 'selector_index' in dropdown_option and 'option' in dropdown_option:
-                index = dropdown_option['selector_index']
-                if int(index) in interactive_elements:
-                        interactive_elements.remove(int(index))
-                text = dropdown_dict.get(str(index), {}).get(str(dropdown_option['option']), None)
-                memory.code = f'await context.select_dropdown_option(index={index}, text="{text}")\ntake_screenshot()'
-                return memory
         
         memory.code = f'await context.{memory.code.strip()}\ntake_screenshot()'
     return memory

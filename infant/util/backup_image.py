@@ -1,8 +1,13 @@
 import os
 import shutil
+from pathlib import Path
 from infant.util.logger import infant_logger as logger
 
-def backup_image_memory(memory, mount_path, backup_dir="/home/uconn/BinLei/Backup/osworld/images"):
+def backup_image_memory(memory, mount_path):
+    # get current file abs path
+    current_path= os.path.abspath(__file__)
+    root_dir = Path(current_path).resolve().parent.parent
+    backup_dir = root_dir / "backup_images"
     if '<Screenshot saved at>' in memory.result: # image situation
         lines = memory.result.splitlines()
         # find the last line containing '<Screenshot saved at>'
@@ -28,7 +33,11 @@ def backup_image_memory(memory, mount_path, backup_dir="/home/uconn/BinLei/Backu
             logger.info(f"Image backed up to {target_path}")
 
 
-def backup_image(image_path, mount_path, backup_dir="/home/uconn/BinLei/Backup/osworld/images"):
+def backup_image(image_path, mount_path):
+    # get current file abs path
+    current_path= os.path.abspath(__file__)
+    root_dir = Path(current_path).resolve().parent.parent
+    backup_dir = root_dir / "backup_images"
 
     # Ensure backup directory exists
     os.makedirs(backup_dir, exist_ok=True)
