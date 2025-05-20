@@ -75,7 +75,7 @@ infant/backup_images/
 InfantAI.egg-info/
 
 # todo
-todo.md
+todo
 
 # evaluation
 evaluation/swe_bench/predictions.jsonl
