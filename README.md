@@ -42,10 +42,6 @@ python infant/main.py
 ## TODO
 
 - [ ] Add: Credits.md.
-- [ ] Add: Add RL training code.
-- [ ] Add: Add more shots
-- [ ] FIX: Polish Code
 - [ ] Add: More emoj/user friendly front end.
-- [ ] Add: evaluation in swe-bench/osworld/GAIA/GPQA...
 
 
