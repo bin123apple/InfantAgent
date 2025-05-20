@@ -116,8 +116,9 @@ class Agent:
                 await self.execution()
                 
                 # upload to git
-                git_add_or_not(user_response=True, computer=self.computer)
-                await asyncio.sleep(1)
+                if self.agent_config.use_git:
+                    git_add_or_not(user_response=True, computer=self.computer)
+                    await asyncio.sleep(1)
             except Exception as e:
                 logger.error(f"Error in agent step: {e}\n{traceback.format_exc()}")
                 await self.change_agent_state(new_state=AgentState.ERROR)

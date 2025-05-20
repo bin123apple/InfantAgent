@@ -167,6 +167,7 @@ class Config:
     use_oss_llm = True # whether to use OSS LLM (Need GPU!)
     verify_step_by_step: bool = True
     fake_response_mode: bool = False
+    use_git: bool = False # whether to use git to log everything
     
     # Computer Attributes 
     runtime: str = 'server'
@@ -326,7 +327,8 @@ class Config:
             max_continuous_errors=self.max_continuous_errors,
             use_oss_llm=self.use_oss_llm,
             debug=self.debug,
-            fake_response_mode = self.fake_response_mode
+            fake_response_mode = self.fake_response_mode,
+            use_git=self.use_git
         )
     
     def get_computer_params(self):
@@ -540,6 +542,7 @@ class AgentParams:
         use_oss_llm,
         debug,
         fake_response_mode,
+        use_git,
     ):
         self.max_iterations = max_iterations
         self.max_voting = max_voting
@@ -557,6 +560,7 @@ class AgentParams:
         self.use_oss_llm = use_oss_llm
         self.debug = debug
         self.fake_response_mode = fake_response_mode
+        self.use_git = use_git
 
 config = Config()
 config.finalize_config()

@@ -40,7 +40,7 @@ def get_diff_patch(computer: Computer):
     # get the git diff
     exit_code, git_patch = computer.execute(
         f'git diff --no-color --cached'
-    , timeout=30)
+    , timeout=60)
     
     # 0 means no diff, 1 means has diff
     if exit_code not in (0, 1):
