@@ -1,12 +1,16 @@
 /* src/App.css */
-html, body {
-  height: 100%; /* Ensure html and body take full viewport height */
-  margin: 0;
-  padding: 0;
-  overflow: hidden; /* Prevent body scroll on desktop; we control scroll within .App */
+html {
+  height: 100%;
+  box-sizing: border-box; /* Apply box-sizing globally */
+}
+*, *:before, *:after {
+  box-sizing: inherit; /* Inherit box-sizing */
 }
 
 body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
@@ -14,12 +18,14 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: #f4f7f6;
   color: #333;
+  /* Desktop: body does not scroll, .App manages its 100vh */
+  overflow: hidden;
 }
 
 .App {
   display: flex;
   flex-direction: column;
-  height: 100vh; /* Use 100vh for full viewport height consistently */
+  height: 100vh; /* App takes full viewport height */
   overflow: hidden; /* App itself does not scroll */
 }
 
@@ -28,51 +34,61 @@ body {
   padding: 8px 15px;
   color: white;
   text-align: center;
-  flex-shrink: 0;
+  flex-shrink: 0; /* Header doesn't shrink */
   z-index: 10;
 }
 
 .App-main {
   display: flex;
-  flex-grow: 1;
-  overflow: hidden; /* Crucial: App-main manages its space, children scroll */
-  min-height: 0; /* For flex context if .App is also flex-column */
-}
-
-.left-panel {
-  width: 35%;
-  padding: 8px;
-  box-sizing: border-box;
-  border-right: 1px solid #ddd;
-  display: flex;
-  flex-direction: column;
-  background-color: #fff;
-  transition: width 0.3s ease;
-  overflow: hidden; /* Let .chat-client handle scroll */
+  flex-grow: 1; /* Main area takes remaining vertical space */
+  overflow: hidden; /* IMPORTANT: App-main does not scroll. Children will. */
   min-height: 0; /* For flex item context */
 }
 
+.left-panel {
+  /* width is set by inline style from React state for resizer */
+  /* flex-basis: 35%; Initial width before JS for non-resizable state */
+  flex-shrink: 0; /* Critical for resizable panel */
+  padding: 8px;
+  display: flex; /* Use flex for internal structure */
+  flex-direction: column;
+  background-color: #fff;
+  overflow: hidden; /* Let .chat-client handle its own scroll */
+  position: relative; /* For certain positioning if needed, though not strictly for resizer */
+}
+
+.resizer {
+  width: 5px;
+  background-color: #ddd;
+  cursor: col-resize;
+  flex-shrink: 0;
+  z-index: 5;
+  /* On hover, you might want to make it slightly thicker or change color more visibly */
+}
+.resizer:hover, .resizer.dragging { /* Add a class for dragging state if you want */
+  background-color: #999; /* More visible when hovering or dragging */
+}
+
+
 .right-panel-grid-container {
-  width: 65%;
-  padding: 0;
-  box-sizing: border-box;
+  flex-grow: 1; /* Takes up remaining space */
+  min-width: 0; /* Allows it to shrink properly if left panel grows */
+  padding: 0; /* No padding, gap provides spacing */
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
   gap: 1px;
-  background-color: #ddd;
-  overflow: hidden; /* Let grid items handle scroll */
-  transition: width 0.3s ease;
+  background-color: #ddd; /* Separator color */
+  overflow: hidden; /* Grid container itself doesn't scroll */
 }
 
 .grid-item {
   background-color: #fff;
   padding: 8px;
-  box-sizing: border-box;
-  display: flex;
+  display: flex; /* Use flex for internal structure (title + content) */
   flex-direction: column;
-  overflow: hidden; /* Let specific content areas inside scroll */
-  min-height: 0; /* For grid item context, allows shrinking and internal scroll */
+  overflow: hidden; /* Grid item itself does not scroll; children will */
+  min-height: 0; /* Allows grid item to shrink and content inside to scroll */
 }
 
 .grid-item h3 {
@@ -82,87 +98,81 @@ body {
   color: #333;
   padding-bottom: 4px;
   border-bottom: 1px solid #eee;
-  flex-shrink: 0;
+  flex-shrink: 0; /* Title doesn't shrink */
 }
 
-/* Component wrappers */
+/* Component wrappers within .left-panel or .grid-item */
 .chat-client,
 .terminal-client,
 .vm-client,
 .planner-client {
   display: flex;
   flex-direction: column;
-  height: 100%; /* Fill parent (.left-panel or .grid-item) */
-  overflow: hidden; /* Delegate scroll to specific inner areas */
-  min-height: 0; /* Allow shrinking within flex/grid parent */
+  flex-grow: 1; /* Key: make these components take up available space in parent */
+  overflow: hidden; /* They delegate scroll to specific inner areas */
+  min-height: 0; /* Essential for flex children that need to scroll internally */
 }
 
-/* ChatClient Styles */
+/* Specific Scrollable Content Areas */
 .chat-client .messages-area {
   flex-grow: 1;
+  overflow-y: auto; /* THIS IS A SCROLLABLE AREA */
   padding: 8px;
   margin-bottom: 8px;
-  overflow-y: auto; /* SCROLLS HERE */
   background-color: #f9f9f9;
   border-radius: 3px;
-  min-height: 50px; /* Important for flex-grow to work correctly */
+  min-height: 50px; /* To ensure it has some space even if empty */
 }
 .chat-client .input-area {
   flex-shrink: 0;
 }
 
-/* TerminalClient Styles */
 .terminal-client .terminal-container-wrapper {
   flex-grow: 1;
-  min-height: 100px;
-  overflow: hidden; /* Xterm itself will provide scrollbars */
+  min-height: 100px; /* Give terminal some minimum visible space */
+  overflow: hidden; /* Xterm handles its own scroll within this */
   border-radius: 3px;
   background-color: #1e1e1e;
-  position: relative;
+  position: relative; /* Helps xterm fit correctly */
 }
 .terminal-client .terminal-container-wrapper .xterm {
-    height: 100% !important;
+    height: 100% !important; /* Xterm should fill its wrapper */
     width: 100% !important;
+    /* The xterm library itself creates scrollable viewports */
 }
 .terminal-client .terminal-status {
-    font-size: 0.8em;
-    margin-top: 4px;
-    flex-shrink: 0;
+    font-size: 0.8em; margin-top: 4px; flex-shrink: 0;
 }
 
-/* VMClient Styles */
 .vm-client .nomachine-iframe-container {
   flex-grow: 1;
-  width: 100%;
-  min-height: 100px;
-  overflow: hidden; /* Iframe handles its own scroll */
+  min-height: 100px; /* Give iframe some minimum visible space */
+  overflow: hidden; /* Iframe element has its own scrolling */
 }
 .vm-client .nomachine-iframe-container iframe {
-  width: 100%;
-  height: 100%;
-  border: none;
+  width: 100%; height: 100%; border: none;
 }
 .vm-client > p, .vm-client ol {
-    flex-shrink: 0;
-    margin-top: 3px; margin-bottom: 3px; font-size: 0.85em;
+    flex-shrink: 0; margin-top: 3px; margin-bottom: 3px; font-size: 0.85em;
 }
 .vm-client ol { padding-left: 18px; }
 
-/* PlannerClient Styles */
 .planner-client .planner-controls { flex-shrink: 0; }
 .planner-client button { margin-bottom: 8px; padding: 6px 10px; font-size: 0.9em; }
 .planner-client .planner-details-container {
   flex-grow: 1;
-  overflow-y: auto; /* SCROLLS HERE */
-  padding-right: 3px;
-  min-height: 50px; /* Important for flex-grow */
+  overflow-y: auto; /* THIS IS A SCROLLABLE AREA */
+  padding-right: 3px; /* For scrollbar visibility */
+  min-height: 50px; /* To ensure it has some space */
 }
 .planner-details { background-color: #fff; padding: 0px; border-radius: 3px; }
+/* ... other planner styles ... */
 .planner-details p { margin: 4px 0; font-size: 0.9em; }
 .planner-details h4 { margin-top: 8px; margin-bottom: 4px; font-size: 0.95em; }
 .planner-details ul { list-style-type: none; padding-left: 0; }
 .planner-details li { padding: 4px; font-size: 0.9em; border-bottom: 1px dashed #f0f0f0; }
 .planner-details li:last-child { border-bottom: none; }
+
 
 /* ... (Keep existing .message, .input-area, .vm-client .loading-message styles) ... */
 .message { margin-bottom: 6px; padding: 4px 7px; border-radius: 3px; word-wrap: break-word; font-size: 0.95em; }
@@ -183,76 +193,81 @@ body {
 /* --- Responsive Adjustments --- */
 
 @media (max-width: 1024px) { /* Tablets and Smaller Desktops */
-  .left-panel { width: 40%; }
-  .right-panel-grid-container { width: 60%; }
-  /* Grid items already use 1fr for rows/cols, so they adapt. min-height helps. */
+  .left-panel {
+    /* JS handles width; min/max constraints in JS if needed */
+  }
+  .right-panel-grid-container {
+    /* flex-grow handles width */
+  }
   .grid-item { padding: 6px; }
   .grid-item h3 { font-size: 0.95em; margin-bottom: 6px; }
 }
 
 @media (max-width: 767px) { /* Mobile Phones */
   html, body {
-    overflow-y: auto; /* Allow body to scroll as content stacks beyond viewport */
-    height: auto; /* Remove fixed height to allow content to define body height */
+    overflow-y: auto; /* Allow body to scroll as content stacks */
+    height: auto; /* Content defines height */
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
   }
   .App {
-    height: auto; /* App also grows with content */
-    min-height: 100vh; /* Ensure it still tries to fill if content is short */
+    height: auto; /* App grows with content */
+    min-height: 100vh; /* But tries to fill viewport if content is short */
+    overflow: visible; /* Let body scroll the app */
   }
   .App-main {
-    flex-direction: column;
-    overflow-y: visible; /* Let children define height, body scrolls */
-    height: auto;
+    flex-direction: column; /* Stack main panels */
+    overflow: visible; /* Let body scroll the main content */
+    height: auto; /* Main content grows */
+  }
+
+  .resizer {
+    display: none; /* Hide resizer on mobile */
   }
 
   .left-panel,
   .right-panel-grid-container {
-    width: 100%;
-    max-width: 100%; /* Important for preventing horizontal overflow */
+    width: 100% !important; /* Full width, override JS style */
+    flex-basis: auto !important; /* Reset flex-basis if JS set it */
+    max-width: 100%;
     border-right: none;
-    height: auto; /* Let content or min/max-height define actual height */
-    min-height: 0; /* Reset desktop min-heights if they conflict */
-    overflow: visible; /* Let body scroll */
+    height: auto; /* Height determined by content or min/max */
+    overflow: visible; /* Let content flow, body scrolls */
   }
 
   .left-panel {
-    /* Define how tall the chat panel should be on mobile before IT scrolls */
-    max-height: 60vh; /* Example: Chat can take up to 60% of screen */
-    min-height: 250px; /* But at least this much */
-    overflow-y: auto; /* The .left-panel itself will scroll if its content (ChatClient) exceeds max-height */
-    border-bottom: 1px solid #ddd;
+    min-height: 250px; /* Min height for chat */
+    max-height: 60vh;  /* Max height for chat, then internal scroll */
+    overflow-y: auto;  /* If chat content exceeds max-height, left-panel scrolls */
+    border-bottom: 1px solid #ddd; /* Separator when stacked */
+    flex-shrink: 0; /* Don't let it shrink too much when stacked */
   }
-  /* Ensure .chat-client (and thus .messages-area) correctly uses space within .left-panel */
+  /* Ensure chat-client itself can use the space of the now scrollable left-panel */
   .left-panel .chat-client {
-      /* height: 100%; -- This might be problematic if left-panel has max-height.
-         Let chat-client's flex properties work within the now scrollable left-panel. */
+      /* It's already display:flex, flex-direction:column, height:100%
+         This should work within the scrollable .left-panel correctly */
   }
 
 
   .right-panel-grid-container {
     grid-template-columns: 1fr; /* Single column */
-    grid-template-rows: auto; /* Each item defines its own height */
-    height: auto; /* Let children determine total height */
+    grid-template-rows: auto;   /* Each item determines its own height */
+    height: auto; /* Let content determine height */
   }
 
   .grid-item {
-    /* Each grid item will stack. Give them a sensible min-height.
-       Content inside them should scroll if it exceeds this. */
-    min-height: 350px; /* Increased min-height for stacked items to be useful */
-    height: auto;      /* Allow them to grow taller if content is larger and not scrollable */
-    /* If a grid item's *internal* content is meant to scroll (e.g. terminal),
-       its internal scrollable area needs to be correctly set up with flex-grow and overflow:auto */
-    overflow: hidden; /* Grid item itself shouldn't scroll, but internal component like terminal should */
+    min-height: 300px; /* Min height for each stacked item */
+    height: auto;      /* Allow to grow */
+    overflow: hidden; /* Content inside (e.g. terminal) should scroll */
   }
-  /* Forcing internal scrollable areas in stacked grid items to have enough space */
+  /* Ensure scrollable areas within grid items have space */
    .grid-item .terminal-client .terminal-container-wrapper,
    .grid-item .vm-client .nomachine-iframe-container,
    .grid-item .planner-client .planner-details-container {
-        min-height: 280px; /* Make sure the actual content area has space */
+        min-height: 250px; /* Ensure these specific content areas are usable */
+        flex-grow: 1; /* Make sure they try to fill the .grid-item */
    }
 
-  /* Global font size adjustments for mobile */
-  body { font-size: 15px; /* Slightly larger base for better readability */ }
+  body { font-size: 15px; }
   .App-header { padding: 6px 10px; font-size: 1em; }
   .message { font-size: 1em; }
   .input-area input, .input-area button { font-size: 1em; }

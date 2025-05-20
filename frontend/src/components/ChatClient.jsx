@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import createWebSocket from '../services/WebSocketService';
 
-const clientId = `client_${Math.random().toString(36).substring(2, 15)}`;
+// const clientId = `client_${Math.random().toString(36).substring(2, 15)}`;
+const clientId = 'clieint_xgxkxiubua'
 const CHAT_WS_URL = `ws://localhost:4000/ws/chat/${clientId}`;
 
 function ChatClient() {

@@ -5,7 +5,8 @@ import React, { useState, useEffect } from 'react';
 // Or generate a new one if planner can be independent.
 // For simplicity, let's assume it needs a client_id known to the server.
 // We'll use a placeholder here. You might need to pass the chat's clientId.
-const plannerClientId = `planner_${Math.random().toString(36).substring(2, 15)}`;
+// const plannerClientId = `planner_${Math.random().toString(36).substring(2, 15)}`;
+const plannerClientId = 'planner_xgxkxiubua'; // Example static ID for testing
 const PLANNER_API_URL = `http://localhost:4000/api/planner/${plannerClientId}`;
 
 

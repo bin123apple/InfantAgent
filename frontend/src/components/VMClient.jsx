@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 
 // Default NoMachine web client URL based on infant/computer/run_docker.sh
 // NOMACHINE_HTTPS_WEB_PORT_IN_HOST defaults to 23003
-const DEFAULT_NOMACHINE_URL = 'https://localhost:4443';
+const DEFAULT_NOMACHINE_URL = 'https://localhost:4443https://localhost:4443/?sid=a9f3686a0e189b0ec3d046106877eade';
 
 function VMClient() {
     const [nomachineUrl, setNomachineUrl] = useState(DEFAULT_NOMACHINE_URL);
