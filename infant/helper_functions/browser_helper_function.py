@@ -19,14 +19,39 @@ print(state)
 """
 
 OPEN_BROWSER_CODE = """import subprocess
+import time
+import socket
+import asyncio
 
+# Launch Chrome with remote debugging and a custom profile directory
 with open("/tmp/log.log", "w") as log_file:
     subprocess.Popen(
-        ["google-chrome", "--no-first-run", "--remote-debugging-port=9222", "--start-maximized"],
-        stdout=log_file, stderr=subprocess.STDOUT,
+        [
+            "google-chrome",
+            "--no-first-run",
+            "--remote-debugging-port=9222",
+            "--remote-debugging-address=0.0.0.0",
+            "--user-data-dir=/tmp/chrome-profile",
+            "--start-maximized",
+        ],
+        stdout=log_file,
+        stderr=subprocess.STDOUT,
         close_fds=True
     )
-    
+
+# Wait for the DevTools port to be open
+def wait_for_port(host, port, timeout=15):
+    start = time.time()
+    while time.time() - start < timeout:
+        try:
+            with socket.create_connection((host, port), timeout=1):
+                return
+        except OSError:
+            time.sleep(0.2)
+    raise RuntimeError(f"Port {port} not open after {timeout} seconds")
+
+wait_for_port("127.0.0.1", 9222)
+
 config = BrowserConfig(
     headless=False,
     chrome_instance_path='/usr/bin/google-chrome',
@@ -35,6 +60,9 @@ config = BrowserConfig(
 
 browser = Browser(config)
 context = await browser.new_context()
+
+# Give the page a moment to render before taking a screenshot
+await asyncio.sleep(2)
 take_screenshot()
 EOL"""
 

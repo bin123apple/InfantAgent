@@ -68,6 +68,10 @@ dataset/*
 workspace/
 
 # egg
+backup_images/
+infant/backup_images/
+
+# egg
 InfantAI.egg-info/
 
 # evaluation

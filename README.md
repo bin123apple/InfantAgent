@@ -5,9 +5,11 @@
 
 2. This agent system will be used for subsequent reinforcement learning training of agents.
 
+3. I have not yet conducted large-scale testing of this agent beyond the benchmark; please feel free to report any bugs or submit pull requests. :wave:
+
 ## Installation Requirements
 
-NOTE: Now, it is only tested on `linux` server with `Nvidia Tesla GPU (A100, H200 ...)`. There may be some bugs for Mac/Windows.
+Now, it is only tested on `linux` server with `Nvidia Tesla GPU (A100, H200 ...)`. There may be some bugs for Mac/Windows.
 
 ## Setup 
 

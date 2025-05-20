@@ -33,7 +33,7 @@ def backup_image_memory(memory, mount_path):
             logger.info(f"Image backed up to {target_path}")
 
 
-def backup_image(image_path, mount_path):
+def backup_image(image_path):
     # get current file abs path
     current_path= os.path.abspath(__file__)
     root_dir = Path(current_path).resolve().parent.parent
