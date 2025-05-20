@@ -363,7 +363,8 @@ def replace_code(
                 result = '\n'.join(remaining_lines)
                 return result
             if origianl_lint_error:
-                lint_error = subtract_strings(origianl_lint_error, lint_error)
+                if lint_error is not None:
+                    lint_error = subtract_strings(origianl_lint_error, lint_error)
                 if lint_error == "":
                     lint_error = None
                     first_error_line = None
@@ -628,7 +629,8 @@ def _edit_or_append_file(
                 result = '\n'.join(remaining_lines)
                 return result
             if origianl_lint_error:
-                lint_error = subtract_strings(origianl_lint_error, lint_error)
+                if lint_error is not None:
+                    lint_error = subtract_strings(origianl_lint_error, lint_error)
                 if lint_error == "":
                     lint_error = None
                     first_error_line = None
