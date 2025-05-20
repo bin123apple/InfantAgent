@@ -918,22 +918,22 @@ class Computer:
         self.docker_client.close()
 
     # Run command in the computer
-    def split_commands_by_and(self, commands):
-        split_commands = []
-        commands = self.split_bash_commands(commands)
-        for command in commands:
-            if 'context.execute_javascript' in command:
-                split_commands.append(command)
-                continue
-            split_commands += command.split('&&')
+    # def split_commands_by_and(self, commands):
+    #     split_commands = []
+    #     commands = self.split_bash_commands(commands)
+    #     for command in commands:
+    #         if 'context.execute_javascript' in command:
+    #             split_commands.append(command)
+    #             continue
+    #         split_commands += command.split('&&')
         
-        return [cmd.strip() for cmd in split_commands]
+    #     return [cmd.strip() for cmd in split_commands]
     
     def _run_immediately(self, command: str) -> str:
         try:
             command_trace_outputs = ''
             command_outputs =''
-            commands = self.split_commands_by_and(command)
+            commands = self.split_bash_commands(command)
             for command in commands: 
                 trace_output = None 
                 if self.trace and ('python ' in command or 'python3' in command): 
