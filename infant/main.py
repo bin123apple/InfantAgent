@@ -113,7 +113,14 @@ async def main():
                 logger.info(f'Current working directory: {output}')
                 user_request = input("Input your request or use type exit to refresh the agent: ")
                 if user_request.lower() == 'exit':
+                    # reset state
                     agent.state.reset()
+                    
+                    # reset accumulated cost
+                    for llm in agent._active_llms():
+                        llm.metrics.accumulated_cost = 0
+                    
+                    # clean workspace
                     exit_code, output = computer.execute(f'cd /workspace && rm -rf *')
                     logger.info("Agent state reset.")
                     user_request = input("Input your new request: ")
