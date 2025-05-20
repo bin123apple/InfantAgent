@@ -91,5 +91,6 @@ function TerminalClient({ wsUrlPath }) {
     );
 }
 // Ensure clientId is defined, either passed as prop or generated within
-const clientId = `term_${Math.random().toString(36).substring(2, 15)}`;
+// const clientId = `term_${Math.random().toString(36).substring(2, 15)}`;
+const clientId = 'term_xgxkxiubua'; // Example static ID for testing
 export default TerminalClient;
