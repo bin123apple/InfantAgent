@@ -154,7 +154,7 @@ class Config:
     max_iterations: int = 100
     max_voting: int = 5
     max_sum_retries: int = 3
-    max_budget_per_task: float | None = 4
+    max_budget_per_task: float | None = 10
     max_planning_iterations: int = 5 # max number of retries for planning
     max_execution_iterations: int = 10 # max number of retries for execution
     max_self_modify_basic: int = 20 # max number of self-modifications allowed (code linting, etc.)
