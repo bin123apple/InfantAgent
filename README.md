@@ -35,6 +35,8 @@ export ANTHROPIC_API_KEY='Your LLM API Key'
 python infant/main.py
 ```
 
+NOTE: When you start the Docker container for the first time, it takes a bit of time to install the NVIDIA driver. As long as the container still exists, you won’t need to install it again on subsequent runs.
+
 ## Demo
 
 [A simple demo](https://github.com/user-attachments/assets/6c127ecb-b55e-44c6-b696-65d63a1c377c)
