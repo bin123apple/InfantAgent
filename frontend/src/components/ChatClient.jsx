@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import createWebSocket from '../services/WebSocketService';
 
 // const clientId = `client_${Math.random().toString(36).substring(2, 15)}`;
-const clientId = 'clieint_xgxkxiubua'
+const clientId = 'client_xgxkxiubua'
 const CHAT_WS_URL = `ws://localhost:4000/ws/chat/${clientId}`;
 
 function ChatClient() {
@@ -26,6 +26,7 @@ function ChatClient() {
             (data) => {
                 // Assuming messages from server are prefixed, e.g., "Agent: ..." or "You: ..."
                 // Or just display raw data
+                console.log(data);
                 if (data.startsWith("You: ")) { // Avoid duplicating our own echoed messages if server echoes them
                     // Potentially handle differently or ignore if it's an echo of own message
                 } else if (data.startsWith("Agent: ")) {
@@ -46,13 +47,16 @@ function ChatClient() {
 
         return () => {
             if (socketRef.current) {
-                socketRef.current.close();
-                socketRef.current = null;
+                // socketRef.current.close();
+                // socketRef.current = null;
             }
         };
     }, [addMessage]);
 
     const handleSendMessage = () => {
+        console.log(inputValue);
+        console.log(socketRef);
+        // console.log(socketRef.current.readyState);
         if (inputValue.trim() && socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
             socketRef.current.send(inputValue);
             addMessage('You', inputValue); // Optimistically add user's message

@@ -157,8 +157,9 @@ class ConnectionManager:
             agent, _ = self.agent_instances[client_id]
             try:
                 # Ensure run_single_step is awaitable or adapt if it's synchronous
+                print(message)
                 agent_response_obj = await run_single_step(agent, user_request_text=message, images=None)
-                
+                print(agent_response_obj)
                 response_text = ""
                 if isinstance(agent_response_obj, dict):
                     # Try to extract a meaningful string representation
@@ -314,11 +315,12 @@ manager = ConnectionManager()
 @app.websocket("/ws/chat/{client_id}")
 async def websocket_chat_endpoint(websocket: WebSocket, client_id: str):
     await manager.connect_chat(websocket, client_id)
+    print(websocket.client_state)
     if not websocket.client_state == 'connected': return # Connection failed in connect_chat
-
     try:
         while True:
             data = await websocket.receive_text()
+            print(data)
             await manager.process_chat_message(data, client_id)
     except WebSocketDisconnect:
         print(f"Chat WebSocket for {client_id} disconnected by client.")
@@ -400,4 +402,4 @@ async def get_planner_info(client_id: str):
 
 # To run this (save as main_api.py):
 # pip install fastapi "uvicorn[standard]" pexpect python-dotenv # Add any other infantagent deps
-# uvicorn server:app --reload --ws-ping-interval 20 --ws-ping-timeout 20 --port 4000
+# uvicorn infant.server:app --reload --ws-ping-interval 20 --ws-ping-timeout 20 --port 4000

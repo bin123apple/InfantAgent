@@ -105,16 +105,16 @@ function App() {
                 <div className="right-panel-grid-container">
                     {/* Grid for the other 4 components */}
                     <div className="grid-item planner-item">
-                        <PlannerClient />
+                        {/* <PlannerClient /> */}
                     </div>
                     <div className="grid-item vm-item">
                         <VMClient />
                     </div>
                     <div className="grid-item terminal-item">
-                        <TerminalClient wsUrlPath="ws/terminal" key="system-terminal" />
+                        {/* <TerminalClient wsUrlPath="ws/terminal" key="system-terminal" /> */}
                     </div>
                     <div className="grid-item jupyter-item">
-                        <TerminalClient wsUrlPath="ws/jupyter" key="jupyter-terminal" />
+                        {/* <TerminalClient wsUrlPath="ws/jupyter" key="jupyter-terminal" /> */}
                     </div>
                 </div>
             </main>
