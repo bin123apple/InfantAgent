@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infant AI Assistant</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-robot"></i> Infant AI Assistant</h1>
+        </header>
+
+        <main>
+            <div class="chat-container">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message system">
+                        <div class="message-content">
+                            <p>Welcome to Infant AI Assistant! How can I help you today?</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="user-input">
+                    <textarea id="userInput" placeholder="Type your request here..."></textarea>
+                    <button id="sendButton"><i class="fas fa-paper-plane"></i></button>
+                    <button id="resetButton" title="Reset conversation"><i class="fas fa-sync-alt"></i></button>
+                </div>
+            </div>
+
+            <div class="status-panel">
+                <div class="status-header">
+                    <h3>System Status</h3>
+                </div>
+                <div class="status-content">
+                    <div class="status-item">
+                        <span class="status-label">Agent Status:</span>
+                        <span class="status-value" id="agentStatus">Ready</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Current Task:</span>
+                        <span class="status-value" id="currentTask">None</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Model:</span>
+                        <span class="status-value" id="modelInfo">Claude-3-7-Sonnet</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2023 Infant AI Assistant | <a href="#" id="settingsLink">Settings</a></p>
+        </footer>
+    </div>
+
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <span class="close-button" id="closeSettings">&times;</span>
+            <h2>Settings</h2>
+            <form id="settingsForm">
+                <div class="form-group">
+                    <label for="modelSelect">LLM Model:</label>
+                    <select id="modelSelect">
+                        <option value="claude-3-7-sonnet-latest">Claude 3.7 Sonnet</option>
+                        <option value="gpt-4o">GPT-4o</option>
+                        <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="temperatureSlider">Temperature:</label>
+                    <input type="range" id="temperatureSlider" min="0" max="1" step="0.1" value="0.9">
+                    <span id="temperatureValue">0.9</span>
+                </div>
+                <div class="form-group">
+                    <label for="maxTokensInput">Max Output Tokens:</label>
+                    <input type="number" id="maxTokensInput" min="100" max="10000" value="8191">
+                </div>
+                <button type="submit" class="submit-button">Save Settings</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/backend-connector.js"></script>
+    <script src="js/script.js"></script>
+</body>
+</html>
