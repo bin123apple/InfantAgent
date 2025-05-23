@@ -18,53 +18,57 @@ GET_STATE_CODE = """state = await context.get_state()
 print(state)
 """
 
-OPEN_BROWSER_CODE = """import subprocess
-import time
-import socket
-import asyncio
+OPEN_BROWSER_CODE = """import subprocess, time, socket, asyncio
 
-# Launch Chrome with remote debugging and a custom profile directory
-with open("/tmp/log.log", "w") as log_file:
-    subprocess.Popen(
+# 1) 尝试复用已有的 Chrome
+chrome_proc = None
+try:
+    with socket.create_connection(("127.0.0.1", 9222), timeout=1):
+        print("✅ Detected existing Chrome on 9222, reusing it")
+except OSError:
+    print("⚙️  No Chrome on 9222, launching a new one")
+    chrome_proc = subprocess.Popen(
         [
-            "google-chrome",
+            "/usr/bin/google-chrome",
             "--no-first-run",
             "--remote-debugging-port=9222",
-            "--remote-debugging-address=0.0.0.0",
+            "--remote-debugging-address=127.0.0.0",
             "--user-data-dir=/tmp/chrome-profile",
             "--start-maximized",
         ],
-        stdout=log_file,
+        stdout=open("/tmp/log.log","w"),
         stderr=subprocess.STDOUT,
-        close_fds=True
+        close_fds=True,
     )
-
-# Wait for the DevTools port to be open
-def wait_for_port(host, port, timeout=15):
     start = time.time()
-    while time.time() - start < timeout:
+    while time.time() - start < 15:
         try:
-            with socket.create_connection((host, port), timeout=1):
-                return
+            with socket.create_connection(("127.0.0.1", 9222), timeout=1):
+                break
         except OSError:
             time.sleep(0.2)
-    raise RuntimeError(f"Port {port} not open after {timeout} seconds")
+    else:
+        raise RuntimeError("Chrome on 9222 didn't start in time")
 
-wait_for_port("127.0.0.1", 9222)
-
+# 2) Playwright attach
 config = BrowserConfig(
     headless=False,
     chrome_instance_path='/usr/bin/google-chrome',
     cdp_url="http://127.0.0.1:9222"
 )
-
 browser = Browser(config)
 context = await browser.new_context()
 
-# Give the page a moment to render before taking a screenshot
 await asyncio.sleep(2)
 take_screenshot()
 EOL"""
+
+CLOSE_BROWSER_CODE = '''await context.close()
+chrome_proc.terminate()
+rc = chrome_proc.wait(timeout=5)
+print(f"Chrome exited with code {rc}")
+take_screenshot()
+'''
 
 LOCALIZATION_SYSTEM_PROMPT_BROWSER = '''I want to click on {item_to_click} with the mouse. {description}
 Please help me determine the exact DOM element node that I need to click on. 
@@ -203,6 +207,9 @@ def convert_web_browse_commands(memory: IPythonRun) -> Memory:
     if hasattr(memory, 'code'):
         if memory.code == 'open_browser()':
             memory.code = OPEN_BROWSER_CODE
+            return memory
+        elif memory.code == 'close()':
+            memory.code = CLOSE_BROWSER_CODE
             return memory
             
         web_tools = extract_web_commands(tool_web_browse)
