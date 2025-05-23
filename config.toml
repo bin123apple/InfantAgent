@@ -1,16 +1,16 @@
 # Optional, if not provided, the Global LLM will be used
 [planning_llm]
-model = "claude-3-7-sonnet-20250219"
+model = "claude-sonnet-4-20250514"
 api_key = "" # YOUR API KEY
 
 # Optional, if not provided, the Global LLM will be used
 [classification_llm]
-model = "claude-3-7-sonnet-20250219"
+model = "claude-sonnet-4-20250514"
 api_key = "" # YOUR API KEY
 
 # Optional, if not provided, the Global LLM will be used
 [execution_llm]
-model = "claude-3-7-sonnet-20250219"
+model = "claude-sonnet-4-20250514"
 api_key = "" # YOUR API KEY
 
 # Optional, Visual Grounding model, if not provided, the default VG model will be used
@@ -19,7 +19,7 @@ model_oss = "ByteDance-Seed/UI-TARS-1.5-7B"
 
 # Optional, File Editing model, if not provided, the default model will be used
 [fe_llm]
-model = "claude-3-7-sonnet-20250219"
+model = "claude-sonnet-4-20250514"
 
 # Audio parsing model, if not provided, the default model will be used
 [ap_llm]

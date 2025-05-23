@@ -314,3 +314,179 @@ footer a:hover {
         height: 60vh;
     }
 }
+
+/* 在你的style.css中添加以下样式 */
+
+/* Task items styling */
+.task-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    margin: 4px 0;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border-left: 3px solid #007bff;
+    transition: all 0.2s ease;
+}
+
+.task-item:hover {
+    background: #e9ecef;
+    transform: translateX(2px);
+}
+
+.task-item.completed {
+    border-left-color: #28a745;
+    background: #d4edda;
+    opacity: 0.8;
+}
+
+.task-item.running {
+    border-left-color: #ffc107;
+    background: #fff3cd;
+}
+
+.task-content {
+    flex: 1;
+}
+
+.task-name {
+    display: block;
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 2px;
+}
+
+.task-description {
+    font-size: 0.85em;
+    color: #666;
+    margin-top: 4px;
+}
+
+.task-status {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 12px;
+    font-size: 0.75em;
+    font-weight: 500;
+    text-transform: uppercase;
+    margin-left: 8px;
+}
+
+.status-pending {
+    background: #6c757d;
+    color: white;
+}
+
+.status-running {
+    background: #ffc107;
+    color: #212529;
+}
+
+.status-completed {
+    background: #28a745;
+    color: white;
+}
+
+.task-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.task-item:hover .task-actions {
+    opacity: 1;
+}
+
+.task-btn {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    transition: all 0.2s ease;
+}
+
+.complete-btn {
+    background: #28a745;
+    color: white;
+}
+
+.complete-btn:hover {
+    background: #218838;
+    transform: scale(1.1);
+}
+
+.delete-btn {
+    background: #dc3545;
+    color: white;
+}
+
+.delete-btn:hover {
+    background: #c82333;
+    transform: scale(1.1);
+}
+
+/* Completed task styling */
+.task-item.completed .task-name {
+    text-decoration: line-through;
+    color: #6c757d;
+}
+
+/* Notification styling */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 6px;
+    color: white;
+    font-weight: 500;
+    z-index: 1000;
+    transform: translateX(100%);
+    animation: slideIn 0.3s ease forwards;
+}
+
+.notification-success {
+    background: #28a745;
+}
+
+.notification-error {
+    background: #dc3545;
+}
+
+.notification-info {
+    background: #17a2b8;
+}
+
+.notification.fade-out {
+    animation: slideOut 0.3s ease forwards;
+}
+
+@keyframes slideIn {
+    to {
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideOut {
+    to {
+        transform: translateX(100%);
+    }
+}
+
+/* Empty state */
+#subtaskList li[style*="italic"] {
+    text-align: center;
+    padding: 20px;
+    border: 2px dashed #ddd;
+    border-radius: 6px;
+    margin: 10px 0;
+}
+
+#terminalOutput {
+    white-space: pre-wrap;
+  }

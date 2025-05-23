@@ -42,7 +42,7 @@ def search_content(file_path: str, content: str) -> list[tuple[int, int]]:
 
         if not spans:
             print(f"No matches for the given content in '{file_path}'.")
-            return []
+            return
 
         for i, (start_line, end_line) in enumerate(spans):
             print(f"Match {i + 1}: Lines {start_line} to {end_line}")
@@ -50,7 +50,7 @@ def search_content(file_path: str, content: str) -> list[tuple[int, int]]:
             context_lines = end_line - start_line + 5
             open_file(path=file_path, line_number=mid_line, context_lines=context_lines)
 
-        return spans
+        return
 
     except Exception as e:
         raise e

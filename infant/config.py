@@ -95,7 +95,7 @@ class Config:
     ap_llm: dict | None = None
     
     # litellm Attributes
-    model: str = 'claude-3-7-sonnet-latest'
+    model: str = 'claude-sonnet-4-20250514'
     api_key: str | None = os.getenv("ANTHROPIC_API_KEY")
     base_url: str | None = None
     api_version: str | None = None

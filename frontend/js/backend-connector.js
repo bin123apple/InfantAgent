@@ -31,20 +31,26 @@ class InfantBackendConnector {
         }
 
         try {
-            // In a real implementation, this would send the request to the backend API
-            // For now, we'll simulate the API call
             console.log('Sending request to backend:', message);
 
-            // Simulate network delay
-            return new Promise((resolve) => {
-                setTimeout(() => {
-                    resolve({
-                        success: true,
-                        response: "This is a simulated response from the Infant backend. In a real implementation, this would be the actual response from the AI agent.",
-                        status: "completed"
-                    });
-                }, 2000);
+            // Make an actual API call to the backend
+            const response = await fetch(`${this.apiUrl}/chat`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: message,
+                    session_id: this.sessionId,
+                    options: options
+                })
             });
+
+            if (!response.ok) {
+                throw new Error(`API request failed with status ${response.status}`);
+            }
+
+            return await response.json();
         } catch (error) {
             console.error('Error sending request to backend:', error);
             return {
