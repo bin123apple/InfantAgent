@@ -41,9 +41,9 @@ NOTE: When you start the Docker container for the first time, it takes a bit of 
 
 [A simple demo](https://github.com/user-attachments/assets/6c127ecb-b55e-44c6-b696-65d63a1c377c)
 
-## 
+## A simple web application demo
 
-[A simple web application demo]()
+[A simple web application demo](https://github.com/bin123apple/InfantAgent/blob/main/asset/simple_web_application.png)
 
 ## TODO
 
