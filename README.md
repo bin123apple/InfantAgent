@@ -1,5 +1,12 @@
 # InfantAgent
 
+## Community
+
+<a href="https://discord.gg/urxApEGcwV">
+  <img src="https://img.shields.io/badge/Discord-Join%20Us-purple?logo=discord&logoColor=white&style=for-the-badge"
+       alt="Join our Discord community">
+</a>
+
 ## Introduction
 1. To build a multimodal agent that can interact with its own PC in a multimodal manner. This means it can autonomously operate the mouse and click anywhere on the screen, rather than relying solely on browser analysis to make decisions.
 
