@@ -1,5 +1,12 @@
 # InfantAgent
 
+## Community
+
+<a href="https://discord.gg/urxApEGcwV">
+  <img src="https://img.shields.io/badge/Discord-Join%20Us-purple?logo=discord&logoColor=white&style=for-the-badge"
+       alt="Join our Discord community">
+</a>
+
 ## Introduction
 1. To build a multimodal agent that can interact with its own PC in a multimodal manner. This means it can autonomously operate the mouse and click anywhere on the screen, rather than relying solely on browser analysis to make decisions.
 
@@ -9,7 +16,7 @@
 
 ## Installation Requirements
 
-Now, it is only tested on `linux` server with `Nvidia Tesla GPU (A100, H200 ...)`. There may be some bugs for Mac/Windows.
+Now, it is only tested on `linux` server with `Nvidia Tesla GPU (A100, H200 ...)`. The GPU is for open-spurce model inference. There may be some bugs for Mac/Windows.
 
 ## Setup 
 
@@ -53,8 +60,34 @@ uvicorn backend:app --log-level debug
 ![A simple web application demo](https://github.com/bin123apple/InfantAgent/blob/main/asset/simple_web_application.png)
 
 ## TODO
-
-- [ ] Add: Credits.md.
 - [ ] Add: More emoj/user friendly front end.
+
+## Acknowledgements
+Thanks to the many outstanding open-source projects and models.
+
+1. [OpenHands](https://github.com/All-Hands-AI/OpenHands) Our Docker container’s configuration, connection setup, and Jupyter execution method are based on OpenHands, and we used the OpenHands testbed for SWE-Bench testing.
+
+2. [browser-use](https://github.com/browser-use/browser-use) Our web-browser tools are modified from browser-use.
+
+3. [docker-ubuntu-gnome-nomachine](https://github.com/ColorfulSS/docker-ubuntu-gnome-nomachine) We modified the code for this to setup the nomachine display.
+
+4. [UI-TARS](https://github.com/bytedance/UI-TARS) We use UI-TARS-1.5 7B as our default visual-grounding model.
+
+
+## Cite
+
+```
+@misc{lei2025infantagentnextmultimodalgeneralistagent,
+      title={InfantAgent-Next: A Multimodal Generalist Agent for Automated Computer Interaction}, 
+      author={Bin Lei and Weitai Kang and Zijian Zhang and Winson Chen and Xi Xie and Shan Zuo and Mimi Xie and Ali Payani and Mingyi Hong and Yan Yan and Caiwen Ding},
+      year={2025},
+      eprint={2505.10887},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2505.10887}, 
+}
+```
+
+
 
 
