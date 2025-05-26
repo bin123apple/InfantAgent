@@ -305,6 +305,48 @@ async function handleFileUpload(event) {
 // 其余功能函数略（sendMessage, resetConversation, updateStatus, saveSettings, connectToBackend）…
 // 请保持你现有的这几段不变
 
+async function saveSettings(){
+  const modelSelect = document.getElementById('modelSelect');
+  const apiKeyInput = document.getElementById('modelApiKey');
+  const temperatureSlider = document.getElementById('temperatureSlider');
+  const maxTokensInput = document.getElementById('maxTokensInput');
+
+  const settings = {
+    model: modelSelect.value,
+    apiKey: apiKeyInput.value,
+    temperature: temperatureSlider.value,
+    maxTokens: maxTokensInput.value
+  };
+
+  localStorage.setItem('settings', JSON.stringify(settings));
+
+  // 保存到后端
+  const response = await fetch('/api/settings', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(settings)
+  });
+
+  const result = await response.json();
+
+  if (result.success) {
+    addSystemMessage('✅ Settings saved successfully! Initializing agent...');
+    const response = await fetch('/api/initialize', {
+      method: 'GET',
+    });
+    const result = await response.json();
+    if (result.success) {
+      addSystemMessage('✅ Agent initialized successfully!');
+    } else {
+      addSystemMessage(`❌ Failed to initialize agent: ${result.error}`);
+    }
+  } else {
+    addSystemMessage(`❌ Failed to save settings: ${result.error}`);
+  }
+}
+
 // --------------------
 // 统一在这里注册所有事件
 // --------------------

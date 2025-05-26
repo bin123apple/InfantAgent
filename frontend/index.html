@@ -133,11 +133,14 @@
         <div class="form-group">
           <label for="modelSelect">LLM Model:</label>
           <select id="modelSelect">
-            <option value="claude-3-7-sonnet-latest">Claude 3.7 Sonnet</option>
+            <option value="claude-sonnet-4-20250514">Claude 4 Sonnet</option>
             <option value="gpt-4o">GPT-4o</option>
             <option value="gpt-4-turbo">GPT-4 Turbo</option>
           </select>
         </div>
+        <div class="form-group"> 
+          <label for="modelApiKey">API Key:</label>
+          <input type="password" id="modelApiKey" required>
         <div class="form-group">
           <label for="temperatureSlider">Temperature:</label>
           <input type="range" id="temperatureSlider" min="0" max="1" step="0.1" value="0.9">

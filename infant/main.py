@@ -3,7 +3,7 @@ import uuid
 import asyncio
 import traceback
 from datetime import datetime
-from infant.config import config
+from infant.config import Config
 from infant.agent.agent import Agent
 from infant.computer.computer import Computer
 from infant.llm.llm_api_base import LLM_API_BASED
@@ -14,6 +14,8 @@ from infant.util.save_dataset import save_to_dataset
 from infant.agent.memory.memory import Finish, IPythonRun
 from infant.prompt.tools_prompt import IMPORTS
 import infant.util.constant as constant
+import os 
+from pathlib import Path
 
 async def run_single_step(agent: Agent, user_request_text: str, image = None):
     agent.state.memory_list.append(Userrequest(text=user_request_text, images=image))
@@ -42,7 +44,15 @@ async def run_single_step(agent: Agent, user_request_text: str, image = None):
     answer = finish_memory.thought
     return answer
 
-async def initialize_agent():
+async def initialize_agent(config: Config = None):
+    if config is None:
+        config = Config()
+        config.finalize_config()
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        root_dir = Path(current_dir).resolve().parent
+        CONFIG_FILE = root_dir / "config.toml"
+        user_config = config._load()
+        config.__dict__.update(user_config)
     # Initialize the API Based LLM
     plan_parameter = config.get_litellm_params(overrides = config.planning_llm)
     planning_llm = LLM_API_BASED(plan_parameter)
@@ -98,6 +108,7 @@ async def initialize_agent():
     import_memory = IPythonRun(code = "press_key('Escape')")
     await computer.run_ipython(import_memory)
     return agent, computer
+
 
 async def main():
 

@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 from infant.agent.memory.memory import CmdRun, IPythonRun, Task
 import infant.util.constant as constant
-
+from infant.config import Config 
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -25,6 +25,7 @@ except ImportError:
 
 agent = None
 computer = None
+config = Config()
 
 app = FastAPI()
 
@@ -39,19 +40,39 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.on_event("startup")
 async def startup_event():
-    global agent, computer
-    if initialize_agent:
-        agent, computer = await initialize_agent()
-        constant.MOUNT_PATH = computer.workspace_mount_path
+    logger.info("[WS] connecting to {url}")
+
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    await upstream_http.aclose()
-    await upstream_aiohttp.close()
-    if cleanup and agent:
-        await cleanup(agent=agent, computer=computer)
+    try:
+        # Close HTTP clients
+        try:
+            await upstream_http.aclose()
+        except Exception as e:
+            logger.error(f"Error closing HTTP client: {str(e)}")
+            
+        try:
+            if 'upstream_aiohttp' in globals() and upstream_aiohttp and not upstream_aiohttp.closed:
+                await upstream_aiohttp.close()
+        except Exception as e:
+            logger.error(f"Error closing aiohttp session: {str(e)}")
+            
+    except Exception as e:
+        logger.error(f"Unexpected error during shutdown: {str(e)}")
+    finally:
+        # Ensure cleanup is called
+        try:
+            if cleanup:
+                if agent and computer:
+                    await cleanup(agent=agent, computer=computer)
+                else:
+                    await cleanup()
+        except Exception as e:
+            logger.error(f"Error during cleanup: {str(e)}")
 
 # Redirect to frontend
 @app.get("/")
@@ -101,11 +122,23 @@ async def reset():
 # Settings API
 @app.post("/api/settings")
 async def settings(data: dict):
+    global config, agent, computer
+    config.model = data.get('model')
+    config.api_key = data.get('apiKey')
+    config.temperature = float(data.get('temperature'))
+    config.max_tokens = int(data.get('maxTokens'))
     if agent:
         # 实际实现中应该更新 agent 配置
         return {"success": True, "message": "Settings updated", "appliedSettings": data}
     await asyncio.sleep(0.5)
-    return {"success": True, "message": "Demo mode settings applied", "appliedSettings": data}
+    return {"success": True, "message": "Settings updated", "appliedSettings": data}
+
+@app.get("/api/initialize")
+async def initialize():
+    global agent, computer
+    agent, computer = await initialize_agent(config)
+    return {"success": True, "message": "Agent initialized successfully"}
+
 
 @app.get("/api/memory")
 async def memory():
@@ -526,5 +559,5 @@ async def nxplayer_proxy(request: Request, full_path: str):
     )
 if __name__ == "__main__":
     import uvicorn
-    print("Starting server on http://localhost:8080")
-    uvicorn.run("backend:app", host="0.0.0.0", port=8080, reload=False)
+    print("Starting server on http://localhost:8000")
+    uvicorn.run("backend:app", host="0.0.0.0", port=8000, reload=False)
