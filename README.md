@@ -60,9 +60,19 @@ uvicorn backend:app --log-level debug
 ![A simple web application demo](https://github.com/bin123apple/InfantAgent/blob/main/asset/simple_web_application.png)
 
 ## TODO
-
-- [ ] Add: Credits.md.
 - [ ] Add: More emoj/user friendly front end.
+
+## Acknowledgements
+Thanks to the many outstanding open-source projects and models.
+
+1. [OpenHands](https://github.com/All-Hands-AI/OpenHands) Our Docker container’s configuration, connection setup, and Jupyter execution method are based on OpenHands, and we used the OpenHands testbed for SWE-Bench testing.
+
+2. [browser-use](https://github.com/browser-use/browser-use) Our web-browser tools are modified from browser-use.
+
+3. [docker-ubuntu-gnome-nomachine](https://github.com/ColorfulSS/docker-ubuntu-gnome-nomachine) We modified the code for this to setup the nomachine display.
+
+4. [UI-TARS](https://github.com/bytedance/UI-TARS) We use UI-TARS-1.5 7B as our default visual-grounding model.
+
 
 ## Cite
 
