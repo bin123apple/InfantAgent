@@ -9,7 +9,7 @@
 
 ## Installation Requirements
 
-Now, it is only tested on `linux` server with `Nvidia Tesla GPU (A100, H200 ...)`. There may be some bugs for Mac/Windows.
+Now, it is only tested on `linux` server with `Nvidia Tesla GPU (A100, H200 ...)`. The GPU is for open-spurce model inference. There may be some bugs for Mac/Windows.
 
 ## Setup 
 
@@ -56,5 +56,21 @@ uvicorn backend:app --log-level debug
 
 - [ ] Add: Credits.md.
 - [ ] Add: More emoj/user friendly front end.
+
+## Cite
+
+```
+@misc{lei2025infantagentnextmultimodalgeneralistagent,
+      title={InfantAgent-Next: A Multimodal Generalist Agent for Automated Computer Interaction}, 
+      author={Bin Lei and Weitai Kang and Zijian Zhang and Winson Chen and Xi Xie and Shan Zuo and Mimi Xie and Ali Payani and Mingyi Hong and Yan Yan and Caiwen Ding},
+      year={2025},
+      eprint={2505.10887},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2505.10887}, 
+}
+```
+
+
 
 
