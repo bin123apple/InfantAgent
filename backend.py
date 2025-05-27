@@ -391,8 +391,8 @@ logger.addHandler(handler)
 # ——————————————
 # global upstream sessions
 # ——————————————
-upstream_http = httpx.AsyncClient(verify=False, follow_redirects=True)
-upstream_aiohttp = ClientSession(connector=TCPConnector(ssl=False))
+# upstream_http = httpx.AsyncClient(verify=False, follow_redirects=True)
+# upstream_aiohttp = ClientSession(connector=TCPConnector(ssl=False))
 
 # @app.on_event("shutdown")
 # async def shutdown_sessions():

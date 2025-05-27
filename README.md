@@ -53,9 +53,10 @@ NOTE: When you start the Docker container for the first time, it takes a bit of 
 Finish Setup and Run:
 
 ```
-export ANTHROPIC_API_KEY='Your LLM API Key'
 uvicorn backend:app --log-level debug
 ```
+
+Choose your model & API Key in `setting`.
 
 ![A simple web application demo](https://github.com/bin123apple/InfantAgent/blob/main/asset/simple_web_application.png)
 
