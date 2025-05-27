@@ -333,6 +333,8 @@ async function saveSettings(){
 
   if (result.success) {
     addSystemMessage('✅ Settings saved successfully! Initializing agent...');
+    modelInfo.textContent = settings.model;
+
     const response = await fetch('/api/initialize', {
       method: 'GET',
     });
@@ -363,6 +365,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 重置对话
   resetButton.addEventListener('click', resetConversation);
 
+  settingsModal.style.display = 'flex';
   // 模态框设置
   settingsLink.addEventListener('click', e => {
     e.preventDefault();

@@ -53,6 +53,7 @@ async def initialize_agent(config: Config = None):
         CONFIG_FILE = root_dir / "config.toml"
         user_config = config._load()
         config.__dict__.update(user_config)
+
     # Initialize the API Based LLM
     plan_parameter = config.get_litellm_params(overrides = config.planning_llm)
     planning_llm = LLM_API_BASED(plan_parameter)
