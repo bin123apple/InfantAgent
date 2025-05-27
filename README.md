@@ -18,7 +18,7 @@
   />
 </a>
 
-<a href="https://arxiv.org/abs/2305.12345">
+<a href="https://arxiv.org/abs/2505.10887">
   <img 
     src="https://img.shields.io/badge/arXiv-2505.10887-%23B31B1B?logo=arxiv&logoColor=white&style=for-the-badge" 
     alt="Read our paper on arXiv" 
