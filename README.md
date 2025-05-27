@@ -1,11 +1,30 @@
-# InfantAgent
+<div align="center">
+<h1 align="center">
+  <sub>
+    <img
+      src="https://raw.githubusercontent.com/bin123apple/InfantAgent/main/asset/Logo.png"
+      alt="InfantAgent Logo"
+      width="40"
+    />
+  </sub>
+  InfantAgent: A multimodal agent that can interact with its own PC in a multimodal manner.
+</h1>
 
-## Community
 
 <a href="https://discord.gg/urxApEGcwV">
-  <img src="https://img.shields.io/badge/Discord-Join%20Us-purple?logo=discord&logoColor=white&style=for-the-badge"
-       alt="Join our Discord community">
+  <img 
+    src="https://img.shields.io/badge/Discord-Join%20Us-purple?logo=discord&logoColor=white&style=for-the-badge"
+    alt="Join our Discord community"
+  />
 </a>
+
+<a href="https://arxiv.org/abs/2305.12345">
+  <img 
+    src="https://img.shields.io/badge/arXiv-2505.10887-%23B31B1B?logo=arxiv&logoColor=white&style=for-the-badge" 
+    alt="Read our paper on arXiv" 
+  />
+</a>
+</div>
 
 ## Introduction
 1. To build a multimodal agent that can interact with its own PC in a multimodal manner. This means it can autonomously operate the mouse and click anywhere on the screen, rather than relying solely on browser analysis to make decisions.
