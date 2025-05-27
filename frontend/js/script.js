@@ -18,6 +18,7 @@ const displayedResultIds = new Set();
 // Initialize backend connector
 const backendConnector = new InfantBackendConnector({ apiUrl: '/api' });
 
+
 // Send a system-style message into chat
 function addSystemMessage(message) {
   addMessageToChat('system', message);
@@ -328,19 +329,29 @@ async function saveSettings(){
     },
     body: JSON.stringify(settings)
   });
-
+  updateStatus('Processing', 'None');
+  modelInfo.textContent = settings.model;
   const result = await response.json();
 
-  if (result.success) {
-    addSystemMessage('✅ Settings saved successfully! Initializing agent...');
-    modelInfo.textContent = settings.model;
+  if (result.success) {   
+    console.log(result);
+    if (result.message.includes('updated')) {
+      addSystemMessage('✅ Settings saved successfully! Agent is updated');
+      updateStatus('Ready', 'None');
+      return;
+    }
 
-    const response = await fetch('/api/initialize', {
+    addSystemMessage('✅ Settings saved successfully! Initializing agent...');
+
+    const init_response = await fetch('/api/initialize', {
       method: 'GET',
     });
-    const result = await response.json();
-    if (result.success) {
+    const init_result = await init_response.json();
+
+    if (init_result.success) {
       addSystemMessage('✅ Agent initialized successfully!');
+      updateStatus('Ready', 'None');
+
     } else {
       addSystemMessage(`❌ Failed to initialize agent: ${result.error}`);
     }

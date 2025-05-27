@@ -21,7 +21,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 try:
     from infant.main import initialize_agent, run_single_step, cleanup
 except ImportError:
-    initialize_agent = run_single_step = cleanup = None
+    initialize_agent = run_single_step = cleanup  = None
 
 agent = None
 computer = None
@@ -127,11 +127,13 @@ async def settings(data: dict):
     config.api_key = data.get('apiKey')
     config.temperature = float(data.get('temperature'))
     config.max_tokens = int(data.get('maxTokens'))
+    print(agent)
     if agent:
         # 实际实现中应该更新 agent 配置
-        return {"success": True, "message": "Settings updated", "appliedSettings": data}
+        await agent.update_agent_config(config)
+        return {"success": True, "message": "Agent updated", "appliedSettings": data}
     await asyncio.sleep(0.5)
-    return {"success": True, "message": "Settings updated", "appliedSettings": data}
+    return {"success": True, "message": "Agent initialized", "appliedSettings": data}
 
 @app.get("/api/initialize")
 async def initialize():

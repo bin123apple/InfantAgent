@@ -46,6 +46,7 @@ from infant.helper_functions.browser_helper_function import convert_web_browse_c
 from infant.agent.memory.file_related_memory import get_diff_patch, git_add_or_not
 import asyncio
 import logging
+from infant.config import Config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -320,3 +321,26 @@ class Agent:
             if check_accumulated_cost(total_cost, self.agent_config.max_budget_per_task):
                 await self.change_agent_state(new_state=AgentState.ERROR)
             await asyncio.sleep(1)
+
+
+    async def update_agent_config(self, config: Config = None) -> None: 
+        plan_parameter = config.get_litellm_params(overrides = config.planning_llm)
+        planning_llm = LLM_API_BASED(plan_parameter)
+        classification_parameter = config.get_litellm_params(overrides = config.classification_llm)
+        classification_llm = LLM_API_BASED(classification_parameter)
+        execution_parameter = config.get_litellm_params(overrides = config.execution_llm)
+        execution_llm = LLM_API_BASED(execution_parameter)
+        fe_parameter = config.get_litellm_params(overrides = config.fe_llm)
+        fe_llm = LLM_API_BASED(fe_parameter)
+        ap_parameter = config.get_litellm_params(overrides = config.ap_llm)
+        ap_llm = LLM_API_BASED(ap_parameter)
+        agent_parameter = config.get_agent_params()
+
+        self.planning_llm = planning_llm
+        self.classification_llm = classification_llm
+        self.execution_llm = execution_llm
+        self.fe_llm = fe_llm
+        self.ap_llm = ap_llm
+        self.agent_config = agent_parameter
+
+        logger.info(f'Agent Updated successfully.')
