@@ -111,8 +111,10 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive \
     groupadd -r -g 2000 nx && \
     useradd -u 2000 -r -g nx nx && \
     # Install NoMachine Enterprise Desktop
-    NOMACHINE_MAJOR_VERSION="8.16-PRODUCTION" && \
-    NOMACHINE_VERSION="8.16.1_1" && \
+    # NOMACHINE_MAJOR_VERSION="8.16-PRODUCTION" && \
+    # NOMACHINE_VERSION="8.16.1_1" && \
+    NOMACHINE_MAJOR_VERSION="9.0-PRODUCTION" && \
+    NOMACHINE_VERSION="9.0.188_11" && \
     echo "VERSION: ${NOMACHINE_VERSION}" && \
     echo "MAJOR_VERSION: ${NOMACHINE_MAJOR_VERSION}" && \
     curl -sSL https://download.nomachine.com/packages/${NOMACHINE_MAJOR_VERSION}/Linux/nomachine-enterprise-desktop_${NOMACHINE_VERSION}_amd64.deb -o nomachine-enterprise-desktop_${NOMACHINE_VERSION}_amd64.deb && \
