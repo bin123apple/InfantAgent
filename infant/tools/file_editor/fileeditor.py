@@ -70,7 +70,7 @@ def replace_function(
     try:
         # # lint the original file
         if ENABLE_AUTO_LINT:
-            origianl_lint_error, origianl_first_error_line = _lint_file(file_name)      
+            original_lint_error, original_first_error_line = _lint_file(file_name)      
               
         with tempfile.NamedTemporaryFile('w', delete=False) as temp_file:
             temp_file_path = temp_file.name
@@ -149,9 +149,9 @@ def replace_function(
 
                 result = '\n'.join(remaining_lines)
                 return result
-            if origianl_lint_error:
+            if original_lint_error:
                 if lint_error is not None:
-                    lint_error = subtract_strings(origianl_lint_error, lint_error)
+                    lint_error = subtract_strings(original_lint_error, lint_error)
                 if lint_error == "":
                     lint_error = None
                     first_error_line = None
@@ -265,7 +265,7 @@ def replace_code(
     try:
         # # lint the original file
         if ENABLE_AUTO_LINT:
-            origianl_lint_error, origianl_first_error_line = _lint_file(file_name)      
+            original_lint_error, original_first_error_line = _lint_file(file_name)      
               
         with tempfile.NamedTemporaryFile('w', delete=False) as temp_file:
             temp_file_path = temp_file.name
@@ -362,9 +362,9 @@ def replace_code(
 
                 result = '\n'.join(remaining_lines)
                 return result
-            if origianl_lint_error:
+            if original_lint_error:
                 if lint_error is not None:
-                    lint_error = subtract_strings(origianl_lint_error, lint_error)
+                    lint_error = subtract_strings(original_lint_error, lint_error)
                 if lint_error == "":
                     lint_error = None
                     first_error_line = None
@@ -489,7 +489,7 @@ def _edit_or_append_file(
     try:
         # # lint the original file
         if ENABLE_AUTO_LINT:
-            origianl_lint_error, origianl_first_error_line = _lint_file(file_name)
+            original_lint_error, original_first_error_line = _lint_file(file_name)
         # Create a temporary file
         with tempfile.NamedTemporaryFile('w', delete=False) as temp_file:
             temp_file_path = temp_file.name
@@ -628,9 +628,9 @@ def _edit_or_append_file(
 
                 result = '\n'.join(remaining_lines)
                 return result
-            if origianl_lint_error:
+            if original_lint_error:
                 if lint_error is not None:
-                    lint_error = subtract_strings(origianl_lint_error, lint_error)
+                    lint_error = subtract_strings(original_lint_error, lint_error)
                 if lint_error == "":
                     lint_error = None
                     first_error_line = None
