@@ -235,7 +235,7 @@ def replace_code(
 
     Args:
         filename: str: The name of the file to create.
-        code_to_replace: str: The origianl code that will be replaced
+        code_to_replace: str: The original code that will be replaced
         new_code: str: new code that will be used
     """
     global CURRENT_FILE, CURRENT_LINE, WINDOW
