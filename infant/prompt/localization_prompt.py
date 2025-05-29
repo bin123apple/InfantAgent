@@ -29,7 +29,7 @@ Assistant:
 User:
 Screenshot Figure
 
-Asistant:
+Assistant:
 The coordinates are (530,710).:
 <loca_finish>(530,710)</loca_finish>
 
