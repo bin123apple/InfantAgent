@@ -793,7 +793,7 @@ def replace_content(file_name: str, old_content: str, new_content: str | None = 
         raise Exception(
             f"No replacement was performed, old_content `{old_content}` did not appear verbatim in {file_name}. "
             "Please ensure it appears exactly once.\n"
-            "If the issue presists, please use edit_file() function to modify the file."
+            "If the issue persists, please use edit_file() function to modify the file."
         )
     if occurrences > 1:
         # 计算所有出现位置对应的行号，提示用户
