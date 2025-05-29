@@ -487,7 +487,7 @@ def _edit_or_append_file(
     src_abs_path = os.path.abspath(file_name)
     first_error_line = None
     try:
-        # # lint the origianl file
+        # # lint the original file
         if ENABLE_AUTO_LINT:
             origianl_lint_error, origianl_first_error_line = _lint_file(file_name)
         # Create a temporary file
