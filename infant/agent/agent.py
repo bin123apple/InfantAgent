@@ -180,7 +180,7 @@ class Agent:
 
             memory = parse(resp)
             if memory.runnable:
-                # record the descritpion of the image
+                # record the description of the image
                 if hasattr(memory, 'code') and memory.code:
                     tmp_code = memory.code
 
