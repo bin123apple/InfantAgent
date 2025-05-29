@@ -39,7 +39,7 @@ Now, it is only tested on `linux` server with `Nvidia Tesla GPU (A100, H200 ...)
 
 ## Setup 
 
-1. Setup enviroment
+1. Setup environment
 ```
 cd InfantAgent
 conda create --name infant python=3.11

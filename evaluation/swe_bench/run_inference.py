@@ -296,7 +296,7 @@ def unit_test(agent: Agent, instance: dict):
         return True, None, test_files
 
 async def run_single_instance(instance: dict, logger):
-    # Intialize the docker and the Agent
+    # Initialize the docker and the Agent
     agent = await initialize_docker_agent(instance=instance, config=config)
     
     # prepare the repo

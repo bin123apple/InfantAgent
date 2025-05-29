@@ -184,7 +184,7 @@ def classification_memory_to_diag(memory_block: list[Memory]) -> str:
 
 def execution_memory_to_diag(memory_block: list[Memory], cmd_set, end_prompt, mount_path: str) -> str:
     '''
-    convert the exectuion memory_block to a string.
+    convert the execution memory_block to a string.
     '''
     messages = []
     tools_instructions = ''

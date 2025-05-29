@@ -17,19 +17,19 @@ For example:
 User:
 I want to click on {item_to_click} with the mouse. Please help me determine its **EXACT** coordinates.
 
-Asistant:
+Assistant:
 <execute_ipython>localization(top_left = (200, 600), length = 400)</execute_ipython>
 
 User:
 Screenshot Figure
 
-Asistant:
+Assistant:
 <execute_ipython>localization(top_left = (400, 700), length = 200)</execute_ipython>
 
 User:
 Screenshot Figure
 
-Asistant:
+Assistant:
 The coordinates are (530,710).:
 <loca_finish>(530,710)</loca_finish>
 
