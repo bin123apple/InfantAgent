@@ -231,7 +231,7 @@ def replace_code(
     new_code: str
     ) -> None:
     """Replace some lines inside the function 
-    (This is used to avoid some potential wrong line numberproblems in edit_file funtion)
+    (This is used to avoid some potential wrong line numberproblems in edit_file function)
 
     Args:
         filename: str: The name of the file to create.
