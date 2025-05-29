@@ -13,6 +13,7 @@
     .chat-area { 
       flex: 0 0 25%; /* 修改：设置默认宽度为25%，从35%缩小到25% */
       padding: 5px 0; /* 减少整体padding */
+      padding-left: 5px;
       display: flex; 
       flex-direction: column;
       min-width: 300px; /* 最小宽度 */
@@ -107,7 +108,7 @@
       position: relative;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: start; 
       background: #fafafa;
       border-bottom: 1px solid #e0e0e0;
       z-index: 100;
@@ -241,12 +242,27 @@
       border-radius: 4px; width: 90%; max-width: 400px;
       position: relative;
     }
-    .close-button {
+    .close-btn {
       position: absolute; top: 10px; right: 15px;
-      font-size: 1.5em; cursor: pointer;
+      font-size: 1em; cursor: pointer;
+      background: transparent; border: none; 
+    }
+    .close-btn:hover {
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 4px;
     }
     .form-group { margin-bottom: 10px; }
     .submit-button { margin-top: 10px; }
+
+    .setting-btn {
+      background: transparent; 
+      border: none; 
+      font-size: 0.9em; 
+      color:#f5f5f5}
+
+    .setting-btn:hover {
+      background: rgba(0, 0, 0, 0.05); 
+      border-radius: 4px;}
   </style>
 </head>
 <body>
@@ -255,7 +271,8 @@
     <div class="chat-area">
       <header style="display: flex; justify-content: space-between; align-items: center; margin: 5px 0; padding: 0 5px;">
         <h1 style="margin: 0; font-size: 1.2em;">Infant AI Assistant</h1>
-        <a href="#" id="settingsLink" style="font-size: 0.9em;">Settings</a>
+        <button type="button" id="settingsLink" class="setting-btn"><i class="fa-solid fa-gear"></i></button>
+        <!-- <a href="#" id="settingsLink" style="font-size: 0.9em;"><i class="fa-solid fa-gear"></i></a> -->
       </header>
 
       <div id="chatMessages" class="chat-messages">
@@ -299,8 +316,9 @@
     <div class="dashboard-right">
       <div id="subtasksPanel" class="panel">
         <div class="panel-header">
+          <i class="fa-solid fa-list-check" style="padding-right: 5px;"></i>
           Subtasks
-          <button type="button" class="fs-btn" data-panel="subtasksPanel" title="Full Screen">⛶</button>
+          <button type="button" class="fs-btn" data-panel="subtasksPanel" title="Full Screen"><i class="fa-solid fa-expand"></i></button>
         </div>
         <div class="panel-content">
           <ul id="subtaskList"></ul>
@@ -309,8 +327,9 @@
       
       <div id="desktopPanel" class="panel">
         <div class="panel-header">
+          <i class="fa-solid fa-tv" style="padding-right: 2px;"></i>
           System Desktop
-          <button type="button" class="fs-btn" data-panel="desktopPanel" title="Full Screen">⛶</button>
+          <button type="button" class="fs-btn" data-panel="desktopPanel" title="Full Screen"><i class="fa-solid fa-expand"></i></button>
         </div>
         <div class="panel-content">
           <div class="iframe-container">
@@ -325,8 +344,9 @@
       
       <div id="terminalPanel" class="panel">
         <div class="panel-header">
+          <i class="fa-solid fa-terminal" style="padding-right: 5px;"></i>
           Terminal
-          <button type="button" class="fs-btn" data-panel="terminalPanel" title="Full Screen">⛶</button>
+          <button type="button" class="fs-btn" data-panel="terminalPanel" title="Full Screen"><i class="fa-solid fa-expand"></i></button>
         </div>
         <div class="panel-content">
           <div class="terminal-output" id="terminalOutput"></div>
@@ -335,8 +355,9 @@
       
       <div id="notebookPanel" class="panel">
         <div class="panel-header">
+          <i class="fa-solid fa-file-code" style="padding-right: 5px;"></i>
           Jupyter Code
-          <button type="button" class="fs-btn" data-panel="notebookPanel" title="Full Screen">⛶</button>
+          <button type="button" class="fs-btn" data-panel="notebookPanel" title="Full Screen"><i class="fa-solid fa-expand"></i></button>
         </div>
         <div class="panel-content">
           <div class="notebook-output" id="notebookOutput"></div>
@@ -348,7 +369,7 @@
   <!-- Settings Modal -->
   <div id="settingsModal" class="modal">
     <div class="modal-content">
-      <span id="closeSettings" class="close-button">&times;</span>
+      <button type="button" id="closeSettings" class="close-btn"><i class="fa-solid fa-xmark"></i></button>
       <h2>Settings</h2>
       <form id="settingsForm">
         <div class="form-group">
@@ -465,7 +486,7 @@
             allPanels.forEach(panel => {
               panel.classList.remove('fullspan', 'hidden');
             });
-            this.textContent = '⛶';
+            this.innerHTML = '<i class="fa-solid fa-expand"></i>';
             this.title = 'Full Screen';
           } else {
             // 进入全屏模式
@@ -478,7 +499,7 @@
                 panel.classList.remove('fullspan');
               }
             });
-            this.textContent = '⛷';
+            this.innerHTML = '<i class="fa-solid fa-xmark"></i>';
             this.title = 'Exit Full Screen';
           }
         });

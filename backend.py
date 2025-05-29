@@ -184,6 +184,7 @@ async def upload(files: list[UploadFile] = File(...)):
         os.makedirs(computer.workspace_mount_path, exist_ok=True)
         for file in files:
             file_location = os.path.join(computer.workspace_mount_path, file.filename)
+            os.makedirs(os.path.dirname(file_location), exist_ok=True)  
             with open(file_location, "wb") as buffer:
                 buffer.write(await file.read())
             uploaded_files.append(f"Uploaded file: {file.filename}")
