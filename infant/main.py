@@ -72,7 +72,7 @@ async def initialize_agent(config: Config = None):
     computer_parameter = config.get_computer_params()
     sid = str(uuid.uuid4())
     computer = Computer(computer_parameter, sid = sid)
-    
+    constant.MOUNT_PATH = computer.workspace_mount_path
     # cd to the workspace/clear the workspace/activate conda
     exit_code, output = computer.execute(f'cd /workspace && rm -rf *')
     if exit_code != 0:

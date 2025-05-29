@@ -10,31 +10,224 @@
     /* Layout */
     body, html { height: 100%; margin: 0; padding: 0; font-family: Arial, sans-serif; }
     .dashboard { display: flex; height: 100vh; }
-    .chat-area { flex: 1; padding: 10px; display: flex; flex-direction: column; }
-    .chat-messages { flex: 1; overflow-y: auto; border: 1px solid #ccc; border-radius: 4px; padding: 8px; }
-    .user-input { display: flex; align-items: center; margin-top: 8px; }
+    .chat-area { 
+      flex: 0 0 25%; /* 修改：设置默认宽度为25%，从35%缩小到25% */
+      padding: 5px 0; /* 减少整体padding */
+      display: flex; 
+      flex-direction: column;
+      min-width: 300px; /* 最小宽度 */
+    }
+    
+    /* 可调整的分割条 */
+    .resizer {
+      width: 6px;
+      background-color: #e0e0e0;
+      cursor: col-resize;
+      position: relative;
+      transition: background-color 0.2s ease;
+    }
+    
+    .resizer:hover {
+      background-color: #4a6fa5;
+    }
+    
+    .resizer:active {
+      background-color: #3a5a8a;
+    }
+    
+    /* 分割条中间的指示器 */
+    .resizer::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 2px;
+      height: 40px;
+      background-color: #999;
+      border-radius: 1px;
+    }
+    .chat-messages { flex: 1; overflow-y: auto; border: 1px solid #ccc; border-radius: 4px; padding: 8px; margin: 5px 0; }
+    .user-input { display: flex; align-items: center; margin: 5px 0; }
     .user-input textarea { flex: 1; resize: none; padding: 6px; }
     .user-input button { margin-left: 4px; }
 
     /* Status panel */
-    .status-panel { margin-top: 8px; font-size: 0.9em; }
+    .status-panel { margin: 5px 0; font-size: 0.9em; }
     .status-item { display: flex; gap: 4px; margin-bottom: 2px; }
     .status-label { font-weight: bold; }
 
-    /* Right dashboard grid */
+    /* Right dashboard grid - 关键修复 */
     .dashboard-right {
-      flex: 4;
+      flex: 0 0 75%; /* 修改：设置默认宽度为75%，从65%增加到75% */
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      grid-template-rows: 1fr 1fr;
+      grid-template-columns: 1fr 1fr; /* 两列等宽 */
+      grid-template-rows: 1fr 1fr; /* 两行等高 */
       gap: 5px;
       padding: 10px;
+      position: relative;
+      pointer-events: auto;
+      min-width: 400px;
+      height: 100vh;
+      box-sizing: border-box;
     }
-    .panel { border: 1px solid #ccc; border-radius: 4px; padding: 8px; display: flex; flex-direction: column; overflow: auto; }
-    .panel-header { font-weight: bold; margin-bottom: 6px; }
-    .terminal-output { background: #000; color: #0f0; font-family: monospace; padding: 6px; flex: 1; overflow-y: auto; }
-    .notebook-output { background: #f5f5f5; font-family: monospace; padding: 6px; flex: 1; overflow-y: auto; }
-    .subtask.completed { color: green; }
+    
+    .panel { 
+      border: 1px solid #ccc; 
+      border-radius: 4px; 
+      padding: 0; /* 重要：移除padding，让内容区域管理间距 */
+      display: flex; 
+      flex-direction: column; 
+      overflow: hidden; /* 重要：防止内容溢出 */
+      position: relative;
+      z-index: 1;
+      min-height: 0; /* 允许收缩 */
+      min-width: 0; /* 允许收缩 */
+      width: 100%; /* 确保占满grid cell */
+      height: 100%; /* 确保占满grid cell */
+      box-sizing: border-box;
+    }
+    
+    /* 全屏状态：占满所有格子并置于最上层 */
+    .panel.fullspan {
+      grid-column: 1 / -1;
+      grid-row: 1 / -1;
+      z-index: 10;
+    }
+    
+    /* 隐藏非目标 panel */
+    .panel.hidden {
+      display: none;
+    }
+    
+    .panel-header { 
+      font-weight: bold; 
+      margin: 0;
+      padding: 8px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #fafafa;
+      border-bottom: 1px solid #e0e0e0;
+      z-index: 100;
+      flex-shrink: 0; /* 防止header被压缩 */
+    }
+    
+    /* 内容区域样式 - 关键修复 */
+    .panel-content {
+      flex: 1;
+      overflow: hidden; /* 防止溢出 */
+      padding: 8px;
+      min-height: 0; /* 允许收缩 */
+      display: flex;
+      flex-direction: column;
+      word-wrap: break-word;
+      word-break: break-all;
+      overflow-wrap: break-word;
+      hyphens: auto;
+      max-width: 100%;
+    }
+    
+    .terminal-output { 
+      background: #000; 
+      color: #0f0; 
+      font-family: monospace; 
+      font-size: 12px;
+      padding: 6px; 
+      flex: 1; 
+      overflow-x: auto;
+      overflow-y: auto; 
+      word-wrap: break-word; 
+      word-break: normal;
+      overflow-wrap: break-word;
+      white-space: pre-wrap;
+      margin: 0;
+      min-height: 0;
+      max-width: 100%;
+      line-height: 1.4;
+    }
+    
+    .notebook-output { 
+      background: #f5f5f5; 
+      font-family: monospace; 
+      font-size: 12px;
+      padding: 6px; 
+      flex: 1; 
+      overflow-x: auto;
+      overflow-y: auto; 
+      word-wrap: break-word; 
+      word-break: normal;
+      overflow-wrap: break-word;
+      white-space: pre-wrap;
+      margin: 0;
+      min-height: 0;
+      max-width: 100%;
+      line-height: 1.4;
+    }
+    
+    /* Subtask列表样式 */
+    #subtaskList {
+      word-wrap: break-word;
+      word-break: break-all;
+      hyphens: auto;
+      white-space: normal;
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      margin: 0;
+      padding: 0;
+      list-style-type: disc;
+      padding-left: 20px;
+      max-width: 100%;
+    }
+    
+    #subtaskList li {
+      word-wrap: break-word;
+      word-break: break-all;
+      hyphens: auto;
+      white-space: normal;
+      margin-bottom: 4px;
+      line-height: 1.4;
+      max-width: 100%;
+      overflow-wrap: break-word;
+    }
+    
+    /* iframe容器 */
+    .iframe-container {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    
+    #desktopFrame {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    /* 全屏按钮样式 */
+    .fs-btn {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 24px;
+      height: 24px;
+      line-height: 24px;
+      text-align: center;
+      background: transparent;
+      border: none;
+      font-size: 1rem;
+      cursor: pointer;
+      z-index: 101;
+      pointer-events: auto;
+    }
+    
+    .fs-btn:hover {
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 4px;
+    }
 
     /* Modal */
     .modal {
@@ -60,8 +253,8 @@
   <div class="dashboard">
     <!-- Left: Chat area -->
     <div class="chat-area">
-      <header style="display: flex; justify-content: space-between; align-items: center;">
-        <h1>Infant AI Assistant</h1>
+      <header style="display: flex; justify-content: space-between; align-items: center; margin: 5px 0; padding: 0 5px;">
+        <h1 style="margin: 0; font-size: 1.2em;">Infant AI Assistant</h1>
         <a href="#" id="settingsLink" style="font-size: 0.9em;">Settings</a>
       </header>
 
@@ -99,27 +292,55 @@
       </div>
     </div>
 
+    <!-- 可调整的分割条 -->
+    <div class="resizer" id="resizer"></div>
+    
     <!-- Right: Dashboard panels -->
     <div class="dashboard-right">
       <div id="subtasksPanel" class="panel">
-        <div class="panel-header">Subtasks</div>
-        <ul id="subtaskList"></ul>
+        <div class="panel-header">
+          Subtasks
+          <button type="button" class="fs-btn" data-panel="subtasksPanel" title="Full Screen">⛶</button>
+        </div>
+        <div class="panel-content">
+          <ul id="subtaskList"></ul>
+        </div>
       </div>
+      
       <div id="desktopPanel" class="panel">
-        <div class="panel-header">System Desktop</div>
-        <iframe
-        id="desktopFrame"
-        src="http://localhost:8080/?sid=6cee02d73bede3aeaca2b70eae1b08ab"
-        style="flex:1; width:100%; border:none;"
-        ></iframe>
+        <div class="panel-header">
+          System Desktop
+          <button type="button" class="fs-btn" data-panel="desktopPanel" title="Full Screen">⛶</button>
+        </div>
+        <div class="panel-content">
+          <div class="iframe-container">
+            <iframe
+              id="desktopFrame"
+              src="http://localhost:8080/?sid=f5906b396c951a4af71ef20b736ad94c"
+              allow="fullscreen">
+            </iframe>
+          </div>
+        </div>
       </div>
+      
       <div id="terminalPanel" class="panel">
-        <div class="panel-header">Terminal</div>
-        <div id="terminalOutput" class="terminal-output"></div>
+        <div class="panel-header">
+          Terminal
+          <button type="button" class="fs-btn" data-panel="terminalPanel" title="Full Screen">⛶</button>
+        </div>
+        <div class="panel-content">
+          <div class="terminal-output" id="terminalOutput"></div>
+        </div>
       </div>
+      
       <div id="notebookPanel" class="panel">
-        <div class="panel-header">Jupyter Code</div>
-        <div id="notebookOutput" class="notebook-output"></div>
+        <div class="panel-header">
+          Jupyter Code
+          <button type="button" class="fs-btn" data-panel="notebookPanel" title="Full Screen">⛶</button>
+        </div>
+        <div class="panel-content">
+          <div class="notebook-output" id="notebookOutput"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -141,6 +362,7 @@
         <div class="form-group"> 
           <label for="modelApiKey">API Key:</label>
           <input type="password" id="modelApiKey" required>
+        </div>
         <div class="form-group">
           <label for="temperatureSlider">Temperature:</label>
           <input type="range" id="temperatureSlider" min="0" max="1" step="0.1" value="0.9">
@@ -158,5 +380,110 @@
   <!-- Scripts -->
   <script src="js/backend-connector.js"></script>
   <script src="js/script.js"></script>
+  
+  <script>
+    // 可调整分割条功能
+    document.addEventListener('DOMContentLoaded', function() {
+      const resizer = document.getElementById('resizer');
+      const chatArea = document.querySelector('.chat-area');
+      const dashboardRight = document.querySelector('.dashboard-right');
+      
+      let isResizing = false;
+      
+      resizer.addEventListener('mousedown', function(e) {
+        isResizing = true;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        
+        // 防止选中文本
+        e.preventDefault();
+      });
+      
+      document.addEventListener('mousemove', function(e) {
+        if (!isResizing) return;
+        
+        const dashboardRect = document.querySelector('.dashboard').getBoundingClientRect();
+        const mouseX = e.clientX - dashboardRect.left;
+        const dashboardWidth = dashboardRect.width;
+        
+        // 计算左侧区域的宽度百分比
+        const leftPercentage = (mouseX / dashboardWidth) * 100;
+        
+        // 限制最小和最大宽度（20% - 80%）
+        const minLeft = 20;
+        const maxLeft = 80;
+        const clampedPercentage = Math.max(minLeft, Math.min(maxLeft, leftPercentage));
+        
+        // 设置flex-basis来控制大小
+        chatArea.style.flexBasis = clampedPercentage + '%';
+        dashboardRight.style.flexBasis = (100 - clampedPercentage) + '%';
+        
+        // 重置flex-grow和flex-shrink
+        chatArea.style.flexGrow = '0';
+        chatArea.style.flexShrink = '0';
+        dashboardRight.style.flexGrow = '0';
+        dashboardRight.style.flexShrink = '0';
+      });
+      
+      document.addEventListener('mouseup', function() {
+        if (isResizing) {
+          isResizing = false;
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+        }
+      });
+      
+      // 防止拖拽过程中的文本选择
+      document.addEventListener('selectstart', function(e) {
+        if (isResizing) {
+          e.preventDefault();
+        }
+      });
+    });
+    
+    // 全屏功能的JavaScript代码
+    document.addEventListener('DOMContentLoaded', function() {
+      // 获取所有全屏按钮
+      const fullscreenButtons = document.querySelectorAll('.fs-btn');
+      
+      fullscreenButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          const panelId = this.getAttribute('data-panel');
+          const targetPanel = document.getElementById(panelId);
+          const allPanels = document.querySelectorAll('.panel');
+          
+          if (!targetPanel) return;
+          
+          // 检查当前是否已经是全屏状态
+          const isFullscreen = targetPanel.classList.contains('fullspan');
+          
+          if (isFullscreen) {
+            // 退出全屏模式
+            allPanels.forEach(panel => {
+              panel.classList.remove('fullspan', 'hidden');
+            });
+            this.textContent = '⛶';
+            this.title = 'Full Screen';
+          } else {
+            // 进入全屏模式
+            allPanels.forEach(panel => {
+              if (panel.id === panelId) {
+                panel.classList.add('fullspan');
+                panel.classList.remove('hidden');
+              } else {
+                panel.classList.add('hidden');
+                panel.classList.remove('fullspan');
+              }
+            });
+            this.textContent = '⛷';
+            this.title = 'Exit Full Screen';
+          }
+        });
+      });
+    });
+  </script>
 </body>
 </html>

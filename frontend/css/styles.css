@@ -69,27 +69,39 @@ main {
 }
 
 .chat-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px;
-}
-
-.message {
-    margin-bottom: 15px;
     display: flex;
     flex-direction: column;
-}
+    padding: 0;           /* 去掉多余内边距 */
+    margin: 5px 0;
+  }
+
+.chat-messages .message {
+    display: flex;        /* 变成 flex 容器 */
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 8px;
+  }
+/* 然后让内容区域跑满剩余空间 */
+.chat-messages .message .message-content {
+    flex: 1 1 auto;       /* 拉伸填满父容器 */
+    max-width: 100%;
+    box-sizing: border-box;
+  }
 
 .message.user {
     align-items: flex-end;
 }
 
-.message-content {
-    max-width: 80%;
-    padding: 12px 15px;
-    border-radius: 12px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
+/* 灰色内容块铺满 parent */
+.chat-messages .message-content {
+    display: block;
+    width: 100%;
+    box-sizing: border-box; /* padding 不会撑破宽度 */
+    background-color: #f0f0f0;  /* 灰色背景 */
+    padding: 8px 12px;      /* 根据喜好调整内边距 */
+    border-radius: 4px;
+    word-break: break-word; /* 内容太长可以换行 */
+  }
 
 .message.system .message-content {
     background-color: var(--message-bg-system);
@@ -489,4 +501,69 @@ footer a:hover {
 
 #terminalOutput {
     white-space: pre-wrap;
+  }
+
+/* 让 fullspan 时横跨所有格子，并置顶 */
+.panel.fullspan {
+    grid-column: 1 / -1;
+    grid-row: 1 / -1;
+    z-index: 10;
+  }
+  
+  /* 隐藏非目标 panel */
+  .panel.hidden {
+    display: none;
+  }
+
+/* 保证 dashboard-right 区域本身可以接收事件 */
+.dashboard-right {
+    position: relative;
+    pointer-events: auto;
+  }
+  
+/* 1. Panel 不裁剪其子元素（包括 header 溢出） */
+.panel {
+    position: relative;
+    overflow: visible !important;
+    z-index: 1;
+  }
+  
+  /* 2. Header 保证在最上层并使用 Flex 布局 */
+  .panel-header {
+    position: relative;      /* 参照系，供绝对定位的按钮使用 */
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    background: #fafafa;
+    z-index: 100;            /* 压过 iframe 等内容 */
+  }
+  
+  /* ----------------------------
+     全屏按钮样式
+     ---------------------------- */
+  
+  /* 3. 按钮绝对定位到 header 右上角 */
+  .fs-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    text-align: center;
+  
+    background: transparent;
+    border: none;
+    font-size: 1rem;
+    cursor: pointer;
+  
+    z-index: 101;            /* 高于 header 本身 */
+    pointer-events: auto;
+  }
+  
+  /* 4. Hover 反馈 */
+  .fs-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 4px;
   }

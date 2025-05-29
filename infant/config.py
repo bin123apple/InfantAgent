@@ -177,11 +177,11 @@ class Config:
     gui_port: str = '4443'
     workspace_git_path: str = '/workspace' # The path to the git repo in the computer
     workspace_base: str = os.path.join(os.getcwd(), 'workspace')
-    workspace_mount_path: str = 'undefined'
+    workspace_mount_path: str = os.path.join(os.getcwd(), 'workspace')
     workspace_mount_path_in_computer: str = '/workspace'
     workspace_mount_rewrite: str | None = None
     cache_dir: str = '/tmp/cache'
-    computer_container_image: str = 'bin12345/ubuntu-gnome-nomachine:22.04' # Pull from Docker Hub  
+    computer_container_image: str = 'ubuntu-gnome-nomachine' # Pull from Docker Hub  
     e2b_api_key: str = ''
     computer_type: str = 'ssh'  # Can be 'ssh', 'exec', or 'e2b'
     use_host_network: bool = False

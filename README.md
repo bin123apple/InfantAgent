@@ -72,7 +72,7 @@ NOTE: When you start the Docker container for the first time, it takes a bit of 
 Finish Setup and Run:
 
 ```
-uvicorn backend:app --log-level debug
+uvicorn backend:app --log-level info
 ```
 
 Choose your model & API Key in `setting`.
