@@ -819,7 +819,7 @@ def replace_content(file_name: str, old_content: str, new_content: str | None = 
         raise Exception(
             f"No replacement was performed. Multiple occurrences of old_content `{old_content}` "
             f"in lines {lines}. Please ensure it appears exactly once"
-            "If the issue presists, please use edit_file() function to modify the file."
+            "If the issue persists, please use edit_file() function to modify the file."
         )
 
     # -------- 记录替换范围行号（用于打印）--------
