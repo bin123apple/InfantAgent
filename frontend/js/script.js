@@ -87,13 +87,15 @@ function addMessageToChat(sender, content) {
   const messageContent = document.createElement('div');
   messageContent.className = 'message-content';
 
-  content.split('\n').forEach(line => {
-    if (line.trim()) {
-      const p = document.createElement('p');
-      p.textContent = line;
-      messageContent.appendChild(p);
-    }
-  });
+  // content.split('\n').forEach(line => {
+  //   if (line.trim()) {
+  //     const p = document.createElement('p');
+  //     p.textContent = line;
+  //     messageContent.appendChild(p);
+  //   }
+  // });
+  content = marked.parse(content);
+  messageContent.innerHTML = content;
 
   messageDiv.appendChild(messageContent);
   chatMessages.appendChild(messageDiv);
@@ -174,7 +176,11 @@ function updateTerminal(commands) {
   const term = document.getElementById('terminalOutput');
   term.textContent = '';
   commands.forEach(c => {
-    term.textContent += `$ ${c.command}\n`;
+    if (c.result) {
+      term.textContent += `$ ${c.command}\n ${c.result}\n`;
+    } else {
+      term.textContent += `$ ${c.command}\n`;
+    }
   });
   term.scrollTop = term.scrollHeight;
 }
@@ -185,7 +191,12 @@ function updateNotebook(codes) {
   nb.innerHTML = '';
   codes.forEach(c => {
     const pre = document.createElement('pre');
-    pre.textContent = c.code;
+    if (c.result) {
+      pre.textContent = c.code + c.result;
+    } else {
+      pre.textContent = c.code;
+    }
+    
     nb.appendChild(pre);
   });
   nb.scrollTop = nb.scrollHeight;
@@ -210,19 +221,20 @@ async function fetchAndRenderMemory() {
     if (Array.isArray(data.memories)) {
       data.memories.forEach(mem => {
         // —— 2.1 渲染 content —— 
-        if (!displayedMemoryIds.has(mem.id)) {
+        console.log(mem);
+        if (!displayedMemoryIds.has(mem.id) && mem.thought) {
           addMessageToChat('system',
-            `【${mem.category}】 ${mem.content}`
+            `${mem.thought}`
           );
           displayedMemoryIds.add(mem.id);
         }
         // —— 2.2 渲染 result —— 
-        if (mem.result && !displayedResultIds.has(mem.id)) {
-          addMessageToChat('system',
-            `👉 Result: ${mem.result}`
-          );
-          displayedResultIds.add(mem.id);
-        }
+        // if (mem.result && !displayedResultIds.has(mem.id)) {
+        //   addMessageToChat('system',
+        //     `👉 Result: ${mem.result}`
+        //   );
+        //   displayedResultIds.add(mem.id);
+        // }
       });
     }
   } catch (e) {
@@ -246,11 +258,8 @@ async function connectToBackend() {
         // Get initial status
         const status = await backendConnector.getStatus();
         if (status.success) {
-          updateStatus(status.status, status.currentTask);
+          updateStatus(status.status.charAt(0).toUpperCase() + status.status.slice(1), status.currentTask);
           modelInfo.textContent = status.model
-            .split('-')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
         }
         return true;
       } else {

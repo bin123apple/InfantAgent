@@ -155,25 +155,33 @@ async def memory():
             tasks.append({"name": mem.task})
         elif isinstance(mem, CmdRun):
             commands.append({"command": mem.command})
+            if mem.result:
+                commands[-1]["result"] = mem.result
         elif isinstance(mem, IPythonRun):
             codes.append({"code": mem.code})
+            if mem.result:
+                codes[-1]["result"] = mem.result
         # 2) 其它所有 memory
         mem_dict = {
             "id":       idx,
             "category": type(mem).__name__,
             "content":  getattr(mem, "content", repr(mem))
         }
+        mem_dict.update(mem.__dict__)
         if hasattr(mem, "result"):
             mem_dict["result"] = getattr(mem, "result")
         memories.append(mem_dict)
 
-    return {
+    output = {
         "success":  True,
         "tasks":    tasks,
         "commands": commands,
         "codes":    codes,
         "memories": memories,
     }
+    print(output) 
+    return output
+
 
 # File Upload API
 @app.post("/api/upload")
