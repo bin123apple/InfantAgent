@@ -48,7 +48,7 @@ Here is an example:
 User:
 I want to click on vscode icon with the mouse. Please help me determine its **EXACT** coordinates.
 
-Asistant:
+Assistant:
 Let's check the specific location of coordinates (430, 710).
 <localize>
 localization_point(430,710)
