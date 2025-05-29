@@ -369,7 +369,7 @@ class Computer:
             logger.info(f"result.stdout while trying to remove known host port {port}", result.stdout)
             logger.info(f"Successfully removed known host port: {port}.")
         except subprocess.CalledProcessError as e:
-            logger.info(f"Error while trying to delate known host port {port}:", e.stderr)
+            logger.info(f"Error while trying to delete known host port {port}:", e.stderr)
         
         ### For root user    
         # try:
