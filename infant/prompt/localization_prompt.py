@@ -23,7 +23,7 @@ Assistant:
 User:
 Screenshot Figure
 
-Asistant:
+Assistant:
 <execute_ipython>localization(top_left = (400, 700), length = 200)</execute_ipython>
 
 User:
