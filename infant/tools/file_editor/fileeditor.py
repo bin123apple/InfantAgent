@@ -179,7 +179,7 @@ def replace_function(
                     f'{lint_error}\n'
                     'You may need to do one or several of the following:\n'
                     '1) Specify the correct code block that you want to modify;\n' 
-                    '2) Make sure that the Args position is correct (the 2nd arg is the origianl code that will be replaced and the 3rd arg is the new code that will be used);\n' 
+                    '2) Make sure that the Args position is correct (the 2nd arg is the original code that will be replaced and the 3rd arg is the new code that will be used);\n' 
                     '3) Choose another command (Such as edit_file(file_name, start, start_str end, end_str, content) command).\n'
                     '4) Use open_file(path, line_number, context_lines) command to check the details of where you want to modify and improve your command.\n'
                     'DO NOT re-run the same failed edit command. Running it again will lead to the same error.'
