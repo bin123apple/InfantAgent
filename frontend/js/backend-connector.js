@@ -60,33 +60,36 @@ class InfantBackendConnector {
         }
     }
 
-    // Reset the conversation
+    // Reset the conversation by calling your real backend endpoint
     async resetConversation() {
         try {
-            // In a real implementation, this would reset the conversation state in the backend
-            console.log('Resetting conversation in backend');
-
-            // Simulate network delay
-            return new Promise((resolve) => {
-                setTimeout(() => {
-                    // Generate a new session ID
-                    this.sessionId = 'session-' + Math.random().toString(36).substring(2, 15);
-                    resolve({
-                        success: true,
-                        message: "Conversation reset successfully",
-                        newSessionId: this.sessionId
-                    });
-                }, 1000);
-            });
+        // 1) 发起真正的 POST 请求到 /api/reset
+        const res = await fetch('/api/reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+            // 如果需要带 body，就加在这里
+        });
+    
+        // 2) 解析后端返回的 JSON
+        const data = await res.json();
+    
+        // 3) 如果后端返回 success，就更新本地 sessionId（可选）
+        if (data.success && data.newSessionId) {
+            this.sessionId = data.newSessionId;
+        }
+    
+        // 4) 直接把后端返回的数据透传出去
+        return data;
+    
         } catch (error) {
-            console.error('Error resetting conversation:', error);
-            return {
-                success: false,
-                error: error.message || 'Unknown error occurred'
-            };
+        console.error('Error resetting conversation:', error);
+        return {
+            success: false,
+            error: error.message || 'Unknown error occurred'
+        };
         }
     }
-
+  
     // Update settings in the backend
     async updateSettings(settings) {
         try {

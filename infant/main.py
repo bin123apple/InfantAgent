@@ -19,6 +19,7 @@ from pathlib import Path
 
 async def run_single_step(agent: Agent, user_request_text: str, image = None):
     agent.state.memory_list.append(Userrequest(text=user_request_text, images=image))
+    await agent.state.memory_queue.put(agent.state.memory_list[-1])
 
     monitor_task = asyncio.create_task(agent.monitor_agent_state())
     special_case_task = asyncio.create_task(agent.special_case_handler())

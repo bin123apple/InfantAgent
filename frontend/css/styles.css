@@ -351,6 +351,7 @@ footer a:hover {
     border-left-color: #28a745;
     background: #d4edda;
     opacity: 0.8;
+    color: #6c757d;
 }
 
 .task-item.running {
@@ -440,12 +441,6 @@ footer a:hover {
 .delete-btn:hover {
     background: #c82333;
     transform: scale(1.1);
-}
-
-/* Completed task styling */
-.task-item.completed .task-name {
-    text-decoration: line-through;
-    color: #6c757d;
 }
 
 /* Notification styling */

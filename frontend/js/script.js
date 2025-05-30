@@ -159,17 +159,87 @@ async function resetConversation() {
     }
 }
 
-// 更新 Subtasks 列表
 function updateSubtasks(tasks) {
   const ul = document.getElementById('subtaskList');
   ul.innerHTML = '';
-  tasks.forEach(t => {
-    const li = document.createElement('li');
-    li.textContent = t.name;
-    if (t.status === 'completed') li.classList.add('completed');
-    ul.appendChild(li);
+  
+  if (!tasks || tasks.length === 0) {
+      const li = document.createElement('li');
+      li.textContent = 'No tasks yet';
+      li.style.fontStyle = 'italic';
+      li.style.color = '#666';
+      ul.appendChild(li);
+      return;
+  }
+  
+  tasks.forEach((t, index) => {
+      const li = document.createElement('li');
+      li.className = 'task-item';
+      li.setAttribute('data-task-id', t.id || index);
+      
+      // 创建任务内容
+      const taskContent = document.createElement('div');
+      taskContent.className = 'task-content';
+      
+      const taskName = document.createElement('span');
+      taskName.className = 'task-name';
+      taskName.textContent = t.name || 'Unnamed task';
+      
+      const taskStatus = document.createElement('span');
+      taskStatus.className = `task-status status-${t.status || 'pending'}`;
+      taskStatus.textContent = t.status || 'pending';
+      
+      taskContent.appendChild(taskName);
+      taskContent.appendChild(taskStatus);
+      
+      // 如果有描述，添加描述
+      if (t.description) {
+          const taskDesc = document.createElement('div');
+          taskDesc.className = 'task-description';
+          taskDesc.textContent = t.description;
+          taskContent.appendChild(taskDesc);
+      }
+      
+      // 添加操作按钮
+      const taskActions = document.createElement('div');
+      taskActions.className = 'task-actions';
+      
+      if (t.status !== 'completed') {
+          const completeBtn = document.createElement('button');
+          completeBtn.className = 'task-btn complete-btn';
+          completeBtn.textContent = '✓';
+          completeBtn.title = 'Mark as completed';
+          completeBtn.onclick = (e) => {
+              e.stopPropagation();
+              completeTask(t.id || index);
+          };
+          taskActions.appendChild(completeBtn);
+      }
+      
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'task-btn delete-btn';
+      deleteBtn.textContent = '×';
+      deleteBtn.title = 'Delete task';
+      deleteBtn.onclick = (e) => {
+          e.stopPropagation();
+          deleteTask(t.id || index);
+      };
+      taskActions.appendChild(deleteBtn);
+      
+      li.appendChild(taskContent);
+      li.appendChild(taskActions);
+      
+      // 添加状态样式
+      if (t.status === 'completed') {
+          li.classList.add('completed');
+      } else if (t.status === 'running') {
+          li.classList.add('running');
+      }
+      
+      ul.appendChild(li);
   });
 }
+
 
 // 更新 Terminal 面板
 function updateTerminal(commands) {
@@ -467,88 +537,6 @@ function stopTasksMonitoring() {
         tasksEventSource.close();
         tasksEventSource = null;
     }
-}
-
-// 更新 Subtasks 列表 (修改原有函数)
-function updateSubtasks(tasks) {
-    const ul = document.getElementById('subtaskList');
-    ul.innerHTML = '';
-    
-    if (!tasks || tasks.length === 0) {
-        const li = document.createElement('li');
-        li.textContent = 'No tasks yet';
-        li.style.fontStyle = 'italic';
-        li.style.color = '#666';
-        ul.appendChild(li);
-        return;
-    }
-    
-    tasks.forEach((t, index) => {
-        const li = document.createElement('li');
-        li.className = 'task-item';
-        li.setAttribute('data-task-id', t.id || index);
-        
-        // 创建任务内容
-        const taskContent = document.createElement('div');
-        taskContent.className = 'task-content';
-        
-        const taskName = document.createElement('span');
-        taskName.className = 'task-name';
-        taskName.textContent = t.name || 'Unnamed task';
-        
-        const taskStatus = document.createElement('span');
-        taskStatus.className = `task-status status-${t.status || 'pending'}`;
-        taskStatus.textContent = t.status || 'pending';
-        
-        taskContent.appendChild(taskName);
-        taskContent.appendChild(taskStatus);
-        
-        // 如果有描述，添加描述
-        if (t.description) {
-            const taskDesc = document.createElement('div');
-            taskDesc.className = 'task-description';
-            taskDesc.textContent = t.description;
-            taskContent.appendChild(taskDesc);
-        }
-        
-        // 添加操作按钮
-        const taskActions = document.createElement('div');
-        taskActions.className = 'task-actions';
-        
-        if (t.status !== 'completed') {
-            const completeBtn = document.createElement('button');
-            completeBtn.className = 'task-btn complete-btn';
-            completeBtn.textContent = '✓';
-            completeBtn.title = 'Mark as completed';
-            completeBtn.onclick = (e) => {
-                e.stopPropagation();
-                completeTask(t.id || index);
-            };
-            taskActions.appendChild(completeBtn);
-        }
-        
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'task-btn delete-btn';
-        deleteBtn.textContent = '×';
-        deleteBtn.title = 'Delete task';
-        deleteBtn.onclick = (e) => {
-            e.stopPropagation();
-            deleteTask(t.id || index);
-        };
-        taskActions.appendChild(deleteBtn);
-        
-        li.appendChild(taskContent);
-        li.appendChild(taskActions);
-        
-        // 添加状态样式
-        if (t.status === 'completed') {
-            li.classList.add('completed');
-        } else if (t.status === 'running') {
-            li.classList.add('running');
-        }
-        
-        ul.appendChild(li);
-    });
 }
 
 // 完成任务

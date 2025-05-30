@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass, field
 from infant.util.metrics import Metrics
 from infant.agent.state.agent_state import AgentState
@@ -15,6 +16,7 @@ class State:
     iteration: int = 0
     max_iterations: int = 100
     num_of_chars: int = 0
+    memory_queue: asyncio.Queue = asyncio.Queue()
     #background_commands_obs: list[CmdOutputObservation] = field(default_factory=list)
     memory_list: list = field(default_factory=list)
     inputs: dict = field(default_factory=dict)

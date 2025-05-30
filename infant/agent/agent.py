@@ -134,17 +134,21 @@ class Agent:
             memory = parse(resp) 
             if isinstance(memory, Message):
                 self.state.memory_list.append(memory)
+                await self.state.memory_queue.put(self.state.memory_list[-1])
                 if self.agent_config.fake_response_mode:
                     planning_fake_user_response = Message(content=planning_fake_user_response_prompt)
                     planning_fake_user_response.source = 'user'
                     self.state.memory_list.append(planning_fake_user_response)
+                    await self.state.memory_queue.put(self.state.memory_list[-1])
                 else:
                     user_response = await asyncio.get_event_loop().run_in_executor(None, input, "Witing for user input:")
                     user_message = Message(content=user_response)
                     user_message.source = 'user'
                     self.state.memory_list.append(user_message)
+                    await self.state.memory_queue.put(self.state.memory_list[-1])
             else:
                 self.state.memory_list.append(memory)
+                await self.state.memory_queue.put(self.state.memory_list[-1])
             await asyncio.sleep(0.3)
         if isinstance(self.state.memory_list[-1], Finish):
             await self.change_agent_state(new_state=AgentState.FINISHED)
@@ -160,6 +164,7 @@ class Agent:
         # resp = '<clf_task>file_edit, file_understand,  code_exec</clf_task>'
         memory = parse(resp) 
         self.state.memory_list.append(memory)
+        await self.state.memory_queue.put(self.state.memory_list[-1])
 
     async def execution(self) -> TaskFinish:
         assert isinstance(self.state.memory_list[-1], Classification)
@@ -207,13 +212,17 @@ class Agent:
                 logger.info(f'Execution Result\n{memory.result}', extra={'msg_type': 'Execution Result'})
                 backup_image_memory(memory, constant.MOUNT_PATH)
                 self.state.memory_list.append(memory)
+                await self.state.memory_queue.put(self.state.memory_list[-1])
             elif isinstance(memory, Message):
                 self.state.memory_list.append(memory)
+                await self.state.memory_queue.put(self.state.memory_list[-1])
                 execution_fake_user_response = Message(content=tool_fake_user_response_prompt)
                 execution_fake_user_response.source = 'user'
                 self.state.memory_list.append(execution_fake_user_response)
+                await self.state.memory_queue.put(self.state.memory_list[-1])
             else:
                 self.state.memory_list.append(memory)
+                await self.state.memory_queue.put(self.state.memory_list[-1])
             await asyncio.sleep(0.3)
     
     async def change_agent_state(self, new_state: AgentState):

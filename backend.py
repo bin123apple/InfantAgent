@@ -12,7 +12,7 @@ from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, UploadFile
 from fastapi.responses import RedirectResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
-from infant.agent.memory.memory import CmdRun, IPythonRun, Task
+from infant.agent.memory.memory import CmdRun, IPythonRun, Task, TaskFinish
 import infant.util.constant as constant
 from infant.config import Config 
 
@@ -114,10 +114,10 @@ async def reset():
         agent.state.reset()
         for llm in agent._active_llms():
             llm.metrics.accumulated_cost = 0
-        computer.execute(f'cd {computer.workspace_mount_path} && rm -rf *')
-        return {"success": True, "message": "Conversation reset successfully", "newSessionId": str(agent.state.session_id)}
+        computer.execute(f'cd {computer.computer_workspace_dir} && rm -rf *')
+        return {"success": True, "message": "Conversation reset successfully"}
     await asyncio.sleep(0.5)
-    return {"success": True, "message": "Demo mode reset", "newSessionId": "demo-session"}
+    return {"success": True, "message": "Demo mode reset"}
 
 # Settings API
 @app.post("/api/settings")
@@ -148,11 +148,26 @@ async def memory():
         return {"success": False, "error": "Agent not initialized"}
 
     tasks, commands, codes, memories = [], [], [], []
-
+    task_counter = 0
     for idx, mem in enumerate(agent.state.memory_list):
         # 1) 旧的三种类型
         if isinstance(mem, Task):
-            tasks.append({"name": mem.task})
+            # 1) 计算该 Task 在所有 Task 中的 ID（从 0 开始）
+            task_id = task_counter
+            task_counter += 1
+
+            status = 'pending'
+            for later in agent.state.memory_list[idx:]:
+                if isinstance(later, TaskFinish):
+                    status = 'completed'
+                    break
+
+            # 3) 把 id、name、status 一起放到 tasks 里
+            tasks.append({
+                'id':     task_id,
+                'name':   mem.task,
+                'status': status
+            })
         elif isinstance(mem, CmdRun):
             commands.append({"command": mem.command})
             if mem.result:
@@ -179,7 +194,6 @@ async def memory():
         "codes":    codes,
         "memories": memories,
     }
-    print(output) 
     return output
 
 
