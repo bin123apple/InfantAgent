@@ -136,13 +136,13 @@ class Agent:
                 self.state.memory_list.append(memory)
                 await self.state.memory_queue.put(self.state.memory_list[-1])
                 if self.agent_config.fake_response_mode:
-                    planning_fake_user_response = Message(content=planning_fake_user_response_prompt)
+                    planning_fake_user_response = Message(thought=planning_fake_user_response_prompt)
                     planning_fake_user_response.source = 'user'
                     self.state.memory_list.append(planning_fake_user_response)
                     await self.state.memory_queue.put(self.state.memory_list[-1])
                 else:
                     user_response = await asyncio.get_event_loop().run_in_executor(None, input, "Witing for user input:")
-                    user_message = Message(content=user_response)
+                    user_message = Message(thought=user_response)
                     user_message.source = 'user'
                     self.state.memory_list.append(user_message)
                     await self.state.memory_queue.put(self.state.memory_list[-1])
@@ -216,7 +216,7 @@ class Agent:
             elif isinstance(memory, Message):
                 self.state.memory_list.append(memory)
                 await self.state.memory_queue.put(self.state.memory_list[-1])
-                execution_fake_user_response = Message(content=tool_fake_user_response_prompt)
+                execution_fake_user_response = Message(thought=tool_fake_user_response_prompt)
                 execution_fake_user_response.source = 'user'
                 self.state.memory_list.append(execution_fake_user_response)
                 await self.state.memory_queue.put(self.state.memory_list[-1])

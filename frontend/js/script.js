@@ -290,8 +290,10 @@ async function fetchAndRenderMemory() {
     // 2) 遍历所有 memories
     if (Array.isArray(data.memories)) {
       data.memories.forEach(mem => {
-        // —— 2.1 渲染 content —— 
-        console.log(mem);
+        console.log(mem.category);
+        if (mem.category === 'Message') {
+          updateStatus('Awaiting for user input', 'None');
+        }
         if (!displayedMemoryIds.has(mem.id) && mem.thought) {
           addMessageToChat('system',
             `${mem.thought}`
@@ -489,6 +491,7 @@ document.addEventListener('DOMContentLoaded', () => {
   fileUploadFolder.addEventListener('change', handleFileUpload);
 
   // 初始化连接
+  console.log('[Debug] connectToBackend() 开始执行');
   connectToBackend();
 });
 

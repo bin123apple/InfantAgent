@@ -208,13 +208,13 @@ class Userrequest(Memory):
 
 @dataclass
 class Message(Memory):
-    content: str
+    thought: str
     wait_for_response: bool = False
     action: str = 'message'
 
     def __str__(self) -> str:
         ret = f'**Message** (source={self.source})\n'
-        ret += f'CONTENT: {self.content}'
+        ret += f'CONTENT: {self.thought}'
         return ret
 
 @dataclass

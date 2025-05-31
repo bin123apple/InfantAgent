@@ -165,7 +165,7 @@ def parse_response(resp: str) -> str:
         return memory
     
     # Others are consider as normal message
-    memory = Message(content=resp)
+    memory = Message(thought=resp)
     memory.source = 'assistant'
     logger.info(memory, extra={'msg_type': 'Message'})
     return memory

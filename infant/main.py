@@ -3,8 +3,8 @@ import uuid
 import asyncio
 import traceback
 from datetime import datetime
-from infant.config import Config
 from infant.agent.agent import Agent
+from infant.config import Config, config
 from infant.computer.computer import Computer
 from infant.llm.llm_api_base import LLM_API_BASED
 from infant.llm.llm_oss_base import LLM_OSS_BASED

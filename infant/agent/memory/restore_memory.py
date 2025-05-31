@@ -68,7 +68,7 @@ def base_memory_to_str(memory: Memory) -> str:
     elif isinstance(memory, Task):
         return f'{memory.thought}<task>{memory.task}</task>'
     elif isinstance(memory, Message):
-        return memory.content
+        return memory.thought
     elif isinstance(memory, Finish):
         return f'<finish>{memory.thought}</finish>'
     return ''

@@ -42,6 +42,7 @@ class State:
     critic_result: bool = True
     verify_step_by_step: bool = False # Care! This will be expensive!
     continuous_errors: int = 0 # Avoid infinite errors
+    pending_user_response = None
 
     def reset(self):
         self.iteration: int = 0
@@ -63,3 +64,4 @@ class State:
         self.critic: bool = False
         self.critic_result: bool = True
         self.continuous_errors: int = 0
+        self.pending_user_response = None
