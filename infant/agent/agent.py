@@ -141,7 +141,7 @@ class Agent:
                     self.state.memory_list.append(planning_fake_user_response)
                     await self.state.memory_queue.put(self.state.memory_list[-1])
                 else:
-                    user_response = await asyncio.get_event_loop().run_in_executor(None, input, "Witing for user input:")
+                    user_response = await asyncio.get_event_loop().run_in_executor(None, input, "Waiting for user input:")
                     user_message = Message(thought=user_response)
                     user_message.source = 'user'
                     self.state.memory_list.append(user_message)

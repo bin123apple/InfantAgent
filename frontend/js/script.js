@@ -182,6 +182,8 @@ async function resetConversation() {
             // Add system message
             addMessageToChat('system', 'Conversation has been reset. How can I help you?');
             updateStatus('Ready', 'None');
+            console.log('displayedMemoryIds cleared')
+            displayedMemoryIds.clear();
         } else {
             // Handle error
             console.error('Error resetting conversation:', result.error);
@@ -280,32 +282,26 @@ function updateSubtasks(tasks) {
 // 更新 Terminal 面板
 function updateTerminal(commands) {
   const term = document.getElementById('terminalOutput');
-  term.textContent = '';
-  commands.forEach(c => {
-    if (c.result) {
-      term.textContent += `$ ${c.command}\n ${c.result}\n`;
-    } else {
-      term.textContent += `$ ${c.command}\n`;
-    }
-  });
-  term.scrollTop = term.scrollHeight;
+  const currentContent = commands.map(c => 
+    c.result ? `$ ${c.command}\n${c.result}\n` : `$ ${c.command}\n`
+  ).join('');
+
+  if (term.textContent !== currentContent) {
+    term.textContent = currentContent;
+    term.scrollTop = term.scrollHeight;
+  }
+
 }
 
 // 更新 Jupyter Code 面板
 function updateNotebook(codes) {
   const nb = document.getElementById('notebookOutput');
-  nb.innerHTML = '';
-  codes.forEach(c => {
-    const pre = document.createElement('pre');
-    if (c.result) {
-      pre.textContent = c.code + c.result;
-    } else {
-      pre.textContent = c.code;
-    }
-    
-    nb.appendChild(pre);
-  });
-  nb.scrollTop = nb.scrollHeight;
+  const currentContent = codes.map(c => c.result ? c.code + c.result : c.code).join('');
+  
+  if (Array.from(nb.children).map(el => el.textContent).join('') !== currentContent) {
+    nb.innerHTML = codes.map(c => `<pre>${c.result ? c.code + c.result : c.code}</pre>`).join('');
+    nb.scrollTop = nb.scrollHeight;
+  }
 }
 
 let lastMemIndex  = 0;

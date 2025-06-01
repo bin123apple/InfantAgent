@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Infant AI Assistant Dashboard</title>
+  <link rel="icon" type="image/png" href="asset/Logo.png">
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <style>
@@ -257,7 +258,8 @@
     .setting-btn {
       background: transparent; 
       border: none; 
-      font-size: 0.9em; 
+      font-size: 1.2em; 
+      padding-right: 5px;
       color:#f5f5f5}
 
     .setting-btn:hover {
@@ -274,7 +276,10 @@
     <!-- Left: Chat area -->
     <div class="chat-area">
       <header style="display: flex; justify-content: space-between; align-items: center; margin: 5px 0; padding: 0 5px;">
-        <h1 style="margin: 0; font-size: 1.2em;">Infant AI Assistant</h1>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <img src="asset/Logo.png" alt="Logo" style="width: 50px; height: 50px;">
+          <h1 style="margin: 0; font-size: 1.2em;">Infant AI Assistant</h1>
+        </div>
         <button type="button" id="settingsLink" class="setting-btn"><i class="fa-solid fa-gear"></i></button>
         <!-- <a href="#" id="settingsLink" style="font-size: 0.9em;"><i class="fa-solid fa-gear"></i></a> -->
       </header>
