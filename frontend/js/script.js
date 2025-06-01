@@ -80,26 +80,62 @@ function updateStatus(status, task) {
 }
 
 // 清空并格式化换行的函数
-function addMessageToChat(sender, content) {
+async function addMessageToChat(sender, content) {
   const messageDiv = document.createElement('div');
   messageDiv.className = `message ${sender}`;
 
   const messageContent = document.createElement('div');
   messageContent.className = 'message-content';
-
-  // content.split('\n').forEach(line => {
-  //   if (line.trim()) {
-  //     const p = document.createElement('p');
-  //     p.textContent = line;
-  //     messageContent.appendChild(p);
-  //   }
-  // });
-  content = marked.parse(content);
-  messageContent.innerHTML = content;
-
+  
+  // Add the message content container to the DOM immediately
   messageDiv.appendChild(messageContent);
   chatMessages.appendChild(messageDiv);
-  chatMessages.scrollTop = chatMessages.scrollHeight;
+  
+  // Parse markdown first
+  const parsedContent = marked.parse(content);
+  
+  // Create a temporary container to hold the parsed HTML
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = parsedContent;
+  
+  // Get the text content for streaming
+  const fullText = tempDiv.textContent || tempDiv.innerText;
+  
+  // Clear the message content and stream the text
+  messageContent.innerHTML = '';
+  
+  // Stream the content character by character
+  let i = 0;
+  const speed = 5; // Adjust speed (lower is faster)
+  
+  // Function to stream content
+  const streamContent = async () => {
+    if (i < fullText.length) {
+      // Get the character at current position
+      const char = fullText.charAt(i);
+      
+      // Add the character to the content
+      messageContent.textContent += char;
+      
+      // Scroll to bottom after each character
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+      
+      i++;
+      // Adjust speed based on character type for more natural feel
+      const delay = char.match(/[.,!?;:]/) ? speed * 10 : 
+                   char === ' ' ? speed * 2 : speed;
+      
+      // Continue streaming
+      setTimeout(streamContent, delay);
+    } else {
+      // When done streaming, set the actual HTML content with proper formatting
+      messageContent.innerHTML = parsedContent;
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+  };
+  
+  // Start the streaming effect
+  streamContent();
 }
 
 async function simulateResponse(userMessage) {
