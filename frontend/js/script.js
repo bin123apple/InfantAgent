@@ -50,7 +50,7 @@ function sendMessage() {
     .then(response => {
       if (response.success) {
         // 5a) 成功：显示助理回复
-        addMessageToChat('assistant', response.response);
+        // addMessageToChat('assistant', response.response); // Already handled by fetchAndRenderMemory
       } else {
         // 5b) 失败：显示错误信息
         addMessageToChat('system', `Error: ${response.error || 'Unknown error occurred'}`);
@@ -326,9 +326,11 @@ async function fetchAndRenderMemory() {
     // 2) 遍历所有 memories
     if (Array.isArray(data.memories)) {
       data.memories.forEach(mem => {
-        console.log(mem.category);
-        if (mem.category === 'Message') {
+        console.log(Array.from(displayedMemoryIds));
+        console.log(mem.id, mem.category, mem.thought);
+        if (!displayedMemoryIds.has(mem.id) && mem.category === 'Message') {
           updateStatus('Awaiting for user input', 'None');
+          console.log('Finish updateStatus');
         }
         if (!displayedMemoryIds.has(mem.id) && mem.thought) {
           addMessageToChat('system',
@@ -336,13 +338,6 @@ async function fetchAndRenderMemory() {
           );
           displayedMemoryIds.add(mem.id);
         }
-        // —— 2.2 渲染 result —— 
-        // if (mem.result && !displayedResultIds.has(mem.id)) {
-        //   addMessageToChat('system',
-        //     `👉 Result: ${mem.result}`
-        //   );
-        //   displayedResultIds.add(mem.id);
-        // }
       });
     }
   } catch (e) {
