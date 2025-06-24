@@ -121,8 +121,12 @@ class Config:
     feedback_mode: bool = False
     gift_key: bool = False
     
-    ## vllm Attributes
+
+
+    ## vllm Attributes (OSS-LLM)
     model_oss: str = 'ByteDance-Seed/UI-TARS-1.5-7B'
+    api_key_oss: str | None = None
+    base_url_oss: str | None = None
     tensor_parallel_size: int = 2 # Tensor parallelism splits the model's tensors across n GPUs
     max_model_len: int = 9632
     disable_custom_all_reduce: bool = True
@@ -305,6 +309,8 @@ class Config:
             vllm_top_p              = self.vllm_top_p,
             stop                    = self.stop,
             gpu_memory_utilization  = self.gpu_memory_utilization,
+            base_url_oss            = self.base_url_oss,
+            api_key_oss             = self.api_key_oss,
         )
 
         base_kwargs.update(overrides) 
@@ -509,6 +515,8 @@ class VllmParams:
         vllm_top_p,
         stop,
         gpu_memory_utilization,
+        base_url_oss,
+        api_key_oss,
     ):
         self.model_oss = model_oss
         self.tensor_parallel_size = tensor_parallel_size
@@ -522,6 +530,8 @@ class VllmParams:
         self.vllm_top_p = vllm_top_p
         self.stop = stop     
         self.gpu_memory_utilization = gpu_memory_utilization   
+        self.base_url_oss = base_url_oss
+        self.api_key_oss = api_key_oss
 
 class AgentParams:
     def __init__(

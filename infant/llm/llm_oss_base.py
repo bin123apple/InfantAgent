@@ -7,6 +7,7 @@ from infant.config import VllmParams
 from vllm.distributed.parallel_state import destroy_model_parallel
 from infant.util.logger import infant_logger as logger
 from infant.agent.memory.memory import Message, CmdRun, IPythonRun
+from litellm import completion
 
 class LLM_OSS_BASED:
     def __init__(self, args: VllmParams):
@@ -15,6 +16,8 @@ class LLM_OSS_BASED:
         self.model = args.model_oss
         self.tokenizer = args.model_oss
         self.llm = None
+        self.base_url_oss = args.base_url_oss
+        self.api_key_oss = args.api_key_oss
         self.sampling_params = SamplingParams(
             n=self.args.sampling_n,
             max_tokens=self.args.max_tokens,
@@ -26,8 +29,8 @@ class LLM_OSS_BASED:
         )
         logger.info(f"Finished initializing parameters of the OSS LLM\n"
                     f"Args: {self.args}." )
-        
-        self.load_model()
+        if self.base_url_oss is None:
+            self.load_model()
 
     def generate_actions(self, messages: list) -> None:
         """
@@ -100,10 +103,16 @@ class LLM_OSS_BASED:
         Generate several a list of responses. (Based on the number of sampling_n)
         '''
         # print(f'messages', messages)
-        self.load_model()
-        sampling_params = copy.deepcopy(self.sampling_params)
-        sampling_params.stop = stop
-        request_output = self.llm.chat(messages, sampling_params)
+        if self.base_url_oss is None:
+            logger.warning("base_url_oss is None, using local model.")
+            self.load_model()
+            sampling_params = copy.deepcopy(self.sampling_params)
+            sampling_params.stop = stop
+            request_output = self.llm.chat(messages, sampling_params)
+        else: 
+            logger.warning("Using remote model.")
+            request_output = self.completion_remote(messages, stop)
+            
         logger.debug(f"Request output: {request_output}")
         self.get_token_count(request_output)
         response_list = []
@@ -111,6 +120,21 @@ class LLM_OSS_BASED:
             response_list.append(response.text)
         return response_list
     
+    def completion_remote(self, messages, stop: list | None = None) -> list:
+        '''
+        Generate several a list of responses. (Based on the number of sampling_n)
+        '''
+        # print(f'messages', messages)
+        response = litellm.completion(
+            model=self.model,
+            messages=messages,
+            api_base=self.base_url_oss,
+            api_key=self.api_key_oss,
+            temperature=self.args.vllm_temperature,
+            max_tokens=self.args.max_tokens)
+        
+        return response_list
+
 
     def get_token_count(self, request_output):
         """
