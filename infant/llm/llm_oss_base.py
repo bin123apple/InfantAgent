@@ -7,7 +7,7 @@ from infant.config import VllmParams
 from vllm.distributed.parallel_state import destroy_model_parallel
 from infant.util.logger import infant_logger as logger
 from infant.agent.memory.memory import Message, CmdRun, IPythonRun
-from litellm import completion
+import litellm
 
 class LLM_OSS_BASED:
     def __init__(self, args: VllmParams):
@@ -31,6 +31,8 @@ class LLM_OSS_BASED:
                     f"Args: {self.args}." )
         if self.base_url_oss is None:
             self.load_model()
+        else: 
+            logger.info(f"Using remote model from {self.base_url_oss}.")
 
     def generate_actions(self, messages: list) -> None:
         """
@@ -109,30 +111,42 @@ class LLM_OSS_BASED:
             sampling_params = copy.deepcopy(self.sampling_params)
             sampling_params.stop = stop
             request_output = self.llm.chat(messages, sampling_params)
+            self.get_token_count(request_output)
+            response_list = []
+            for response in request_output[0].outputs:
+                response_list.append(response.text)
+            return response_list
         else: 
             logger.warning("Using remote model.")
             request_output = self.completion_remote(messages, stop)
-            
-        logger.debug(f"Request output: {request_output}")
-        self.get_token_count(request_output)
-        response_list = []
-        for response in request_output[0].outputs:
-            response_list.append(response.text)
-        return response_list
+            logger.info(f"Request output: {request_output}")
+            number_of_answers = len(request_output.choices) # list of choices (answers)
+            input_token_count = request_output.usage.prompt_tokens
+            output_token_count = request_output.usage.completion_tokens
+            logger.info(
+                    'Total Input tokens: %.2f | Total Generated tokens: %.2f | Total outputs: %.2f',
+                    input_token_count,
+                    output_token_count,
+                    number_of_answers
+                )
+            response_list = []
+            for response in request_output.choices:
+                response_list.append(response.message.content)
+            return response_list
+        
     
     def completion_remote(self, messages, stop: list | None = None) -> list:
         '''
         Generate several a list of responses. (Based on the number of sampling_n)
         '''
-        # print(f'messages', messages)
-        response = litellm.completion(
+        logger.info(f'messages: {messages}')
+        response_list = litellm.completion(
             model=self.model,
             messages=messages,
             api_base=self.base_url_oss,
             api_key=self.api_key_oss,
             temperature=self.args.vllm_temperature,
             max_tokens=self.args.max_tokens)
-        
         return response_list
 
 
