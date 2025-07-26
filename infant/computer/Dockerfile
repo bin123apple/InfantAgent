@@ -124,8 +124,9 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive \
     # the lightdm user but not for a normal user.
     echo 'mkdir -p ~/.config/pulse\nif [ ! -f ~/.config/pulse/client.conf ]; then\ncp /etc/pulse/client.conf ~/.config/pulse/client.conf\nsed -i "s/; default-server =/default-server = unix:\/tmp\/pulse-socket/g" ~/.config/pulse/client.conf\nfi' > /etc/profile.d/create-pulse-clientconf.sh && \
     echo 'load-module module-native-protocol-unix auth-anonymous=1 socket=/tmp/pulse-socket' >> /etc/pulse/default.pa && \
-   echo '[GDM]\n# GDM default config, no need to set xserver-command' > /etc/gdm3/custom.conf
-
+    echo '[GDM]\n# GDM default config, no need to set xserver-command' > /etc/gdm3/custom.conf && \ 
+    # allowing nomachine to connect to same origin for iframe
+    sed -i.bak '553s/^/# /' /usr/NX/etc/web.cfg
 
 # Install dbus-session
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dbus-user-session
