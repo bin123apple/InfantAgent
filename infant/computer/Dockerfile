@@ -211,10 +211,10 @@ RUN echo "" > /infant/bash.bashrc
 RUN rm -f Miniforge3.sh
 
 # - agentskills dependencies
+RUN apt-get autoclean
 RUN /infant/miniforge3/bin/pip install --upgrade pip
-RUN /infant/miniforge3/bin/pip install jupyterlab notebook jupyter_kernel_gateway flake8 Pillow
-RUN /infant/miniforge3/bin/pip install python-docx PyPDF2 python-pptx pylatexenc openai openpyxl
-RUN /infant/miniforge3/bin/pip install python-dotenv toml termcolor pydantic python-docx pyyaml docker pexpect tenacity e2b browsergym minio
+RUN /infant/miniforge3/bin/pip install --no-cache-dir jupyterlab notebook jupyter_kernel_gateway flake8 Pillow python-docx PyPDF2 python-pptx pylatexenc openai openpyxl python-dotenv toml termcolor pydantic python-docx pyyaml docker pexpect tenacity e2b browsergym minio
+
 
 # Build
 # docker build -t ubuntu-gnome-nomachine:22.04 -f Dockerfile .
