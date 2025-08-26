@@ -50,7 +50,7 @@ uv pip install -e .
 
 2. Pull the Docker. Only required on the first use. It will pull the docker image from the Docker Hub.
 ```
-docker pull bin12345/ubuntu-gnome-nomachine:22.04
+docker pull winsonchen108/ubuntu-gnome-nomachine:latest
 ```
 
 3. (Optional) Config the config.toml file. If `Claude-3.7-Sonnet` is the default model.

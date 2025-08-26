@@ -185,7 +185,7 @@ class Config:
     workspace_mount_path_in_computer: str = '/workspace'
     workspace_mount_rewrite: str | None = None
     cache_dir: str = '/tmp/cache'
-    computer_container_image: str = 'ubuntu-gnome-nomachine' # Pull from Docker Hub  
+    computer_container_image: str = 'winsonchen108/ubuntu-gnome-nomachine:latest' # Pull from Docker Hub  
     e2b_api_key: str = ''
     computer_type: str = 'ssh'  # Can be 'ssh', 'exec', or 'e2b'
     use_host_network: bool = False
