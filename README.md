@@ -61,7 +61,8 @@ uvicorn backend:app --log-level info
 
 4. Configure Virtual Machine (You only need to configure it once when using it for the first time.)
 
-When you start the Docker container for the first time, it takes a bit of time to configure the virtual machine. As long as the container still exists, you won’t need to install it again on subsequent runs.
+- Enter your api key in `setting`
+By default, you should enter the Claude API key. You can also change this in the `config.py` file.
 
 - Wait for the backend to configure automatically until you see the following instruction:
 `For first-time users, please go to https://localhost:4443 to set up and skip unnecessary steps.`
@@ -69,14 +70,11 @@ When you start the Docker container for the first time, it takes a bit of time t
 - Go to https://localhost:4443
 Skip the security check (this is HTTPS, not HTTP), and you will see the Linux desktop.
 
-- Go back to our frontend and refresh the page.
-In the upper-right corner of the virtual machine, enter your username and password. By default, the username is `infant` and the password is `123`. You can also change these in the `config.py` file.
-
 - Go back to terminal and press `enter` to skip this reminder:
 `When the computer setup is complete, press Enter to continue`
 
-- Enter your api key in `setting`
-By default, you should enter the Claude API key. You can also change this in the `config.py` file.
+- Go back to the frontend and **refresh the page**.
+In the upper-right corner of the virtual machine, enter your username and password. By default, the username is `infant` and the password is `123`. You can also change these in the `config.py` file.
 
 Now the agent is ready to use, and you don't need to configure the virtual machine again as long as the container still exists.
 
