@@ -53,29 +53,38 @@ uv pip install -e .
 docker pull winsonchen108/ubuntu-gnome-nomachine:latest
 ```
 
-3. (Optional) Config the config.toml file. If `Claude-3.7-Sonnet` is the default model.
-
-4. Run
+3. Run
 ```
-export ANTHROPIC_API_KEY='Your LLM API Key'
-python infant/main.py
+export CUDA_VISIBLE_DEVICES=0 # For Visual Grounding model inference
+uvicorn backend:app --log-level info
 ```
 
-NOTE: When you start the Docker container for the first time, it takes a bit of time to install the NVIDIA driver. As long as the container still exists, you won’t need to install it again on subsequent runs.
+4. Configure Virtual Machine (You only need to configure it once when using it for the first time.)
+
+When you start the Docker container for the first time, it takes a bit of time to configure the virtual machine. As long as the container still exists, you won’t need to install it again on subsequent runs.
+
+- Wait for the backend to configure automatically until you see the following instruction:
+`For first-time users, please go to https://localhost:4443 to set up and skip unnecessary steps.`
+
+- Go to https://localhost:4443
+Skip the security check (this is HTTPS, not HTTP), and you will see the Linux desktop.
+
+- Go back to our frontend and refresh the page.
+In the upper-right corner of the virtual machine, enter your username and password. By default, the username is `infant` and the password is `123`. You can also change these in the `config.py` file.
+
+- Go back to terminal and press `enter` to skip this reminder:
+`When the computer setup is complete, press Enter to continue`
+
+- Enter your api key in `setting`
+By default, you should enter the Claude API key. You can also change this in the `config.py` file.
+
+Now the agent is ready to use, and you don't need to configure the virtual machine again as long as the container still exists.
 
 ## Demo
 
 [A simple demo](https://github.com/user-attachments/assets/6c127ecb-b55e-44c6-b696-65d63a1c377c)
 
 ## A simple web application demo
-
-Finish Setup and Run:
-
-```
-uvicorn backend:app --log-level info
-```
-
-Choose your model & API Key in `setting`.
 
 ![A simple web application demo](https://github.com/bin123apple/InfantAgent/blob/main/asset/simple_web_application.png)
 

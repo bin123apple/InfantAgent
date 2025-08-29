@@ -127,12 +127,12 @@ class Config:
     model_oss: str = 'ByteDance-Seed/UI-TARS-1.5-7B'
     api_key_oss: str | None = None
     base_url_oss: str | None = None
-    tensor_parallel_size: int = 2 # Tensor parallelism splits the model's tensors across n GPUs
+    tensor_parallel_size: int = 1 # Tensor parallelism splits the model's tensors across n GPUs
     max_model_len: int = 9632
     disable_custom_all_reduce: bool = True
     enable_prefix_caching: bool = False
     trust_remote_code: bool = True
-    gpu_memory_utilization: float = 0.7 # kv cache memory utilization
+    gpu_memory_utilization: float = 0.95 # kv cache memory utilization
     sampling_n: int = 1
     best_of: Optional[int] = None
     presence_penalty: float = 0.0
@@ -158,7 +158,7 @@ class Config:
     max_iterations: int = 100
     max_voting: int = 5
     max_sum_retries: int = 3
-    max_budget_per_task: float | None = 10
+    max_budget_per_task: float | None = 20
     max_planning_iterations: int = 5 # max number of retries for planning
     max_execution_iterations: int = 10 # max number of retries for execution
     max_self_modify_basic: int = 20 # max number of self-modifications allowed (code linting, etc.)
