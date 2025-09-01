@@ -115,8 +115,8 @@ class Config:
     custom_llm_provider: str | None = None
     max_input_tokens: int | None = None
     max_output_tokens: int | None = 8191
-    input_cost_per_token: float | None = 0.000003
-    output_cost_per_token: float | None = 0.000015
+    input_cost_per_token: float | None = None
+    output_cost_per_token: float | None = None
     cost_metric_supported: bool = True
     feedback_mode: bool = False
     gift_key: bool = False

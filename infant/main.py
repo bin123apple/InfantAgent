@@ -24,7 +24,7 @@ async def run_single_step(agent: Agent, user_request_text: str, image = None):
     monitor_task = asyncio.create_task(agent.monitor_agent_state())
     special_case_task = asyncio.create_task(agent.special_case_handler())
     step_task = asyncio.create_task(agent.step())
-    
+
     await monitor_task
 
     if not step_task.done():
@@ -128,11 +128,11 @@ async def main():
                 if user_request.lower() == 'exit':
                     # reset state
                     agent.state.reset()
-                    
+
                     # reset accumulated cost
                     for llm in agent._active_llms():
                         llm.metrics.accumulated_cost = 0
-                    
+
                     # clean workspace
                     exit_code, output = computer.execute(f'cd /workspace && rm -rf *')
                     logger.info("Agent state reset.")
@@ -155,7 +155,7 @@ async def main():
         await cleanup(agent=agent, computer=computer)
 
 async def cleanup(agent: None | Agent = None, computer: None | Computer = None):
-    
+
     # Handle the screenshots
     screenshots_dir = "/workspace/screenshots/"
     end_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -166,7 +166,7 @@ async def cleanup(agent: None | Agent = None, computer: None | Computer = None):
         logger.info(f"Screenshots moved successfully to: {log_folder}")
     else:
         logger.warning(f"Failed to move screenshots. Directory might not exist. Output: {output}")
-        
+
     # record the log to dataset
     if config.feedback_mode and exit_code == 0:
         mount_path = config.workspace_mount_path
