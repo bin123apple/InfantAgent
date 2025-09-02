@@ -150,6 +150,16 @@ class Agent:
                 self.state.memory_list.append(memory)
                 await self.state.memory_queue.put(self.state.memory_list[-1])
             await asyncio.sleep(0.3)
+        
+        # log cost
+        self.state.total_cost += self.planning_llm.metrics.accumulated_cost
+        logger.info(
+            'Planning Cost: %.6f USD | Total Cost: %.6f USD',
+            self.planning_llm.metrics.accumulated_cost,
+            self.state.total_cost,
+        )
+        
+        # Change state if need
         if isinstance(self.state.memory_list[-1], Finish):
             await self.change_agent_state(new_state=AgentState.FINISHED)
             
@@ -224,6 +234,14 @@ class Agent:
                 self.state.memory_list.append(memory)
                 await self.state.memory_queue.put(self.state.memory_list[-1])
             await asyncio.sleep(0.3)
+
+        # log cost
+        self.state.total_cost += self.execution_llm.metrics.accumulated_cost
+        logger.info(
+            'Execution Cost: %.6f USD | Total Cost: %.6f USD',
+            self.execution_llm.metrics.accumulated_cost,
+            self.state.total_cost,
+        )
     
     async def change_agent_state(self, new_state: AgentState):
         logger.info(f"Changing agent state to: {new_state}")

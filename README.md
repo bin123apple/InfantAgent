@@ -55,7 +55,7 @@ docker pull winsonchen108/ubuntu-gnome-nomachine:latest
 
 3. Run
 ```
-export CUDA_VISIBLE_DEVICES=0 # For Visual Grounding model inference
+export CUDA_VISIBLE_DEVICES=3 # For Visual Grounding model inference
 uvicorn backend:app --log-level info
 ```
 

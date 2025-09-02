@@ -43,11 +43,13 @@ class State:
     verify_step_by_step: bool = False # Care! This will be expensive!
     continuous_errors: int = 0 # Avoid infinite errors
     pending_user_response = None
+    total_cost = 0
 
     def reset(self):
         self.iteration: int = 0
         self.num_of_chars: int = 0
         self.delegate_level: int = 0
+        self.total_cost: int = 0
         self.steps: list | None = None
         self.current_step: int | None = None
         self.step_iteration: int | None = None

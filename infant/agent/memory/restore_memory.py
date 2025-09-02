@@ -194,8 +194,17 @@ def execution_memory_to_diag(memory_block: list[Memory], cmd_set, end_prompt, mo
             # example = tool_example[cmd] + tool_advanced_one_shot
             example = tool_example[cmd] # FIXME: Rearrange the tool_advanced_one_shot
             # note = tool_note[cmd] + '\n'
+            
+    # Add the tool prompts to cache input
     messages.append({'role': 'user',
-                     'content': tool_sys_msg.format(tools = tools_instructions, one_shot = example)})  
+                     'content': [
+            {
+                "type": "text",
+                "text": tool_sys_msg.format(tools = tools_instructions, one_shot = example),
+                "cache_control": {"type": "ephemeral", "ttl": "1h"}
+            }
+        ]})  
+    
     # find the last Task in the memory block
     for i in range(len(memory_block) - 1, -1, -1):
         if isinstance(memory_block[i], Task):
