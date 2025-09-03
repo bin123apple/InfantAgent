@@ -66,6 +66,8 @@ async def initialize_agent(config: Config = None):
     vg_llm = LLM_OSS_BASED(vg_parameter)
     fe_parameter = config.get_litellm_params(overrides = config.fe_llm)
     fe_llm = LLM_API_BASED(fe_parameter)
+    tm_parameter = config.get_litellm_params(overrides = config.tm_llm)
+    tm_llm = LLM_API_BASED(tm_parameter)
     ap_parameter = config.get_litellm_params(overrides = config.ap_llm)
     ap_llm = LLM_API_BASED(ap_parameter)
      
@@ -99,7 +101,7 @@ async def initialize_agent(config: Config = None):
     agent_parameter = config.get_agent_params()
     agent = Agent(agent_config = agent_parameter, planning_llm = planning_llm,
                   classification_llm = classification_llm, execution_llm = execution_llm,
-                  vg_llm = vg_llm, fe_llm = fe_llm, ap_llm = ap_llm, computer = computer)
+                  vg_llm = vg_llm, fe_llm = fe_llm, tm_llm = tm_llm, ap_llm = ap_llm, computer = computer)
     logger.info(f'Agent initialized successfully.')
     exit_code, output = computer.execute(f'cd /workspace && rm -rf *')
     

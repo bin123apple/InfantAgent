@@ -21,6 +21,10 @@ model_oss = "ByteDance-Seed/UI-TARS-1.5-7B"
 [fe_llm]
 model = "claude-sonnet-4-20250514"
 
+# Optional, Toolmaker model, if not provided, the default model will be used
+[tm_llm]
+model = "claude-sonnet-4-20250514"
+
 # Audio parsing model, if not provided, the default model will be used
 [ap_llm]
 model = "gpt-4o-audio-preview"

@@ -92,6 +92,7 @@ class Config:
     execution_llm: dict | None = None
     vg_llm: dict | None = None
     fe_llm: dict | None = None
+    tm_llm: dict | None = None
     ap_llm: dict | None = None
     
     # litellm Attributes
@@ -121,8 +122,6 @@ class Config:
     feedback_mode: bool = False
     gift_key: bool = False
     
-
-
     ## vllm Attributes (OSS-LLM)
     model_oss: str = 'ByteDance-Seed/UI-TARS-1.5-7B'
     api_key_oss: str | None = None

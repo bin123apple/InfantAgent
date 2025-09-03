@@ -59,6 +59,7 @@ class Agent:
                  execution_llm: LLM_API_BASED | None = None,
                  vg_llm: LLM_OSS_BASED | None = None,
                  fe_llm: LLM_API_BASED | None = None,
+                 tm_llm: LLM_API_BASED | None = None,
                  ap_llm: LLM_API_BASED | None = None,
                  computer: Computer | None = None,
         ) -> None:
@@ -74,6 +75,7 @@ class Agent:
         self.execution_llm = execution_llm
         self.vg_llm = vg_llm
         self.fe_llm = fe_llm
+        self.tm_llm = tm_llm
         self.ap_llm = ap_llm
         self.computer = computer
         self.agent_config = agent_config
@@ -359,6 +361,8 @@ class Agent:
         execution_llm = LLM_API_BASED(execution_parameter)
         fe_parameter = config.get_litellm_params(overrides = config.fe_llm)
         fe_llm = LLM_API_BASED(fe_parameter)
+        tm_parameter = config.get_litellm_params(overrides = config.tm_llm)
+        tm_llm = LLM_API_BASED(tm_parameter)
         ap_parameter = config.get_litellm_params(overrides = config.ap_llm)
         ap_llm = LLM_API_BASED(ap_parameter)
         agent_parameter = config.get_agent_params()
@@ -367,6 +371,7 @@ class Agent:
         self.classification_llm = classification_llm
         self.execution_llm = execution_llm
         self.fe_llm = fe_llm
+        self.tm_llm = tm_llm
         self.ap_llm = ap_llm
         self.agent_config = agent_parameter
 
