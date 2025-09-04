@@ -1,27 +1,25 @@
-import os
+import re
+import asyncio
 import traceback
 from infant.config import config
-from infant.agent.parser import parse
-from infant.computer.computer import Computer
 from infant.llm.llm_api_base import LLM_API_BASED
 from infant.agent.memory.memory import IPythonRun
 from infant.util.logger import infant_logger as logger
+from infant.util.run_code_locally import run_code_in_subprocess
 
 # TODO: We need to write a unittest for this
-async def make_new_tool(memory: IPythonRun) -> str:
+def make_new_tool(functionality: str, function_name: str,
+                        function_inputs: list, function_outputs: str) -> str:
     '''
     Make a new tool based on the request from the Agent
-    Add the created tool to the toolsets and update the memory.result.
+    If the new tool is created:
+        return the created tool
+    if not:
+        return None
     '''
     try:
         tm_parameter = config.get_litellm_params(overrides = config.tm_llm)
         tm_llm = LLM_API_BASED(tm_parameter)
-        code: str = memory.code
-        result = memory.result
-        logger.info(f'Error message: {result}')
-
-        # TODO: Extract functionality/function_name/function_inputs/function_outputs
-        # from the code: str = memory.code
         
         example = '''USER:
 I need a function that can create a new sheet in an existing Excel file.
@@ -69,8 +67,10 @@ def create_excel_page(file_name: str, page_name: str) -> None:
                             f"The name of the function should be: \n{function_name}\n" 
                             f"The input of the function should be: \n{function_inputs}\n"
                             f"The output of the function should be: \n{function_outputs}\n"
-                            "Please verify your function thoroughly. For example, write unit tests to validate its behavior. "
+                            "Please verify your function thoroughly. "
                             "Finally, please only provide the complete function and wrap it inside the <tool>...</tool> tag."
+                            "Do not include anything else inside the <tool>...</tool> tag (such as unit tests or usage examples). "
+                            "Only place the function itself within the tag. "
                             f"Here is an example: \n{example}\n"
         )
         messages=[
@@ -82,11 +82,28 @@ def create_excel_page(file_name: str, page_name: str) -> None:
             }
         ]
         answer, _ = tm_llm.completion(messages=messages,stop=['</tool>'])
-        tool = parse(answer)
-        new_tool = f'The tool named {function_name} is created, If you encounter any issues during use, please let me know.'
-        memory.result = tool
+        if f'<tool>' in answer and f'</tool>' not in answer:
+            answer += f'</tool>'
+        tools = re.search(r'<tool>(.*?)</tool>', answer, re.DOTALL)
+        if tools:
+            tool = tools.group(1).strip()
+            return tool
         # TODO: read papers (toolmaker/osworld top grade) and check how they create the tool, is there any feedback?
     except Exception as e:
         output = traceback.format_exc()
         logger.info(output)
-    return memory.result, memory.code
+    return None
+
+async def make_tool(memory: IPythonRun) -> str:
+    ''' 
+    Unify the interface, execute this function will run the memory.action 
+    1. add the new tool to the toolsets. 
+    2. generate the memory.result
+        if the tool is created successfully, update the memory.result with the new tool information.
+        if the tool creation fails, update the memory.result with an error message.
+    '''
+    code = memory.code
+    prefix = 'from infant.helper_functions.toolmaker_helper_function import make_new_tool'
+    rc, stdout, stderr = asyncio.run(run_code_in_subprocess(f'{prefix}\nprint({code})'))
+    tool = stdout.decode().strip() if rc == 0 else None
+    # new_tool = f'The tool named {function_name} is created, If you encounter any issues during use, please let me know.'

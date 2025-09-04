@@ -41,8 +41,6 @@ def response_completion(resp) -> str:
         resp += f'</task_finish>'
     if f'<loca_finish>' in resp and f'</loca_finish>' not in resp: # LocalizationFinish
         resp += f'</loca_finish>'
-    if f'<tool>' in resp and f'</tool>' not in resp:
-        resp += f'</tool>'
     return resp
 
 def parse_response(resp: str) -> str:
