@@ -192,7 +192,17 @@ class Computer:
                 raise e
 
         # auto login to the nomachine
-        self.automate_nomachine_login(initial_session = self.is_initial_session)
+        # self.automate_nomachine_login(initial_session = self.is_initial_session)
+        info = self.ensure_and_login_guac(
+            base_url=f"http://localhost:{self.gui_port}/guacamole",  # 例如 4443
+            web_user="web", web_pass="web",
+            rdp_user="infant", rdp_pass="123",
+            connection_name="GNOME Desktop (RDP)",
+        )
+        print(info["client_url"] or info["index_url"])
+        
+        self.config_xorg_for_gui()
+
         
     def init_plugins(self):
         """Load a plugin into the computer."""
@@ -419,6 +429,268 @@ class Computer:
         # cd to workspace
         self.ssh.sendline(f'cd {self.computer_workspace_dir}')
         self.ssh.prompt()
+    
+    def ensure_guac_ready(
+        self, *,
+        web_user: str = "web",
+        web_pass: str = "web",
+        rdp_user: str = "infant",
+        rdp_pass: str = "123",
+        connection_name: str = "GNOME Desktop (RDP)",
+        timeout_s: float = 15.0,
+    ):
+        """在容器内自动配置 Guacamole（文件认证）并确保相关服务就绪。"""
+        # 目标：GNOME Shell、常用 Dock、跳过色彩管理弹窗、Guac 初始 1280x1080 + 动态跟随
+        INITIAL_W = 1920
+        INITIAL_H = 1080
+        FAVORITES = "['google-chrome.desktop','code.desktop','thunderbird.desktop','libreoffice-writer.desktop','libreoffice-calc.desktop','libreoffice-impress.desktop','org.gnome.Terminal.desktop']"
+
+        cmds = [
+            # 0) 基础目录与 GUACAMOLE_HOME symlink
+            "mkdir -p /etc/guacamole /var/lib/tomcat9/webapps /usr/share/tomcat9 || true",
+            "ln -sf /etc/guacamole /usr/share/tomcat9/.guacamole",
+
+            # 1) XRDP 使用 GNOME Shell（Xorg）
+            r"""bash -lc 'cat > /etc/xrdp/startwm.sh << "SH"
+    #!/bin/sh
+    unset DBUS_SESSION_BUS_ADDRESS
+    unset XDG_RUNTIME_DIR
+    export GNOME_SHELL_SESSION_MODE=ubuntu
+    export XDG_CURRENT_DESKTOP=ubuntu:GNOME
+    export XDG_SESSION_DESKTOP=ubuntu
+    # Ubuntu 22.04: binary 路径如下；若不存在，后备为 gnome-session
+    if command -v /usr/libexec/gnome-session-binary >/dev/null 2>&1; then
+    exec /usr/libexec/gnome-session-binary --session=ubuntu
+    else
+    exec gnome-session --session=ubuntu
+    fi
+    SH
+    chmod +x /etc/xrdp/startwm.sh'""",
+
+            # 2) 系统级 dconf 默认值：隐藏桌面挂载图标 + 设定 Dock 收藏
+            "mkdir -p /etc/dconf/db/local.d /etc/dconf/profile",
+            r"""bash -lc 'cat > /etc/dconf/profile/user << "EOF"
+    user-db:user
+    system-db:local
+    '""",
+            r"""bash -lc 'cat > /etc/dconf/db/local.d/00-infant << "EOF"
+    [org/gnome/nautilus/desktop]
+    volumes-visible=false
+
+    [org/gnome/shell]
+    favorite-apps=%s
+
+    [org/gnome/shell/extensions/ding]
+    show-mounts=false
+    show-network-volumes=false
+    '""" % FAVORITES,
+            "dconf update || true",
+
+            # 3) （尽量）把收藏写入 infant 的用户配置（没有会话总线也尽力一把）
+            r"""bash -lc 'if id -u %s >/dev/null 2>&1; then \
+    sudo -H -u %s dbus-launch --exit-with-session gsettings set org.gnome.shell favorite-apps "%s" || true; \
+    fi'""" % (rdp_user, rdp_user, FAVORITES),
+
+#             # 4) polkit：允许 infant 执行 colord 相关动作（避免色彩管理弹窗）
+#             r"""bash -lc '
+#             set -e
+# mkdir -p /etc/polkit-1/rules.d
+# cat > /etc/polkit-1/rules.d/45-colord-nopass.rules << "EOF"
+#     polkit.addRule(function(action, subject) {
+#     if (subject.user == "%s" &&
+#         (action.id == "org.freedesktop.color-manager.create-device" ||
+#         action.id == "org.freedesktop.color-manager.create-profile" ||
+#         action.id == "org.freedesktop.color-manager.modify-device" ||
+#         action.id == "org.freedesktop.color-manager.modify-profile" ||
+#         action.id == "org.freedesktop.color-manager.set-system-wide")) {
+#         return polkit.Result.YES;
+#     }
+#     });'""" % rdp_user,
+
+            # 5) 写 user-mapping.xml（启用 display-update + 初始 1280×1080 + 提升 DPI）
+            r"""bash -lc 'cat > /etc/guacamole/user-mapping.xml << "XML"
+    <user-mapping>
+    <authorize username="%s" password="%s">
+        <connection name="%s">
+        <protocol>rdp</protocol>
+        <param name="hostname">localhost</param>
+        <param name="port">3389</param>
+        <param name="username">%s</param>
+        <param name="password">%s</param>
+
+        <!-- 初始分辨率 + 动态跟随浏览器窗口 -->
+        <param name="width">%d</param>
+        <param name="height">%d</param>
+        <param name="resize-method">none</param>
+        <param name="dpi">120</param>
+        <param name="enable-font-smoothing">true</param>
+
+        <param name="color-depth">24</param>
+        <param name="security">any</param>
+        <param name="ignore-cert">true</param>
+        </connection>
+    </authorize>
+    </user-mapping>'""" % (web_user, web_pass, connection_name, rdp_user, rdp_pass, INITIAL_W, INITIAL_H),
+
+            # 6) guacamole.properties（文件认证 + guacd）
+            r"""bash -lc 'cat > /etc/guacamole/guacamole.properties << "EOF"
+    guacd-hostname: localhost
+    guacd-port: 4822
+    user-mapping: /etc/guacamole/user-mapping.xml
+    auth-provider: net.sourceforge.guacamole.net.basic.BasicFileAuthenticationProvider'""",
+
+            # 7) 权限（tomcat/tomcat9 二选一）
+            r"""bash -lc 'U=$(getent passwd tomcat >/dev/null && echo tomcat || echo tomcat9); \
+    chown "$U:$U" /etc/guacamole/user-mapping.xml || true; \
+    chmod 640 /etc/guacamole/user-mapping.xml; chmod 755 /etc/guacamole'""",
+
+            # 8) 确保运行目录与进程（xrdp/guacd）
+            r"mkdir -p /var/run/xrdp && chown xrdp:xrdp /var/run/xrdp || true",
+            r"""bash -lc 'pgrep -x guacd >/dev/null || /usr/sbin/guacd -f >/var/log/guacd.log 2>&1 &'""",
+            r"""bash -lc 'pgrep -x xrdp-sesman >/dev/null || /usr/sbin/xrdp-sesman -n >/var/log/xrdp-sesman.log 2>&1 &'""",
+            r"""bash -lc 'pgrep -x xrdp >/dev/null || /usr/sbin/xrdp -n >/var/log/xrdp.log 2>&1 &'""",
+
+            # 9) 兜底启动 Tomcat（/guacamole 在 8080）
+            r"""bash -lc 'pgrep -f org.apache.catalina.startup.Bootstrap >/dev/null \
+    || catalina.sh start \
+    || (catalina.sh run >/var/log/catalina-run.log 2>&1 &)'""",
+
+            # Clean volume
+            r"""bash -lc 'set -eux; \
+U=infant; \
+U_ID=$(id -u "$U"); \
+export XDG_RUNTIME_DIR=/run/user/$U_ID; \
+export DBUS_SESSION_BUS_ADDRESS=unix:path=$XDG_RUNTIME_DIR/bus; \
+[ -S "$XDG_RUNTIME_DIR/bus" ] || (mkdir -p "$XDG_RUNTIME_DIR"; /usr/bin/dbus-daemon --session --address="unix:path=$XDG_RUNTIME_DIR/bus" --fork || true); \
+FAVS="[ '\''google-chrome.desktop'\'', '\''code.desktop'\'', '\''thunderbird.desktop'\'', '\''libreoffice-writer.desktop'\'', '\''libreoffice-calc.desktop'\'', '\''libreoffice-impress.desktop'\'', '\''org.gnome.Nautilus.desktop'\'', '\''org.gnome.Terminal.desktop'\'', '\''org.gnome.Settings.desktop'\'' ]"; \
+sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" gsettings set org.gnome.shell.extensions.dash-to-dock show-mounts false || true; \
+sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" gsettings set org.gnome.shell.extensions.dash-to-dock show-trash false || true; \
+sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" gsettings set org.gnome.shell favorite-apps "$FAVS" || true; \
+sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" gsettings set org.gnome.shell.extensions.dash-to-dock dash-max-icon-size 48 || true'""",
+
+            # Add apps to dock
+            r"""bash -lc 'set -eux; rm -f /etc/dconf/db/local.d/00-infant /etc/dconf/db/local.d/00-favorites || true; mkdir -p /etc/dconf/db/local.d /etc/dconf/profile; printf "%s\n" "user-db:user" "system-db:local" > /etc/dconf/profile/user; printf "%s\n" "[org/gnome/shell]" "favorite-apps=['\''google-chrome.desktop'\'','\''code.desktop'\'','\''thunderbird.desktop'\'','\''libreoffice-writer.desktop'\'','\''libreoffice-calc.desktop'\'','\''libreoffice-impress.desktop'\'','\''org.gnome.Terminal.desktop'\'','\''org.gnome.Nautilus.desktop'\'','\''org.gnome.Settings.desktop'\'']" "" "[org/gnome/shell/extensions/dash-to-dock]" "show-mounts=false" "show-trash=false" "dash-max-icon-size=48" > /etc/dconf/db/local.d/00-favorites; dconf update'
+"""
+            # skip secrate check
+            r"""bash -lc 'set -euo pipefail; apt-get update && apt-get install -y gnome-keyring dbus-user-session && install -d -m 755 /etc/xdg/autostart && printf "[Desktop Entry]\nType=Application\nName=Secret Service (gnome-keyring)\nExec=/usr/bin/gnome-keyring-daemon --start --components=secrets\nOnlyShowIn=GNOME;GNOME-Flashback;Unity;XFCE;LXDE;MATE;\nX-GNOME-Autostart-Phase=Initialization\nX-GNOME-Autostart-Notify=false\nNoDisplay=true\n" > /etc/xdg/autostart/gnome-keyring-secrets.desktop'
+"""
+            # Open desktop
+            r"""bash -lc 'dpkg -s xorgxrdp >/dev/null 2>&1 || (apt-get update && apt-get install -y --no-install-recommends xrdp xorgxrdp guacd)'
+""",
+            r"""bash -lc 'set -eux; mkdir -p /var/run/xrdp; chown xrdp:xrdp /var/run/xrdp || true; getent group ssl-cert >/dev/null && adduser xrdp ssl-cert || true; pgrep -x xrdp-sesman >/dev/null || (/usr/sbin/xrdp-sesman -n  >/var/log/xrdp-sesman.foreground.log 2>&1 &); pgrep -x xrdp >/dev/null        || (/usr/sbin/xrdp -n       >/var/log/xrdp.foreground.log        2>&1 &); pgrep -x guacd >/dev/null        || (/usr/sbin/guacd -f      >/var/log/guacd.foreground.log       2>&1 &); ss -lntp 2>/dev/null | grep -E ":(3389|4822)\\b" || true'
+""",
+            r"""bash -lc 'pgrep -f org.apache.catalina.startup.Bootstrap >/dev/null || catalina.sh start || (catalina.sh run >/var/log/catalina-run.log 2>&1 &)'
+""",
+            r"""bash -lc 'set -euo pipefail; HN=$(hostname); grep -qE "(^|\\s)${HN}(\\s|$)" /etc/hosts || echo "127.0.1.1 ${HN}" | sudo tee -a /etc/hosts >/dev/null; XAUTH=/home/infant/.Xauthority; U=$(id -u infant 2>/dev/null || id -u); G=$(id -g infant 2>/dev/null || id -g); sudo chown ${U}:${G} "$XAUTH" || sudo chown ${U} "$XAUTH"; sudo chmod 600 "$XAUTH"; sudo rm -f "$XAUTH"-c "$XAUTH"-l "$XAUTH".lock || true; COOKIE=$(sudo -u \#${U} XAUTHORITY="$XAUTH" xauth list 2>/dev/null | awk '\''/:10.*MIT-MAGIC-COOKIE-1/ {print $NF; exit}'\''); [ -n "$COOKIE" ] || COOKIE=$(mcookie); HOST=$(hostname); for name in ":10" "$HOST/unix:10" "localhost/unix:10"; do sudo -u \#${U} XAUTHORITY="$XAUTH" xauth add "$name" . "$COOKIE"; done; export DISPLAY=:10 XAUTHORITY="$XAUTH"; C2=$(xauth -f "$XAUTHORITY" list | awk '\''$1 ~ /(^|\/)unix:10$/ && $3=="MIT-MAGIC-COOKIE-1" {print $NF; exit}'\''); [ -n "$C2" ] || C2=$(xauth -f "$XAUTHORITY" list | awk '\''/:10.*MIT-MAGIC-COOKIE-1/ {print $NF; exit}'\''); for name in ":10" "$HOST/unix:10" "localhost/unix:10"; do xauth -f "$XAUTHORITY" add "$name" . "$C2"; done; if command -v xdpyinfo >/dev/null 2>&1; then xdpyinfo >/dev/null && echo "X OK (:10)" || echo "X FAIL"; else echo "xdpyinfo not installed, skipping check"; fi'
+"""
+        ]
+
+        for cmd in cmds:
+            code, logs = self.container.exec_run(['/bin/bash', '-lc', cmd])
+            if code != 0:
+                raise RuntimeError(f"Guac setup step failed: {cmd}\n{logs.decode(errors='ignore')}")
+
+        # 10) 等待 Web UI 就绪（容器内 8080）
+        import time
+        start = time.time()
+        while time.time() - start < timeout_s:
+            code, _ = self.container.exec_run(
+                ['/bin/bash', '-lc', 'curl -fsS http://localhost:8080/guacamole/ >/dev/null']
+            )
+            if code == 0:
+                break
+            time.sleep(0.5)
+        else:
+            raise TimeoutError("Guacamole web UI not ready at :8080/guacamole")
+
+    def config_xorg_for_gui(self):
+        # 1) 修 /etc/hosts，避免 sudo 的主机名告警
+        self.execute("HN=$(hostname)")
+        self.execute('grep -qE "(^|\\s)${HN}(\\s|$)" /etc/hosts || echo "127.0.1.1 ${HN}" | sudo tee -a /etc/hosts >/dev/null')
+        
+        # 2) 变量：目标 Xauthority 路径与 infant 的 UID/GID（若不存在则退回当前用户）
+        self.execute("XAUTH=/home/infant/.Xauthority")
+        self.execute("U=$(id -u infant 2>/dev/null || id -u)")
+        self.execute("G=$(id -g infant 2>/dev/null || id -g)")
+        
+        # 3) 归还权限并设为 600
+        self.execute('sudo chown ${U}:${G} "$XAUTH" || sudo chown ${U} "$XAUTH"')
+        self.execute('sudo chmod 600 "$XAUTH"')
+        
+        # 4) 清理陈旧锁文件
+        self.execute('sudo rm -f "$XAUTH"-c "$XAUTH"-l "$XAUTH".lock || true')
+        
+        # 5) 读取 :10 的 cookie（读不到就生成一枚）
+        self.execute("""COOKIE=$(sudo -u \#${U} XAUTHORITY="$XAUTH" xauth list 2>/dev/null | awk '/:10.*MIT-MAGIC-COOKIE-1/ {print $NF; exit}')""")
+        self.execute('''[ -n "$COOKIE" ] || COOKIE=$(mcookie)''')
+        
+        # 6) 写入到常见的三种 key 上（:10 / <hostname>/unix:10 / localhost/unix:10）
+        self.execute('HOST=$(hostname)')
+        self.execute('sudo -u \#${U} XAUTHORITY="$XAUTH" xauth add ":10" . "$COOKIE"')
+        self.execute('sudo -u \#${U} XAUTHORITY="$XAUTH" xauth add "$HOST/unix:10" . "$COOKIE"')
+        self.execute('sudo -u \#${U} XAUTHORITY="$XAUTH" xauth add "localhost/unix:10" . "$COOKIE"')
+        
+        # 7) 导出到当前 shell（让后续命令能直接用）
+        self.execute('export DISPLAY=:10')
+        self.execute('export XAUTHORITY=/home/infant/.Xauthority')
+        self.execute("source ~/.bashrc")
+        
+        
+
+    def ensure_and_login_guac(
+        self, *,
+        base_url: str,           # 例如 "http://localhost:4443/guacamole"
+        web_user: str = "web",
+        web_pass: str = "web",
+        rdp_user: str = "infant",
+        rdp_pass: str = "123",
+        connection_name: str = "GNOME Desktop (RDP)",
+        verify_tls: bool = True,
+        timeout: float = 10.0,
+    ):
+        """一键：容器内自动配置 + 登录取直达 URL。"""
+        # 先确保容器内配置与进程就绪（GNOME Shell / Dock / polkit / Guac）
+        self.ensure_guac_ready(
+            web_user=web_user, web_pass=web_pass,
+            rdp_user=rdp_user, rdp_pass=rdp_pass,
+            connection_name=connection_name,
+        )
+
+        # 登录拿 token，并返回直达该连接的 URL
+        import requests
+        base = base_url.rstrip('/')
+        s = requests.Session()
+        s.verify = verify_tls
+
+        r = s.post(
+            f"{base}/api/tokens",
+            data={"username": web_user, "password": web_pass},
+            headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
+            timeout=timeout,
+        )
+        r.raise_for_status()
+        j = r.json()
+        token = j["authToken"]
+        data_source = j.get("dataSource") or (j.get("availableDataSources") or ["default", "file"])[0]
+
+        conn_id = None
+        if connection_name:
+            r = s.get(f"{base}/api/session/data/{data_source}/connections",
+                    params={"token": token}, timeout=timeout)
+            r.raise_for_status()
+            resp = r.json()
+            if isinstance(resp, dict):
+                for obj in resp.values():
+                    if obj.get("name") == connection_name:
+                        conn_id = obj.get("identifier")
+                        break
+            if not conn_id:
+                raise RuntimeError(f"Connection '{connection_name}' not found in data source '{data_source}'.")
+
+        index_url = f"{base}/?token={token}"
+        client_url = f"{base}/#/client/{conn_id}?token={token}" if conn_id else None
+        return {"token": token, "data_source": data_source, "index_url": index_url, "client_url": client_url}
+
 
     def automate_nomachine_login(self, initial_session: bool = False):
         logger.info('Attempting to automatically connect to the virtual desktop.')
@@ -432,8 +704,8 @@ class Computer:
         self.execute("source ~/.bashrc")
         
         time.sleep(2) # wait for the installation to finish
-        logger.info(f"Please check the details at: 'https://localhost:{self.gui_port}'")
-        logger.info(f"For first-time users, please go to https://localhost:{self.gui_port} to set up and skip unnecessary steps.")
+        logger.info(f"Please check the details at: 'http://localhost:{self.gui_port}/guacamole'")
+        logger.info(f"For first-time users, please go to http://localhost:{self.gui_port}/guacamole to set up and skip unnecessary steps.")
         try:
             # time.sleep(5000) # DEBUG: Check the nomachine login
             if initial_session:
@@ -853,12 +1125,17 @@ class Computer:
                     shm_size='2g',
                     cap_add=['SYS_ADMIN', 'SYS_BOOT'],
                     devices=['/dev/tty0'],
+                    # ports={
+                    #     4000: self.nomachine_bind_port,
+                    #     # 22: self.ssh_bind_port,
+                    #     22: self._ssh_port,
+                    #     4443: self.gui_port,
+                    #     # f'{self._ssh_port}/tcp':self._ssh_port,
+                    # },
                     ports={
-                        4000: self.nomachine_bind_port,
-                        # 22: self.ssh_bind_port,
-                        22: self._ssh_port,
-                        4443: self.gui_port,
-                        # f'{self._ssh_port}/tcp':self._ssh_port,
+                        '8080/tcp': self.gui_port,   # 容器 8080 -> 宿主 4443（例如 self.gui_port=4443）
+                        '22/tcp': self._ssh_port,    # 容器 22   -> 宿主 SSH 端口（例如 58673）
+                        '3389/tcp': 3389,            # 可选：XRDP（容器3389 -> 宿主3389）
                     },
                     volumes=self.volumes,
                     environment={

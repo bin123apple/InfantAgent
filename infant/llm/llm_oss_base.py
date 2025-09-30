@@ -30,6 +30,7 @@ class LLM_OSS_BASED:
         logger.info(f"Finished initializing parameters of the OSS LLM\n"
                     f"Args: {self.args}." )
         if self.base_url_oss is None:
+            # pass
             self.load_model()
         else: 
             logger.info(f"Using remote model from {self.base_url_oss}.")

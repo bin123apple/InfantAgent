@@ -33,6 +33,10 @@
 
 3. I have not yet conducted large-scale testing of this agent beyond the benchmark; please feel free to report any bugs or submit pull requests. :wave:
 
+## Recent Updates
+
+We’ve switched from NoMachine to the open-source Guacamole for desktop sharing, because NoMachine requires a license for multi-user concurrent sessions. The Docker code has just been updated to support this change, and we will roll out a few follow-up patches to address remaining edge cases and polish the experience.
+
 ## Installation Requirements
 
 Now, it is only tested on `linux` server with `Nvidia Tesla GPU (A100, H200 ...)`. The GPU is for open-spurce model inference. There may be some bugs for Mac/Windows.
@@ -48,14 +52,15 @@ conda install -c conda-forge uv
 uv pip install -e .
 ```
 
-2. Pull the Docker. Only required on the first use. It will pull the docker image from the Docker Hub.
+2. Build the Docker. Only required on the first use. It will pull the docker image from the Docker Hub.
 ```
-docker pull winsonchen108/ubuntu-gnome-nomachine:latest
+cd InfantAgent/infant/computer
+docker build -t ubuntu-gnome-nomachine:latest -f Dockerfile .
 ```
 
 3. Run
 ```
-export CUDA_VISIBLE_DEVICES=3 # For Visual Grounding model inference
+export CUDA_VISIBLE_DEVICES=0,1 # For Visual Grounding model inference
 uvicorn backend:app --log-level info
 ```
 
@@ -65,16 +70,16 @@ uvicorn backend:app --log-level info
 By default, you should enter the Claude API key. You can also change this in the `config.py` file.
 
 - Wait for the backend to configure automatically until you see the following instruction:
-`For first-time users, please go to https://localhost:4443 to set up and skip unnecessary steps.`
+`For first-time users, please go to http://localhost:4443/guacamole/#/client/GNOME to set up and skip unnecessary steps.`
 
-- Go to https://localhost:4443
+- Go to http://localhost:4443/guacamole/#/client/GNOME
 Skip the security check (this is HTTPS, not HTTP), and you will see the Linux desktop.
 
 - Go back to terminal and press `enter` to skip this reminder:
 `When the computer setup is complete, press Enter to continue`
 
 - Go back to the frontend and **refresh the page**.
-In the upper-right corner of the virtual machine, enter your username and password. By default, the username is `infant` and the password is `123`. You can also change these in the `config.py` file.
+In the upper-right corner of the virtual machine, enter your username and password. By default, the username for the guacamole is `web` and the password is also `web`. The computer username is `infant` and the password is `123`. You can also change these in the `config.py` file.
 
 Now the agent is ready to use, and you don't need to configure the virtual machine again as long as the container still exists.
 
@@ -86,8 +91,6 @@ Now the agent is ready to use, and you don't need to configure the virtual machi
 
 ![A simple web application demo](https://github.com/bin123apple/InfantAgent/blob/main/asset/simple_web_application.png)
 
-## TODO
-- [ ] Add: More emoj/user friendly front end.
 
 ## Acknowledgements
 Thanks to the many outstanding open-source projects and models.

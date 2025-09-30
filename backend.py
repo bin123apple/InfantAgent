@@ -584,5 +584,5 @@ async def nxplayer_proxy(request: Request, full_path: str):
     )
 if __name__ == "__main__":
     import uvicorn
-    print("Starting server on http://localhost:8000")
-    uvicorn.run("backend:app", host="0.0.0.0", port=8000, reload=False)
+    print("Starting server on http://localhost:8001")
+    uvicorn.run("backend:app", host="0.0.0.0", port=8001, reload=True)

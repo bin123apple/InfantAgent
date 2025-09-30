@@ -18,12 +18,67 @@ GET_STATE_CODE = """state = await context.get_state()
 print(state)
 """
 
-OPEN_BROWSER_CODE = """import subprocess, time, socket, asyncio
+# OPEN_BROWSER_CODE = """import subprocess, time, socket, asyncio
 
-# 1) 尝试复用已有的 Chrome
+# # 1) 尝试复用已有的 Chrome
+# chrome_proc = None
+# try:
+#     with socket.create_connection(("127.0.0.1", 9222), timeout=1):
+#         print("✅ Detected existing Chrome on 9222, reusing it")
+# except OSError:
+#     print("⚙️  No Chrome on 9222, launching a new one")
+#     chrome_proc = subprocess.Popen(
+#         [
+#             "/usr/bin/google-chrome",
+#             "--no-first-run",
+#             "--remote-debugging-port=9222",
+#             "--remote-debugging-address=127.0.0.0",
+#             "--user-data-dir=/tmp/chrome-profile",
+#             "--start-maximized",
+#         ],
+#         stdout=open("/tmp/log.log","w"),
+#         stderr=subprocess.STDOUT,
+#         close_fds=True,
+#     )
+#     start = time.time()
+#     while time.time() - start < 15:
+#         try:
+#             with socket.create_connection(("127.0.0.1", 9222), timeout=1):
+#                 break
+#         except OSError:
+#             time.sleep(0.2)
+#     else:
+#         raise RuntimeError("Chrome on 9222 didn't start in time")
+
+# # 2) Playwright attach
+# config = BrowserConfig(
+#     headless=False,
+#     chrome_instance_path='/usr/bin/google-chrome',
+#     cdp_url="http://127.0.0.1:9222"
+# )
+# browser = Browser(config)
+# context = await browser.new_context()
+
+# await asyncio.sleep(2)
+# take_screenshot()
+# EOL"""
+
+OPEN_BROWSER_CODE = """import os, subprocess, time, socket, asyncio, pathlib
+
+PORT = 9222
+ADDR = "127.0.0.1"
+
+# 把可用的 X 环境显式传给子进程
+env = os.environ.copy()
+env["DISPLAY"] = ":10"
+env["XAUTHORITY"] = "/home/infant/.Xauthority"
+
+os.environ["DISPLAY"] = ":10"
+os.environ["XAUTHORITY"] = "/home/infant/.Xauthority"
+
 chrome_proc = None
 try:
-    with socket.create_connection(("127.0.0.1", 9222), timeout=1):
+    with socket.create_connection((ADDR, PORT), timeout=1):
         print("✅ Detected existing Chrome on 9222, reusing it")
 except OSError:
     print("⚙️  No Chrome on 9222, launching a new one")
@@ -32,29 +87,39 @@ except OSError:
             "/usr/bin/google-chrome",
             "--no-first-run",
             "--remote-debugging-port=9222",
-            "--remote-debugging-address=127.0.0.0",
+            "--remote-debugging-address=127.0.0.1",
             "--user-data-dir=/tmp/chrome-profile",
             "--start-maximized",
+            "--disable-gpu",
+            "--disable-dev-shm-usage",
+            "--no-sandbox",
         ],
         stdout=open("/tmp/log.log","w"),
         stderr=subprocess.STDOUT,
         close_fds=True,
+        env=env,
     )
     start = time.time()
-    while time.time() - start < 15:
+    while time.time() - start < 5:
         try:
-            with socket.create_connection(("127.0.0.1", 9222), timeout=1):
+            with socket.create_connection((ADDR, PORT), timeout=1):
                 break
         except OSError:
-            time.sleep(0.2)
+            time.sleep(0.3)
     else:
-        raise RuntimeError("Chrome on 9222 didn't start in time")
+        try:
+            with open("/tmp/log.log","r") as f:
+                tail = "".join(f.readlines()[-80:])
+                print("---- /tmp/log.log (tail) ----", tail)
+        except Exception:
+            pass
+        raise RuntimeError("Chrome on 9222 didn't start in time. See /tmp/log.log")
 
-# 2) Playwright attach
+# 用你现有接口连接并截图
 config = BrowserConfig(
     headless=False,
     chrome_instance_path='/usr/bin/google-chrome',
-    cdp_url="http://127.0.0.1:9222"
+    cdp_url=f"http://{ADDR}:{PORT}"
 )
 browser = Browser(config)
 context = await browser.new_context()

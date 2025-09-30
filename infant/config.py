@@ -111,7 +111,7 @@ class Config:
     retry_max_wait: int = 60
     timeout: int | None = None
     max_chars: int = 5_000_000  # fallback for token counting
-    temperature: float = 0.9
+    temperature: float = 1.0
     top_p: float = 0.5
     custom_llm_provider: str | None = None
     max_input_tokens: int | None = None
@@ -126,12 +126,12 @@ class Config:
     model_oss: str = 'ByteDance-Seed/UI-TARS-1.5-7B'
     api_key_oss: str | None = None
     base_url_oss: str | None = None
-    tensor_parallel_size: int = 1 # Tensor parallelism splits the model's tensors across n GPUs
-    max_model_len: int = 9632
+    tensor_parallel_size: int = 2 # Tensor parallelism splits the model's tensors across n GPUs
+    max_model_len: int = 1024
     disable_custom_all_reduce: bool = True
     enable_prefix_caching: bool = False
     trust_remote_code: bool = True
-    gpu_memory_utilization: float = 0.95 # kv cache memory utilization
+    gpu_memory_utilization: float = 0.9 # kv cache memory utilization
     sampling_n: int = 1
     best_of: Optional[int] = None
     presence_penalty: float = 0.0
@@ -148,7 +148,7 @@ class Config:
     stop: Optional[Union[str, List[str]]] = None
     stop_token_ids: Optional[List[int]] = None
     ignore_eos: bool = False
-    max_tokens: Optional[int] = 9632
+    max_tokens: Optional[int] = 1024
     min_tokens: int = 0
     max_retries: int = 10
     
@@ -184,7 +184,8 @@ class Config:
     workspace_mount_path_in_computer: str = '/workspace'
     workspace_mount_rewrite: str | None = None
     cache_dir: str = '/tmp/cache'
-    computer_container_image: str = 'winsonchen108/ubuntu-gnome-nomachine:latest' # Pull from Docker Hub  
+    # computer_container_image: str = 'winsonchen108/ubuntu-gnome-nomachine:latest' # Pull from Docker Hub  
+    computer_container_image: str = 'ubuntu-gnome-nomachine:latest' # Pull from Docker Hub  
     e2b_api_key: str = ''
     computer_type: str = 'ssh'  # Can be 'ssh', 'exec', or 'e2b'
     use_host_network: bool = False
