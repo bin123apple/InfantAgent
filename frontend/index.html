@@ -111,16 +111,15 @@
       align-items: center;
       justify-content: start; 
       background: #fafafa;
-      border-bottom: 1px solid #e0e0e0;
+      border-bottom: 0.5px solid #e0e0e0;
       z-index: 100;
-      flex-shrink: 0; /* 防止header被压缩 */
     }
     
     /* 内容区域样式 - 关键修复 */
     .panel-content {
       flex: 1;
       overflow: hidden; /* 防止溢出 */
-      padding: 8px;
+      padding: 0px;
       min-height: 0; /* 允许收缩 */
       display: flex;
       flex-direction: column;
@@ -268,6 +267,38 @@
 
     ol, li { /* Or ol li */
       list-style-position: inside;
+    }
+  </style>
+  <style>
+    :root{ --dpr:1; --px: calc(1px / var(--dpr)); }     /* 1 物理像素 */
+    /* 非全屏 0.5px；全屏 8px */
+    .panel .panel-header{ padding: calc(0.5 * var(--px)) 8px; }
+    .panel.fullspan .panel-header{ padding: 8px 12px; }
+    /* 按钮位置微调（可选） */
+    .panel .panel-header .fs-btn { top: calc(0.5 * var(--px)); right: 2px; }
+    .panel.fullspan .panel-header .fs-btn { top: 4px; right: 4px; }
+    .panel .panel-header { font-size: 10px; padding: 0.05em 0.6em; }  /* 非全屏 */
+    .panel.fullspan .panel-header { font-size: 16px; padding: 0.5em 0.75em; } /* 全屏 */
+    .panel .panel-header { position: relative; }
+
+    /* 按钮：垂直居中 + 固定右边距 */
+    .panel .panel-header .fs-btn{
+      position: absolute;
+      top: 50%;
+      right: 6px;                 /* 非全屏右边距 */
+      transform: translateY(-50%);/* 垂直居中关键 */
+      width: 28px; height: 28px;  /* 更好点按 */
+      line-height: 28px;
+      z-index: 101;
+    }
+    
+    /* 全屏时，右边距稍大一点（可按需改） */
+    .panel.fullspan .panel-header .fs-btn{ right: 10px; }
+    
+    /* 可访问性：键盘聚焦可见 */
+    .panel .panel-header .fs-btn:focus-visible{
+      outline: 2px solid #4a90e2;
+      outline-offset: 2px;
     }
   </style>
 </head>
@@ -515,6 +546,15 @@
         });
       });
     });
+  </script>
+  <script>
+    (function setDPR(){
+      const apply = () =>
+        document.documentElement.style.setProperty('--dpr', (window.devicePixelRatio || 1));
+      window.addEventListener('load', apply);
+      window.addEventListener('resize', apply);
+      apply();
+    })();
   </script>
 </body>
 </html>
