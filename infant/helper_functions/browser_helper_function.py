@@ -63,7 +63,7 @@ print(state)
 # take_screenshot()
 # EOL"""
 
-OPEN_BROWSER_CODE = """import os, subprocess, time, socket, asyncio, pathlib
+OPEN_BROWSER_CODE = """import os, subprocess, time, socket, asyncio, pathlib, textwrap
 
 PORT = 9222
 ADDR = "127.0.0.1"
@@ -73,9 +73,41 @@ env = os.environ.copy()
 env["DISPLAY"] = ":10"
 env["XAUTHORITY"] = "/home/infant/.Xauthority"
 
-os.environ["DISPLAY"] = ":10"
-os.environ["XAUTHORITY"] = "/home/infant/.Xauthority"
+script = r'''set -euo pipefail
+HN=$(hostname)
+grep -qE "(^|[[:space:]])${HN}([[:space:]]|$)" /etc/hosts || echo "127.0.1.1 ${HN}" | sudo tee -a /etc/hosts >/dev/null
+if id infant >/dev/null 2>&1; then
+  U=$(id -u infant); G=$(id -g infant); XHOME=$(getent passwd infant | cut -d: -f6)
+else
+  U=$(id -u); G=$(id -g); XHOME=$(getent passwd "$(id -un)" | cut -d: -f6); [ -n "$XHOME" ] || XHOME="${HOME}"
+fi
+XAUTH="${XHOME}/.Xauthority"
+sudo -u \#${U} mkdir -p "${XHOME}"
+[ -e "${XAUTH}" ] || sudo -u \#${U} touch "${XAUTH}"
+sudo chown ${U}:${G} "$XAUTH" || sudo chown ${U} "$XAUTH"
+sudo chmod 600 "$XAUTH"
+sudo rm -f "$XAUTH"-c "$XAUTH"-l "$XAUTH".lock || true
+COOKIE=$(sudo -u \#${U} XAUTHORITY="$XAUTH" xauth list 2>/dev/null | awk '/:10.*MIT-MAGIC-COOKIE-1/ {print $NF; exit}')
+[ -n "$COOKIE" ] || COOKIE=$(mcookie)
+HOST=$(hostname)
+for name in ":10" "$HOST/unix:10" "localhost/unix:10"; do
+  sudo -u \#${U} XAUTHORITY="$XAUTH" xauth add "$name" . "$COOKIE"
+done
+export DISPLAY=:10 XAUTHORITY="$XAUTH"
+C2=$(xauth -f "$XAUTHORITY" list | awk '$1 ~ /(^|\/)unix:10$/ && $3=="MIT-MAGIC-COOKIE-1" {print $NF; exit}')
+[ -n "$C2" ] || C2=$(xauth -f "$XAUTHORITY" list | awk '/:10.*MIT-MAGIC-COOKIE-1/ {print $NF; exit}')
+for name in ":10" "$HOST/unix:10" "localhost/unix:10"; do
+  xauth -f "$XAUTHORITY" add "$name" . "$C2"
+done
+if command -v xdpyinfo >/dev/null 2>&1; then
+  xdpyinfo >/dev/null && echo "X OK (:10)" || echo "X FAIL"
+else
+  echo "xdpyinfo not installed, skipping check"
+fi
+'''
 
+res = subprocess.run(["bash","-lc", script], capture_output=True, text=True)
+res.check_returncode()
 chrome_proc = None
 try:
     with socket.create_connection((ADDR, PORT), timeout=1):
