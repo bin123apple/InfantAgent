@@ -93,7 +93,7 @@ class Agent:
         self.execution_task_end_prompt = execution_task_end_prompt
 
     def _active_llms(self):
-        """Return a tuple of all non‑None LLM instances owned by the agent."""
+        """Return a tuple of all non-None LLM instances owned by the agent."""
         return tuple(
             llm for llm in (
                 self.planning_llm,

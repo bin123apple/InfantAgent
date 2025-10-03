@@ -194,7 +194,7 @@ class Computer:
         # auto login to the nomachine
         # self.automate_nomachine_login(initial_session = self.is_initial_session)
         info = self.ensure_and_login_guac(
-            base_url=f"http://localhost:{self.gui_port}/guacamole",  # 例如 4443
+            base_url=f"http://localhost:{self.gui_port}/guacamole",  # such as 4443
             web_user="web", web_pass="web",
             rdp_user="infant", rdp_pass="123",
             connection_name="GNOME Desktop (RDP)",
@@ -380,18 +380,7 @@ class Computer:
             logger.info(f"Successfully removed known host port: {port}.")
         except subprocess.CalledProcessError as e:
             logger.info(f"Error while trying to delete known host port {port}:", e.stderr)
-        
-        ### For root user    
-        # try:
-        #     # Add host key to known_hosts to avoid interactive prompt
-        #     subprocess.run(
-        #         ["ssh-keyscan", "-p", port, hostname],
-        #         stdout=open(f"{os.path.expanduser('~')}/.ssh/known_hosts", "a"),
-        #         stderr=subprocess.DEVNULL,
-        #     )
-        # except Exception as e:
-        #     logger.exception(f'Failed to add host key to known_hosts: {e}', exc_info=False)
-            
+          
     # Use the retry decorator, with a maximum of 5 attempts and a fixed wait time of 5 seconds between attempts
     @retry(stop=stop_after_attempt(5), wait=wait_fixed(5))
     def __ssh_login(self):
@@ -439,18 +428,18 @@ class Computer:
         connection_name: str = "GNOME Desktop (RDP)",
         timeout_s: float = 15.0,
     ):
-        """在容器内自动配置 Guacamole（文件认证）并确保相关服务就绪。"""
-        # 目标：GNOME Shell、常用 Dock、跳过色彩管理弹窗、Guac 初始 1280x1080 + 动态跟随
+        """Set up Guacamole."""
+        # Target: GNOME Shell, common Dock, skip color management pop-ups, Guac initial 1280x1080 + dynamic follow
         INITIAL_W = 1920
         INITIAL_H = 1080
         FAVORITES = "['google-chrome.desktop','code.desktop','thunderbird.desktop','libreoffice-writer.desktop','libreoffice-calc.desktop','libreoffice-impress.desktop','org.gnome.Terminal.desktop']"
         self.execute('sudo id infant >/dev/null 2>&1 || sudo useradd -m -s /bin/bash infant')
         cmds = [
-            # 0) 基础目录与 GUACAMOLE_HOME symlink
+            # Basic directories and GUACAMOLE_HOME symlink
             "mkdir -p /etc/guacamole /var/lib/tomcat9/webapps /usr/share/tomcat9 || true",
             "ln -sf /etc/guacamole /usr/share/tomcat9/.guacamole",
 
-            # 1) XRDP 使用 GNOME Shell（Xorg）
+            # XRDP use GNOME Shell (Xorg)
             r"""bash -lc 'cat > /etc/xrdp/startwm.sh << "SH"
     #!/bin/sh
     unset DBUS_SESSION_BUS_ADDRESS
@@ -458,7 +447,6 @@ class Computer:
     export GNOME_SHELL_SESSION_MODE=ubuntu
     export XDG_CURRENT_DESKTOP=ubuntu:GNOME
     export XDG_SESSION_DESKTOP=ubuntu
-    # Ubuntu 22.04: binary 路径如下；若不存在，后备为 gnome-session
     if command -v /usr/libexec/gnome-session-binary >/dev/null 2>&1; then
     exec /usr/libexec/gnome-session-binary --session=ubuntu
     else
@@ -467,7 +455,7 @@ class Computer:
     SH
     chmod +x /etc/xrdp/startwm.sh'""",
 
-            # 2) 系统级 dconf 默认值：隐藏桌面挂载图标 + 设定 Dock 收藏
+            # System-level dconf defaults: hide desktop mount icons + set Dock favorites
             "mkdir -p /etc/dconf/db/local.d /etc/dconf/profile",
             r"""bash -lc 'cat > /etc/dconf/profile/user << "EOF"
     user-db:user
@@ -486,28 +474,13 @@ class Computer:
     '""" % FAVORITES,
             "dconf update || true",
 
-            # 3) （尽量）把收藏写入 infant 的用户配置（没有会话总线也尽力一把）
+            # Write favorites to infant user config (try best without session bus)
             r"""bash -lc 'if id -u %s >/dev/null 2>&1; then \
     sudo -H -u %s dbus-launch --exit-with-session gsettings set org.gnome.shell favorite-apps "%s" || true; \
     fi'""" % (rdp_user, rdp_user, FAVORITES),
 
-#             # 4) polkit：允许 infant 执行 colord 相关动作（避免色彩管理弹窗）
-#             r"""bash -lc '
-#             set -e
-# mkdir -p /etc/polkit-1/rules.d
-# cat > /etc/polkit-1/rules.d/45-colord-nopass.rules << "EOF"
-#     polkit.addRule(function(action, subject) {
-#     if (subject.user == "%s" &&
-#         (action.id == "org.freedesktop.color-manager.create-device" ||
-#         action.id == "org.freedesktop.color-manager.create-profile" ||
-#         action.id == "org.freedesktop.color-manager.modify-device" ||
-#         action.id == "org.freedesktop.color-manager.modify-profile" ||
-#         action.id == "org.freedesktop.color-manager.set-system-wide")) {
-#         return polkit.Result.YES;
-#     }
-#     });'""" % rdp_user,
 
-            # 5) 写 user-mapping.xml（启用 display-update + 初始 1280×1080 + 提升 DPI）
+            # Write user-mapping.xml (enable display-update + initial 1280x1080 + higher DPI)
             r"""bash -lc 'cat > /etc/guacamole/user-mapping.xml << "XML"
     <user-mapping>
     <authorize username="%s" password="%s">
@@ -518,7 +491,7 @@ class Computer:
         <param name="username">%s</param>
         <param name="password">%s</param>
 
-        <!-- 初始分辨率 + 动态跟随浏览器窗口 -->
+        <!-- Initial resolution + dynamic follow browser window -->
         <param name="width">%d</param>
         <param name="height">%d</param>
         <param name="resize-method">none</param>
@@ -532,25 +505,24 @@ class Computer:
     </authorize>
     </user-mapping>'""" % (web_user, web_pass, connection_name, rdp_user, rdp_pass, INITIAL_W, INITIAL_H),
 
-            # 6) guacamole.properties（文件认证 + guacd）
+            # guacamole.properties
             r"""bash -lc 'cat > /etc/guacamole/guacamole.properties << "EOF"
     guacd-hostname: localhost
     guacd-port: 4822
     user-mapping: /etc/guacamole/user-mapping.xml
     auth-provider: net.sourceforge.guacamole.net.basic.BasicFileAuthenticationProvider'""",
 
-            # 7) 权限（tomcat/tomcat9 二选一）
             r"""bash -lc 'U=$(getent passwd tomcat >/dev/null && echo tomcat || echo tomcat9); \
     chown "$U:$U" /etc/guacamole/user-mapping.xml || true; \
     chmod 640 /etc/guacamole/user-mapping.xml; chmod 755 /etc/guacamole'""",
 
-            # 8) 确保运行目录与进程（xrdp/guacd）
+            # Ensure /var/run/xrdp exists（xrdp/guacd）
             r"mkdir -p /var/run/xrdp && chown xrdp:xrdp /var/run/xrdp || true",
             r"""bash -lc 'pgrep -x guacd >/dev/null || /usr/sbin/guacd -f >/var/log/guacd.log 2>&1 &'""",
             r"""bash -lc 'pgrep -x xrdp-sesman >/dev/null || /usr/sbin/xrdp-sesman -n >/var/log/xrdp-sesman.log 2>&1 &'""",
             r"""bash -lc 'pgrep -x xrdp >/dev/null || /usr/sbin/xrdp -n >/var/log/xrdp.log 2>&1 &'""",
 
-            # 9) 兜底启动 Tomcat（/guacamole 在 8080）
+            # start tomcat9
             r"""bash -lc 'pgrep -f org.apache.catalina.startup.Bootstrap >/dev/null \
     || catalina.sh start \
     || (catalina.sh run >/var/log/catalina-run.log 2>&1 &)'""",
@@ -590,7 +562,6 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
             if code != 0:
                 raise RuntimeError(f"Guac setup step failed: {cmd}\n{logs.decode(errors='ignore')}")
 
-        # 10) 等待 Web UI 就绪（容器内 8080）
         import time
         start = time.time()
         while time.time() - start < timeout_s:
@@ -604,37 +575,37 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
             raise TimeoutError("Guacamole web UI not ready at :8080/guacamole")
 
     def config_xorg_for_gui(self):
-        # 1) 修 /etc/hosts，避免 sudo 的主机名告警
+        # Fix /etc/hosts to avoid sudo warning about hostname
         self.execute("HN=$(hostname)")
         self.execute('grep -qE "(^|\\s)${HN}(\\s|$)" /etc/hosts || echo "127.0.1.1 ${HN}" | sudo tee -a /etc/hosts >/dev/null')
         
-        # 2) 变量：目标 Xauthority 路径与 infant 的 UID/GID（若不存在则退回当前用户）
+        # VARIABLES: target Xauthority path and infant's UID/GID (fallback to current user if not exist)
         self.execute("XAUTH=/home/infant/.Xauthority")
         self.execute("U=$(id -u infant 2>/dev/null || id -u)")
         self.execute("G=$(id -g infant 2>/dev/null || id -g)")
         
-        # 3) 归还权限并设为 600
+        # return rights and set to 600
         self.execute('sudo chown ${U}:${G} "$XAUTH" || sudo chown ${U} "$XAUTH"')
         self.execute('sudo chmod 600 "$XAUTH"')
         
-        # 4) 清理陈旧锁文件
+        # Clean up stale lock files
         self.execute('sudo rm -f "$XAUTH"-c "$XAUTH"-l "$XAUTH".lock || true')
         
-        # 5) 读取 :10 的 cookie（读不到就生成一枚）
+        # Read the cookie for display :10
         self.execute("""COOKIE=$(sudo -u \#${U} XAUTHORITY="$XAUTH" xauth list 2>/dev/null | awk '/:10.*MIT-MAGIC-COOKIE-1/ {print $NF; exit}')""")
         self.execute('''[ -n "$COOKIE" ] || COOKIE=$(mcookie)''')
         
-        # 6) 写入到常见的三种 key 上（:10 / <hostname>/unix:10 / localhost/unix:10）
+        # Write three common keys (:10 / <hostname>/unix:10 / localhost/unix:10)
         self.execute('HOST=$(hostname)')
         self.execute('sudo -u \#${U} XAUTHORITY="$XAUTH" xauth add ":10" . "$COOKIE"')
         self.execute('sudo -u \#${U} XAUTHORITY="$XAUTH" xauth add "$HOST/unix:10" . "$COOKIE"')
         self.execute('sudo -u \#${U} XAUTHORITY="$XAUTH" xauth add "localhost/unix:10" . "$COOKIE"')
         
-        # 7) 导出到当前 shell（让后续命令能直接用）
+        # export DISPLAY=:10
         self.execute("grep -qx 'export DISPLAY=:10' ~/.bashrc || echo 'export DISPLAY=:10' >> ~/.bashrc && source ~/.bashrc")
         self.execute('export XAUTHORITY=/home/infant/.Xauthority')
         
-        # 8) 禁用屏保
+        # Prevent screen from locking or going blank
         self.execute("gsettings set org.gnome.desktop.session idle-delay 0")
         self.execute("gsettings set org.gnome.desktop.screensaver lock-delay 0")
         self.execute("gsettings set org.gnome.desktop.screensaver lock-enabled false")
@@ -652,7 +623,7 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
 
     def ensure_and_login_guac(
         self, *,
-        base_url: str,           # 例如 "http://localhost:4443/guacamole"
+        base_url: str,
         web_user: str = "web",
         web_pass: str = "web",
         rdp_user: str = "infant",
@@ -661,15 +632,15 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
         verify_tls: bool = True,
         timeout: float = 10.0,
     ):
-        """一键：容器内自动配置 + 登录取直达 URL。"""
-        # 先确保容器内配置与进程就绪（GNOME Shell / Dock / polkit / Guac）
+        """One-step: ensure Guacamole is configured inside the container + login and get direct URL."""
+        # First ensure Guacamole is configured and ready inside the container
         self.ensure_guac_ready(
             web_user=web_user, web_pass=web_pass,
             rdp_user=rdp_user, rdp_pass=rdp_pass,
             connection_name=connection_name,
         )
 
-        # 登录拿 token，并返回直达该连接的 URL
+        # login and get token + direct URL to the connection
         import requests
         base = base_url.rstrip('/')
         s = requests.Session()
@@ -893,26 +864,26 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
             return 0, all_output
 
         self.ssh.sendline(cmd)
-        # --- 检查是否掉进交互环境，若是则 10 s 后自动退出 ---
+        # --- check if we are in Python REPL / pdb / IPython / less/more ---
         try:
-            # 0,1,2 = REPL/pdb   3,4,5 = 分页器   6 = EOF
+            # 0,1,2 = REPL/pdb   3,4,5 = pager   6 = EOF
             idx = self.ssh.expect([
                     r'>>> $',                 # 0  Python REPL
                     r'\(Pdb\)\s*',            # 1  pdb / ipdb
                     r'In \[\d+\]:\s*',        # 2  IPython
-                    r'--More--',              # 3  less/more 翻页提示
-                    pexpect.EOF               # 6  子进程正常结束
+                    r'--More--',              # 3  less/more
+                    pexpect.EOF               # 6  EOF
                 ],
                 timeout=1
             )
 
-            # ---------- 根据 idx 采取动作 -------------------
-            if idx in (0, 1, 2):                 # 掉进 Python / pdb / IPython
-                time.sleep(10)                   # 留 10 秒调试
-                self.ssh.sendline('q')           # pdb 退出
-                self.ssh.sendline('quit()')      # Python REPL 退出
-                self.ssh.sendintr()              # 兜底 Ctrl-C
-            elif idx in (3, 4):               # 正在分页器
+            # ---------- Take actions based on the state ----------
+            if idx in (0, 1, 2):                 # Found Python REPL / pdb / IPython
+                time.sleep(10)                   # wait for any output to arrive
+                self.ssh.sendline('q')           # pdb exit
+                self.ssh.sendline('quit()')      # Python REPL exit
+                self.ssh.sendintr()              # send ctrl-c to stop the running command
+            elif idx in (3, 4):               # Found less/more pager
                 self.ssh.send('q') 
         except Exception:
             pass
@@ -1146,9 +1117,9 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
                     #     # f'{self._ssh_port}/tcp':self._ssh_port,
                     # },
                     ports={
-                        '8080/tcp': self.gui_port,   # 容器 8080 -> 宿主 4443（例如 self.gui_port=4443）
-                        '22/tcp': self._ssh_port,    # 容器 22   -> 宿主 SSH 端口（例如 58673）
-                        '3389/tcp': 3389,            # 可选：XRDP（容器3389 -> 宿主3389）
+                        '8080/tcp': self.gui_port,
+                        '22/tcp': self._ssh_port,
+                        '3389/tcp': 3389,
                     },
                     volumes=self.volumes,
                     environment={

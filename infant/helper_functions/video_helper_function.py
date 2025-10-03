@@ -135,8 +135,8 @@ def is_av1_encoded(video_path: str) -> bool:
 
 def extract_frame_ffmpeg(video_path: str, time_sec: float, output_image: str) -> None:
     """
-    利用 ffmpeg 提取 video_path 视频中 time_sec 时间点的一帧，
-    输出到 output_image。利用 -ss 快速定位，-vframes 1 表示只输出一帧。
+    Use ffmpeg to extract a frame at time_sec from video_path and save it to output_image.
+    output_image should be a full path including filename and extension.
     """
     quoted_input = shlex.quote(video_path)
     quoted_output = shlex.quote(output_image)

@@ -12,15 +12,15 @@
     body, html { height: 100%; margin: 0; padding: 0; font-family: Arial, sans-serif; }
     .dashboard { display: flex; height: 100vh; }
     .chat-area { 
-      flex: 0 0 25%; /* 修改：设置默认宽度为25%，从35%缩小到25% */
-      padding: 5px 0; /* 减少整体padding */
+      flex: 0 0 25%;
+      padding: 5px 0;
       padding-left: 5px;
       display: flex; 
       flex-direction: column;
-      min-width: 300px; /* 最小宽度 */
+      min-width: 300px;
     }
     
-    /* 可调整的分割条 */
+    /* Added styles for the resizer */
     .resizer {
       width: 6px;
       background-color: #e0e0e0;
@@ -37,7 +37,7 @@
       background-color: #3a5a8a;
     }
     
-    /* 分割条中间的指示器 */
+    /* Indicator in the middle of the resizer */
     .resizer::after {
       content: '';
       position: absolute;
@@ -59,12 +59,12 @@
     .status-item { display: flex; gap: 4px; margin-bottom: 2px; }
     .status-label { font-weight: bold; }
 
-    /* Right dashboard grid - 关键修复 */
+    /* Right dashboard grid */
     .dashboard-right {
-      flex: 0 0 75%; /* 修改：设置默认宽度为75%，从65%增加到75% */
+      flex: 0 0 75%;
       display: grid;
-      grid-template-columns: 1fr 1fr; /* 两列等宽 */
-      grid-template-rows: 1fr 1fr; /* 两行等高 */
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
       gap: 5px;
       padding: 10px;
       position: relative;
@@ -77,27 +77,27 @@
     .panel { 
       border: 1px solid #ccc; 
       border-radius: 4px; 
-      padding: 0; /* 重要：移除padding，让内容区域管理间距 */
+      padding: 0;
       display: flex; 
       flex-direction: column; 
-      overflow: hidden; /* 重要：防止内容溢出 */
+      overflow: hidden;
       position: relative;
       z-index: 1;
-      min-height: 0; /* 允许收缩 */
-      min-width: 0; /* 允许收缩 */
-      width: 100%; /* 确保占满grid cell */
-      height: 100%; /* 确保占满grid cell */
+      min-height: 0;
+      min-width: 0;
+      width: 100%;
+      height: 100%;
       box-sizing: border-box;
     }
     
-    /* 全屏状态：占满所有格子并置于最上层 */
+    /* Fullscreen state: span all grid cells and be on top */
     .panel.fullspan {
       grid-column: 1 / -1;
       grid-row: 1 / -1;
       z-index: 10;
     }
     
-    /* 隐藏非目标 panel */
+    /* Hide non-target panels */
     .panel.hidden {
       display: none;
     }
@@ -115,12 +115,12 @@
       z-index: 100;
     }
     
-    /* 内容区域样式 - 关键修复 */
+    /* Content area styles - key fixes */
     .panel-content {
       flex: 1;
-      overflow: hidden; /* 防止溢出 */
+      overflow: hidden;
       padding: 0px;
-      min-height: 0; /* 允许收缩 */
+      min-height: 0;
       display: flex;
       flex-direction: column;
       word-wrap: break-word;
@@ -167,7 +167,7 @@
       line-height: 1.4;
     }
     
-    /* Subtask列表样式 */
+    /* Subtask list styles */
     #subtaskList {
       word-wrap: break-word;
       word-break: break-all;
@@ -195,7 +195,7 @@
       overflow-wrap: break-word;
     }
     
-    /* iframe容器 */
+    /* iframe styles to ensure it fills the panel content */
     .iframe-container {
       flex: 1;
       min-height: 0;
@@ -208,7 +208,7 @@
       border: none;
     }
 
-    /* 全屏按钮样式 */
+    /*Fullscreen Button*/
     .fs-btn {
       position: absolute;
       top: 4px;
@@ -270,32 +270,27 @@
     }
   </style>
   <style>
-    :root{ --dpr:1; --px: calc(1px / var(--dpr)); }     /* 1 物理像素 */
-    /* 非全屏 0.5px；全屏 8px */
+    :root{ --dpr:1; --px: calc(1px / var(--dpr)); }
     .panel .panel-header{ padding: calc(0.5 * var(--px)) 8px; }
     .panel.fullspan .panel-header{ padding: 8px 12px; }
-    /* 按钮位置微调（可选） */
     .panel .panel-header .fs-btn { top: calc(0.5 * var(--px)); right: 2px; }
     .panel.fullspan .panel-header .fs-btn { top: 4px; right: 4px; }
-    .panel .panel-header { font-size: 10px; padding: 0.05em 0.6em; }  /* 非全屏 */
-    .panel.fullspan .panel-header { font-size: 16px; padding: 0.5em 0.75em; } /* 全屏 */
+    .panel .panel-header { font-size: 10px; padding: 0.05em 0.6em; }  /* Not full screen */
+    .panel.fullspan .panel-header { font-size: 16px; padding: 0.5em 0.75em; } /* full screen */
     .panel .panel-header { position: relative; }
 
-    /* 按钮：垂直居中 + 固定右边距 */
     .panel .panel-header .fs-btn{
       position: absolute;
       top: 50%;
-      right: 6px;                 /* 非全屏右边距 */
-      transform: translateY(-50%);/* 垂直居中关键 */
-      width: 28px; height: 28px;  /* 更好点按 */
+      right: 6px;
+      transform: translateY(-50%);
+      width: 28px; height: 28px;
       line-height: 28px;
       z-index: 101;
     }
     
-    /* 全屏时，右边距稍大一点（可按需改） */
     .panel.fullspan .panel-header .fs-btn{ right: 10px; }
     
-    /* 可访问性：键盘聚焦可见 */
     .panel .panel-header .fs-btn:focus-visible{
       outline: 2px solid #4a90e2;
       outline-offset: 2px;
@@ -349,7 +344,7 @@
       </div>
     </div>
 
-    <!-- 可调整的分割条 -->
+    <!-- The resizer div between chat area and dashboard panels -->
     <div class="resizer" id="resizer"></div>
     
     <!-- Right: Dashboard panels -->
@@ -444,7 +439,7 @@
   <script src="js/script.js"></script>
   
   <script>
-    // 可调整分割条功能
+    // Adjustable divider functionality
     document.addEventListener('DOMContentLoaded', function() {
       const resizer = document.getElementById('resizer');
       const chatArea = document.querySelector('.chat-area');
@@ -457,7 +452,7 @@
         document.body.style.cursor = 'col-resize';
         document.body.style.userSelect = 'none';
         
-        // 防止选中文本
+        // Prevent text selection
         e.preventDefault();
       });
       
@@ -468,19 +463,15 @@
         const mouseX = e.clientX - dashboardRect.left;
         const dashboardWidth = dashboardRect.width;
         
-        // 计算左侧区域的宽度百分比
         const leftPercentage = (mouseX / dashboardWidth) * 100;
         
-        // 限制最小和最大宽度（20% - 80%）
         const minLeft = 20;
         const maxLeft = 80;
         const clampedPercentage = Math.max(minLeft, Math.min(maxLeft, leftPercentage));
         
-        // 设置flex-basis来控制大小
         chatArea.style.flexBasis = clampedPercentage + '%';
         dashboardRight.style.flexBasis = (100 - clampedPercentage) + '%';
         
-        // 重置flex-grow和flex-shrink
         chatArea.style.flexGrow = '0';
         chatArea.style.flexShrink = '0';
         dashboardRight.style.flexGrow = '0';
@@ -495,7 +486,6 @@
         }
       });
       
-      // 防止拖拽过程中的文本选择
       document.addEventListener('selectstart', function(e) {
         if (isResizing) {
           e.preventDefault();
@@ -503,9 +493,7 @@
       });
     });
     
-    // 全屏功能的JavaScript代码
     document.addEventListener('DOMContentLoaded', function() {
-      // 获取所有全屏按钮
       const fullscreenButtons = document.querySelectorAll('.fs-btn');
       
       fullscreenButtons.forEach(button => {
@@ -519,18 +507,17 @@
           
           if (!targetPanel) return;
           
-          // 检查当前是否已经是全屏状态
           const isFullscreen = targetPanel.classList.contains('fullspan');
           
           if (isFullscreen) {
-            // 退出全屏模式
+            // quit fullscreen mode
             allPanels.forEach(panel => {
               panel.classList.remove('fullspan', 'hidden');
             });
             this.innerHTML = '<i class="fa-solid fa-expand"></i>';
             this.title = 'Full Screen';
           } else {
-            // 进入全屏模式
+            // enter fullscreen mode
             allPanels.forEach(panel => {
               if (panel.id === panelId) {
                 panel.classList.add('fullspan');

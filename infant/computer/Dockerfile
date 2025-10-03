@@ -57,35 +57,11 @@ bind_host = 0.0.0.0
 bind_port = 4822
 EOF
 
-# guacamole.properties（指向本机 guacd）
+# guacamole.properties pointing to local guacd
 RUN cat >/etc/guacamole/guacamole.properties <<EOF
 guacd-hostname: localhost
 guacd-port: 4822
 EOF
-
-# # 使用内置 file-based 认证：user-mapping.xml（用于登录 Guacamole 网页）
-# # Web 登录账户（与系统账户不同）
-# ARG GUAC_LOGIN_USER=web
-# ARG GUAC_LOGIN_PASS=web
-# RUN cat >/etc/guacamole/user-mapping.xml <<EOF
-# <user-mapping>
-#   <authorize username="${GUAC_LOGIN_USER}" password="${GUAC_LOGIN_PASS}">
-#     <connection name="GNOME Desktop (RDP)">
-#       <protocol>rdp</protocol>
-#       <param name="hostname">localhost</param>
-#       <param name="port">3389</param>
-#       <param name="username">${DESKTOP_USER}</param>
-#       <param name="password">${DESKTOP_PASS}</param>
-#       <param name="security">any</param>
-#       <param name="ignore-cert">true</param>
-#       <param name="width">1280</param>
-#       <param name="height">800</param>
-#       <param name="color-depth">24</param>
-#     </connection>
-#   </authorize>
-# </user-mapping>
-# EOF
-# RUN chmod 600 /etc/guacamole/user-mapping.xml
 
 # ---------- Tools & i18n (optional) ----------
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -260,19 +236,15 @@ ENV LANGUAGE=en_US:en
 # prevent automatic updates and notifications
 # Disable APT periodic & unattended upgrades in containers (no systemctl, no gsettings)
 RUN set -eux; \
-    # 关闭 unattended-upgrades（若装了）
     apt-get update; \
     apt-get -y remove unattended-upgrades || true; \
-    # 明确关闭 APT 周期任务（创建/覆盖配置文件）
     printf 'APT::Periodic::Enable "0";\nAPT::Periodic::Update-Package-Lists "0";\nAPT::Periodic::Download-Upgradeable-Packages "0";\nAPT::Periodic::AutocleanInterval "0";\n' \
       > /etc/apt/apt.conf.d/10periodic; \
     printf 'APT::Periodic::Unattended-Upgrade "0";\n' \
       > /etc/apt/apt.conf.d/20auto-upgrades; \
-    # 如果安装了 update-manager，再把提示级别设为 never（有则改，无则跳过）
     if [ -f /etc/update-manager/release-upgrades ]; then \
       sed -i 's/^Prompt=.*/Prompt=never/' /etc/update-manager/release-upgrades; \
     fi; \
-    # 如果安装了 Chrome 再改 desktop 文件（有则改，无则跳过）
     if [ -f /usr/share/applications/google-chrome.desktop ]; then \
       sed -i 's|Exec=/usr/bin/google-chrome-stable %U|Exec=/usr/bin/google-chrome-stable --new-tab chrome://newtab|' /usr/share/applications/google-chrome.desktop; \
     fi

@@ -18,57 +18,12 @@ GET_STATE_CODE = """state = await context.get_state()
 print(state)
 """
 
-# OPEN_BROWSER_CODE = """import subprocess, time, socket, asyncio
-
-# # 1) 尝试复用已有的 Chrome
-# chrome_proc = None
-# try:
-#     with socket.create_connection(("127.0.0.1", 9222), timeout=1):
-#         print("✅ Detected existing Chrome on 9222, reusing it")
-# except OSError:
-#     print("⚙️  No Chrome on 9222, launching a new one")
-#     chrome_proc = subprocess.Popen(
-#         [
-#             "/usr/bin/google-chrome",
-#             "--no-first-run",
-#             "--remote-debugging-port=9222",
-#             "--remote-debugging-address=127.0.0.0",
-#             "--user-data-dir=/tmp/chrome-profile",
-#             "--start-maximized",
-#         ],
-#         stdout=open("/tmp/log.log","w"),
-#         stderr=subprocess.STDOUT,
-#         close_fds=True,
-#     )
-#     start = time.time()
-#     while time.time() - start < 15:
-#         try:
-#             with socket.create_connection(("127.0.0.1", 9222), timeout=1):
-#                 break
-#         except OSError:
-#             time.sleep(0.2)
-#     else:
-#         raise RuntimeError("Chrome on 9222 didn't start in time")
-
-# # 2) Playwright attach
-# config = BrowserConfig(
-#     headless=False,
-#     chrome_instance_path='/usr/bin/google-chrome',
-#     cdp_url="http://127.0.0.1:9222"
-# )
-# browser = Browser(config)
-# context = await browser.new_context()
-
-# await asyncio.sleep(2)
-# take_screenshot()
-# EOL"""
-
 OPEN_BROWSER_CODE = """import os, subprocess, time, socket, asyncio, pathlib, textwrap
 
 PORT = 9222
 ADDR = "127.0.0.1"
 
-# 把可用的 X 环境显式传给子进程
+# send DISPLAY and XAUTHORITY to the subprocess
 env = os.environ.copy()
 env["DISPLAY"] = ":10"
 env["XAUTHORITY"] = "/home/infant/.Xauthority"
@@ -147,7 +102,7 @@ except OSError:
             pass
         raise RuntimeError("Chrome on 9222 didn't start in time. See /tmp/log.log")
 
-# 用你现有接口连接并截图
+# Connect to the browser using your existing interface and take a screenshot
 config = BrowserConfig(
     headless=False,
     chrome_instance_path='/usr/bin/google-chrome',
