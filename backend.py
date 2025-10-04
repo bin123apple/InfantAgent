@@ -18,10 +18,8 @@ from infant.config import Config
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-try:
-    from infant.main import initialize_agent, run_single_step, cleanup
-except ImportError:
-    initialize_agent = run_single_step = cleanup  = None
+from infant.main import initialize_agent, run_single_step, cleanup
+
 
 agent = None
 computer = None

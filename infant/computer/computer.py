@@ -19,7 +19,8 @@ from infant.util.exceptions import ComputerInvalidBackgroundCommandError
 from infant.util.logger import infant_logger as logger
 from infant.config import ComputerParams
 from infant.prompt.tools_prompt import tool_trace_code, tool_filter_bash_code
-from infant.agent.memory.memory import IPythonRun, CmdRun
+from infant.helper_functions.setting_up import PYTHON_SETUP_CODE
+from infant.agent.memory.memory import IPythonRun, CmdRun 
 from infant.helper_functions.audio_helper_function import parse_audio # for exec()
 from infant.helper_functions.video_helper_function import parse_video, watch_video # for exec()
 
@@ -202,6 +203,12 @@ class Computer:
         print(info["client_url"] or info["index_url"])
         
         self.config_xorg_for_gui()
+        
+        # set up chrome for fast manual openning
+        output = self.run_python(PYTHON_SETUP_CODE)
+        print(f"Set up chrome for fast manual openning, output: {output}")
+        
+        self.execute('export PYTHONIOENCODING=utf-8')
 
         
     def init_plugins(self):
@@ -552,9 +559,7 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
             r"""bash -lc 'set -eux; mkdir -p /var/run/xrdp; chown xrdp:xrdp /var/run/xrdp || true; getent group ssl-cert >/dev/null && adduser xrdp ssl-cert || true; pgrep -x xrdp-sesman >/dev/null || (/usr/sbin/xrdp-sesman -n  >/var/log/xrdp-sesman.foreground.log 2>&1 &); pgrep -x xrdp >/dev/null        || (/usr/sbin/xrdp -n       >/var/log/xrdp.foreground.log        2>&1 &); pgrep -x guacd >/dev/null        || (/usr/sbin/guacd -f      >/var/log/guacd.foreground.log       2>&1 &); ss -lntp 2>/dev/null | grep -E ":(3389|4822)\\b" || true'
 """,
             r"""bash -lc 'pgrep -f org.apache.catalina.startup.Bootstrap >/dev/null || catalina.sh start || (catalina.sh run >/var/log/catalina-run.log 2>&1 &)'
-""",
-#             r"""bash -lc 'set -euo pipefail; HN=$(hostname); grep -qE "(^|[[:space:]])${HN}([[:space:]]|$)" /etc/hosts || echo "127.0.1.1 ${HN}" | sudo tee -a /etc/hosts >/dev/null; if id infant >/dev/null 2>&1; then U=$(id -u infant); G=$(id -g infant); XHOME=$(getent passwd infant | cut -d: -f6); else U=$(id -u); G=$(id -g); XHOME=$(getent passwd "$(id -un)" | cut -d: -f6); [ -n "$XHOME" ] || XHOME="${HOME}"; fi; XAUTH="${XHOME}/.Xauthority"; sudo -u \#${U} mkdir -p "${XHOME}"; [ -e "${XAUTH}" ] || sudo -u \#${U} touch "${XAUTH}"; sudo chown ${U}:${G} "$XAUTH" || sudo chown ${U} "$XAUTH"; sudo chmod 600 "$XAUTH"; sudo rm -f "$XAUTH"-c "$XAUTH"-l "$XAUTH".lock || true; COOKIE=$(sudo -u \#${U} XAUTHORITY="$XAUTH" xauth list 2>/dev/null | awk '\''/:10.*MIT-MAGIC-COOKIE-1/ {print $NF; exit}'\''); [ -n "$COOKIE" ] || COOKIE=$(mcookie); HOST=$(hostname); for name in ":10" "$HOST/unix:10" "localhost/unix:10"; do sudo -u \#${U} XAUTHORITY="$XAUTH" xauth add "$name" . "$COOKIE"; done; export DISPLAY=:10 XAUTHORITY="$XAUTH"; C2=$(xauth -f "$XAUTHORITY" list | awk '\''$1 ~ /(^|\/)unix:10$/ && $3=="MIT-MAGIC-COOKIE-1" {print $NF; exit}'\''); [ -n "$C2" ] || C2=$(xauth -f "$XAUTHORITY" list | awk '\''/:10.*MIT-MAGIC-COOKIE-1/ {print $NF; exit}'\''); for name in ":10" "$HOST/unix:10" "localhost/unix:10"; do xauth -f "$XAUTHORITY" add "$name" . "$C2"; done; if command -v xdpyinfo >/dev/null 2>&1; then xdpyinfo >/dev/null && echo "X OK (:10)" || echo "X FAIL"; else echo "xdpyinfo not installed, skipping check"; fi'
-# """
+"""
         ]
 
         for cmd in cmds:
