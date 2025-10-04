@@ -79,7 +79,6 @@ except OSError:
             "--start-maximized",
             "--disable-gpu",
             "--disable-dev-shm-usage",
-            "--no-sandbox",
         ],
         stdout=open("/tmp/log.log","w"),
         stderr=subprocess.STDOUT,
