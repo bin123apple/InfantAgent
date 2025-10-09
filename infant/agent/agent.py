@@ -8,6 +8,7 @@ from infant.util.debug import print_messages # For debugging
 from infant.agent.state.state import State, AgentState
 from infant.agent.memory.memory import ( 
     Task,
+    CmdRun,
     Finish, 
     Memory, 
     Message, 
@@ -41,8 +42,9 @@ from infant.agent.memory.restore_memory import (
 )
 
 from infant.helper_functions.visual_helper_functions import localization_visual
-from infant.helper_functions.file_edit_helper_function import line_drift_correction
-from infant.helper_functions.browser_helper_function import convert_web_browse_commands
+from infant.helper_functions.file_edit_helper_function import file_editing
+from infant.helper_functions.browser_helper_function import web_interaction
+from infant.helper_functions.toolmaker_helper_function import make_tool
 from infant.agent.memory.file_related_memory import get_diff_patch, git_add_or_not
 import asyncio
 import logging
@@ -196,30 +198,31 @@ class Agent:
                 self.state.memory_list.extend(mem_blc)
 
             memory = parse(resp)
-            if memory.runnable:
+            if memory.runnable: # IPythonRun / CmdRun
                 # record the description of the image
-                if hasattr(memory, 'code') and memory.code:
-                    tmp_code = memory.code
+                # if hasattr(memory, 'code') and memory.code:
+                #     tmp_code = memory.code
 
-                memory = await localization_visual(self, memory)
-                memory = convert_web_browse_commands(memory) # convert the commands to correct format     
-                method = getattr(self.computer, memory.action)
-                if not memory.result:
-                    memory.result = await method(memory)
+                # memory = await localization_visual(self, memory)
+                # memory = convert_web_browse_commands(memory) # convert the commands to correct format     
+                # method = getattr(self.computer, memory.action)
+                # if not memory.result:
+                #     memory.result = await method(memory)
 
-                # Make sure the edit_file() command is correct
-                if isinstance(memory, IPythonRun):
-                    if 'edit_file' in memory.code and "Here is the code that you are trying to modified:" in memory.result:
-                        result, modified_command = await line_drift_correction(memory, self.computer)
-                        logger.info(f"Modified command: {modified_command}")
-                        memory.result = result # restore result
-                        tmp_code = modified_command # restore code
+                # # Make sure the edit_file() command is correct
+                # if isinstance(memory, IPythonRun):
+                #     if 'edit_file' in memory.code and "Here is the code that you are trying to modified:" in memory.result:
+                #         result, modified_command = await line_drift_correction(memory, self.computer)
+                #         logger.info(f"Modified command: {modified_command}")
+                #         memory.result = result # restore result
+                #         tmp_code = modified_command # restore code
 
-                memory.result = truncate_output(output = memory.result)
+                # memory.result = truncate_output(output = memory.result)
 
-                # convert the coordinate back to image description
-                if hasattr(memory, 'code') and memory.code:
-                    memory.code = tmp_code
+                # # convert the coordinate back to image description
+                # if hasattr(memory, 'code') and memory.code:
+                #     memory.code = tmp_code
+                memory = await self.execute_runnable_memory(memory)
                     
                 logger.info(f'Execution Result\n{memory.result}', extra={'msg_type': 'Execution Result'})
                 backup_image_memory(memory, constant.MOUNT_PATH)
@@ -244,6 +247,40 @@ class Agent:
             self.execution_llm.metrics.accumulated_cost,
             self.state.total_cost,
         )
+        
+    async def execute_runnable_memory(self, memory: IPythonRun | CmdRun) -> list[dict]:
+        """
+        Run the runnable memory based on different situations.
+        1. Visual grounding: convert the image description to coordinates
+        2. Web browsing: convert the web browsing commands to correct format
+        3. File editing: make sure the edit_file() command is correct
+        4. Making new tools
+        others: directly run the command
+        return the memory with updated result
+        """
+        # Visual grounding
+        if memory.special_type == 'visual_grounding':
+            memory = await localization_visual(self, memory)
+        
+        # Web browsing
+        if memory.special_type == 'web_interaction':  
+            memory = await web_interaction(self, memory) # convert the commands to correct format
+
+        # File editing
+        if memory.special_type == 'file_editing':
+            memory = await file_editing(self, memory)
+            
+        # Tool making
+        if memory.special_type == 'make_tool':
+            memory = await make_tool(self, memory)
+                
+        method = getattr(self.computer, memory.action)
+        if not memory.result:
+            memory.result = await method(memory)
+
+        memory.result = truncate_output(output = memory.result)
+
+        return memory
     
     async def change_agent_state(self, new_state: AgentState):
         logger.info(f"Changing agent state to: {new_state}")

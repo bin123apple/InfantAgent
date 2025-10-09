@@ -21,7 +21,7 @@ from infant.prompt.classification_prompt import (
     clf_task_to_str_wo_target,
     clf_sys_prompt
 )
-from infant.prompt.tools_prompt import tool_document, tool_sys_msg, tool_example, tool_advanced
+from infant.prompt.tools_prompt import tool_document, tool_sys_msg, tool_example, tool_advanced, make_new_tool_prompt
 
 
 def merge_text_image_content(text, images):
@@ -187,23 +187,27 @@ def execution_memory_to_diag(memory_block: list[Memory], cmd_set, end_prompt, mo
     convert the execution memory_block to a string.
     '''
     messages = []
+    example = ''
     tools_instructions = ''
     for cmd in cmd_set:
         if cmd in tool_document:
             tools_instructions = tools_instructions + tool_document[cmd] + tool_advanced
             # example = tool_example[cmd] + tool_advanced_one_shot
-            example = tool_example[cmd] # FIXME: Rearrange the tool_advanced_one_shot
+            example = example + tool_example[cmd] # FIXME: Rearrange the tool_advanced_one_shot
             # note = tool_note[cmd] + '\n'
             
     # Add the tool prompts to cache input
+    tool_msg = tool_sys_msg.format(tools = tools_instructions, one_shot = example, 
+                                            make_new_tool_prompt = make_new_tool_prompt)
     messages.append({'role': 'user',
                      'content': [
             {
                 "type": "text",
-                "text": tool_sys_msg.format(tools = tools_instructions, one_shot = example),
+                "text": tool_msg,
                 "cache_control": {"type": "ephemeral", "ttl": "1h"}
             }
         ]})  
+    # print(f'tool_msg: {tool_msg}')
     
     # find the last Task in the memory block
     for i in range(len(memory_block) - 1, -1, -1):

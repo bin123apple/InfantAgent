@@ -253,8 +253,10 @@ def extract_web_commands(tool_str: str):
     matches = re.findall(r'-\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(', tool_str)
     return set(matches)
 
-def convert_web_browse_commands(memory: IPythonRun) -> Memory:
+async def web_interaction(agent: Agent ,memory: IPythonRun) -> Memory:
 
+    if hasattr(memory, 'code') and memory.code:
+        tmp_code = memory.code
     if hasattr(memory, 'code'):
         if memory.code == 'open_browser()':
             memory.code = OPEN_BROWSER_CODE
@@ -271,6 +273,12 @@ def convert_web_browse_commands(memory: IPythonRun) -> Memory:
             return memory
         
         memory.code = f'await context.{memory.code.strip()}\ntake_screenshot()'
+        
+        # Execute the command if not executed
+        method = getattr(agent.computer, memory.action)
+        memory.result = await method(memory)
+    if hasattr(memory, 'code') and memory.code:
+        memory.code = tmp_code
     return memory
     
 

@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import os
 import re
 import asyncio
 import traceback
@@ -6,6 +9,9 @@ from infant.llm.llm_api_base import LLM_API_BASED
 from infant.agent.memory.memory import IPythonRun
 from infant.util.logger import infant_logger as logger
 from infant.util.run_code_locally import run_code_in_subprocess
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from infant.agent.agent import Agent
 
 # TODO: We need to write a unittest for this
 def make_new_tool(functionality: str, function_name: str,
@@ -20,6 +26,9 @@ def make_new_tool(functionality: str, function_name: str,
     try:
         tm_parameter = config.get_litellm_params(overrides = config.tm_llm)
         tm_llm = LLM_API_BASED(tm_parameter)
+        if tm_llm.api_key is None:
+            tm_llm.api_key = os.getenv("ANTHROPIC_API_KEY")
+            print(f'tm_llm.api_key:{tm_llm.api_key}')
         
         example = '''USER:
 I need a function that can create a new sheet in an existing Excel file.
@@ -88,13 +97,12 @@ def create_excel_page(file_name: str, page_name: str) -> None:
         if tools:
             tool = tools.group(1).strip()
             return tool
-        # TODO: read papers (toolmaker/osworld top grade) and check how they create the tool, is there any feedback?
     except Exception as e:
         output = traceback.format_exc()
         logger.info(output)
     return None
 
-async def make_tool(memory: IPythonRun) -> str:
+async def make_tool(agent: Agent, memory: IPythonRun) -> str:
     ''' 
     Unify the interface, execute this function will run the memory.action 
     1. add the new tool to the toolsets. 
@@ -102,8 +110,27 @@ async def make_tool(memory: IPythonRun) -> str:
         if the tool is created successfully, update the memory.result with the new tool information.
         if the tool creation fails, update the memory.result with an error message.
     '''
+    computer = agent.computer
     code = memory.code
     prefix = 'from infant.helper_functions.toolmaker_helper_function import make_new_tool'
-    rc, stdout, stderr = asyncio.run(run_code_in_subprocess(f'{prefix}\nprint({code})'))
+    rc, stdout, stderr = await run_code_in_subprocess(f'{prefix}\nprint({code})',
+                                                      extra_env={"ANTHROPIC_API_KEY": agent.tm_llm.api_key})
+    print(f'stdout: {stdout.decode()}') # actual return
+    print(f'stderr: {stderr.decode()}') # error message or log
     tool = stdout.decode().strip() if rc == 0 else None
-    # new_tool = f'The tool named {function_name} is created, If you encounter any issues during use, please let me know.'
+    if tool: # the tool is created successfully
+        new_tool = (
+            f'The new tool is created, here is its detailed implementation:\n{tool}\n'
+            'If you encounter any issues during use, please let me know.'
+        )
+        computer.run_python(tool) # add the new tool to the toolsets
+        memory.result = new_tool
+    else: # the tool creation fails
+        tool_creation_error = stderr.decode().strip() if stderr else 'Unknown error'
+        error_msg = (
+            f'Sorry, I was unable to create the tool due to the following error: {tool_creation_error}\n'
+            'Please review the functionality requirements and try again.'
+        )
+        memory.result = error_msg
+    return memory
+        

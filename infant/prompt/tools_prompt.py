@@ -18,6 +18,7 @@ Please collaborate with me to fulfill a request. For each step, provide the nece
 
 **Example:**
 {one_shot}
+{make_new_tool_prompt}
 
 **Instructions for Task Completion:**
 > If you think the **current task** is already solved, please say:
@@ -816,3 +817,9 @@ sort -u "$temp_file" > /tmp/unique_lines.txt
 grep -F "$at_line" /tmp/unique_lines.txt > /tmp/final_output.txt
 
 '''
+
+make_new_tool_prompt = '''You can also create a new tool with following command if necessary:
+<execute_ipython>
+make_new_tool(functionality: str, function_name: str, function_inputs: list, function_outputs: str)
+</execute_ipython>
+and invoke it during subsequent task execution.'''

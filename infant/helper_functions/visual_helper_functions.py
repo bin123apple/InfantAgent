@@ -526,7 +526,7 @@ def image_description_to_coordinate(agent: Agent, icon, desc, image):
     return coordination
 
 
-async def localization_visual(agent: Agent, memory: Memory):
+async def localization_visual(agent: Agent, memory: IPythonRun):
     '''
     Localize the image description to the coordinate for accurate mouse click.
     Args:
@@ -535,6 +535,8 @@ async def localization_visual(agent: Agent, memory: Memory):
     Returns:
         Memory: The updated memory object.
     '''
+    if hasattr(memory, 'code') and memory.code:
+        tmp_code = memory.code
     computer = agent.computer
     if isinstance(memory, IPythonRun) and memory.code:
         pattern = r"mouse_(?:left_click|double_click|move|right_click)\(.*?\)"
@@ -579,4 +581,6 @@ async def localization_visual(agent: Agent, memory: Memory):
                     logger.error("Coordination is not a valid tuple.")
             except (SyntaxError, ValueError) as e:
                 logger.error(f"Failed to parse coordination: {coordination}. Error: {e}")  
+    if hasattr(memory, 'code') and memory.code:
+        memory.code = tmp_code
     return memory

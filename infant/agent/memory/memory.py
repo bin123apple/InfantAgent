@@ -22,6 +22,7 @@ class CmdRun(Memory):
     command: str
     background: bool = False
     thought: str = ''
+    special_type: str = ''
     action: str = 'run_command'
     runnable: ClassVar[bool] = True
     result: str | None = None
@@ -41,6 +42,7 @@ class CmdKill(Memory):
     command_id: int
     thought: str = ''
     action: str = 'cmd_kill'
+    special_type: str = ''
     runnable: ClassVar[bool] = True
     result: str | None = None
     images: list[str] | None = None
@@ -58,6 +60,7 @@ class IPythonRun(Memory):
     action: str = 'run_ipython'
     kernel_init_code: str = ''  # code to run in the kernel (if the kernel is restarted)
     runnable: ClassVar[bool] = True
+    special_type: str = ''  # e.g., 'visual_grounding' for visual grounding
     result: str | None = None
     images: list[str] | None = None
 
@@ -68,6 +71,8 @@ class IPythonRun(Memory):
         ret += f'command:\n{self.code}'
         if self.result:
             ret += f'\nEXECUTION RESULT:\n{self.result}'
+        if self.special_type:
+            ret += f'\nSPECIAL TYPE: {self.special_type}'
         return ret
 
 @dataclass
