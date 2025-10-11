@@ -56,10 +56,7 @@ workspace/*
 tests/agent/workspace/*
 
 # tests
-tests/
-
-# debug
-tests/debug/*
+draft_tests/
 
 # dataset
 dataset/*
