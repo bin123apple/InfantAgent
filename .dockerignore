@@ -1,0 +1,67 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Workspace and cache (will be mounted as volumes)
+workspace/
+cache/
+
+# Documentation and examples
+README.md
+LICENSE
+asset/
+examples/
+evaluation/
+
+# Docker files themselves
+Dockerfile
+docker-compose.yaml
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# Test files
+tests/
+*.test
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Frontend (if not needed in server container)
+frontend/
+
+# Temporary files
+tmp/
+temp/
+*.tmp

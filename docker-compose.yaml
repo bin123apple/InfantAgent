@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  # InfantAgent main server
+  infant-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: infant-agent:latest
+    container_name: infant-agent-server
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - CUDA_VISIBLE_DEVICES=0,1
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Mount workspace for persistent data
+      - ./workspace:/app/workspace
+      # Mount cache directory
+      - ./cache:/tmp/cache
+      # Mount config for easy updates
+      - ./config.toml:/app/config.toml:ro
+    networks:
+      - infant-network
+    depends_on:
+      - computer-container
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 2
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Computer container with desktop environment
+  computer-container:
+    build:
+      context: ./infant/computer
+      dockerfile: Dockerfile
+    image: ubuntu-gnome-nomachine:latest
+    container_name: infant-computer
+    restart: unless-stopped
+    ports:
+      # SSH port
+      - "22222:22"
+      # Guacamole web interface (HTTPS)
+      - "4443:8080"
+      # NoMachine port (if still used)
+      - "23333:4000"
+    environment:
+      - DISPLAY=:0
+      - DESKTOP_USER=infant
+      - DESKTOP_PASS=123
+      - TZ=America/New_York
+    volumes:
+      # Shared workspace between agent and computer
+      - ./workspace:/workspace
+    networks:
+      - infant-network
+    shm_size: '2gb'
+    stdin_open: true
+    tty: true
+    privileged: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['0']
+              capabilities: [gpu, utility, compute, graphics]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/guacamole/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+networks:
+  infant-network:
+    driver: bridge
+
+volumes:
+  workspace:
+    driver: local
+  cache:
+    driver: local

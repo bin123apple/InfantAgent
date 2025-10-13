@@ -92,6 +92,7 @@ class LLM_OSS_BASED:
                 disable_custom_all_reduce=True,
                 enable_prefix_caching=self.args.enable_prefix_caching,
                 trust_remote_code=self.args.trust_remote_code,
+                dtype="float16",
             )
             logger.info(f"Model {self.model} loaded into GPU memory")
 
