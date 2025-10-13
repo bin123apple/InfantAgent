@@ -185,7 +185,7 @@ class Config:
     workspace_mount_rewrite: str | None = None
     cache_dir: str = '/tmp/cache'
     # computer_container_image: str = 'winsonchen108/ubuntu-gnome-nomachine:latest' # Pull from Docker Hub  
-    computer_container_image: str = 'ubuntu-gnome-nomachine:latest' # Pull from Docker Hub  
+    computer_container_image: str = 'ubuntu-gnome-guacamole:latest' # Pull from Docker Hub  
     e2b_api_key: str = ''
     computer_type: str = 'ssh'  # Can be 'ssh', 'exec', or 'e2b'
     use_host_network: bool = False
@@ -234,7 +234,7 @@ class Config:
         if self.computer_type == 'local':
             self.workspace_mount_path_in_computer = self.workspace_mount_path
 
-        if self.workspace_mount_rewrite: 
+        if self.workspace_mount_rewrite:
             base = self.workspace_base or os.getcwd()
             parts = self.workspace_mount_rewrite.split(':')
             self.workspace_mount_path = base.replace(parts[0], parts[1])
@@ -247,6 +247,12 @@ class Config:
                 'Please upgrade to Docker Desktop 4.29.0 or later to use host network mode on macOS. '
                 'See https://github.com/docker/roadmap/issues/238#issuecomment-2044688144 for more information.'
             )
+
+        # Override with environment variables if present (for Docker deployments)
+        if os.getenv("base_url_oss"):
+            self.base_url_oss = os.getenv("base_url_oss")
+        if os.getenv("api_key_oss"):
+            self.api_key_oss = os.getenv("api_key_oss")
 
         # make sure cache dir exists
         if self.cache_dir:

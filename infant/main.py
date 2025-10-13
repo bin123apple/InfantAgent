@@ -48,12 +48,12 @@ async def run_single_step(agent: Agent, user_request_text: str, image = None):
 async def initialize_agent(config: Config = None):
     if config is None:
         config = Config()
-        config.finalize_config()
         current_dir = os.path.dirname(os.path.abspath(__file__))
         root_dir = Path(current_dir).resolve().parent
         CONFIG_FILE = root_dir / "config.toml"
         user_config = config._load()
         config.__dict__.update(user_config)
+        config.finalize_config()
 
     # Initialize the API Based LLM
     plan_parameter = config.get_litellm_params(overrides = config.planning_llm)
@@ -176,6 +176,10 @@ async def cleanup(agent: None | Agent = None, computer: None | Computer = None):
         save_to_dataset(agent.state.memory_list, image_data_path)
 
 
+def cli_entry():
+    """Entry point for the CLI command."""
+    asyncio.run(main())
+
 # Run the main function
 if __name__ == "__main__":
-    asyncio.run(main())
+    cli_entry()

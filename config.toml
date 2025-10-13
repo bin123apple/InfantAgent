@@ -16,6 +16,10 @@ api_key = "" # YOUR API KEY
 # Optional, Visual Grounding model, if not provided, the default VG model will be used
 [vg_llm]
 model_oss = "ByteDance-Seed/UI-TARS-1.5-7B"
+# base_url_oss and api_key_oss can be set here or via environment variables
+# Uncomment and set these if running vLLM server separately:
+# base_url_oss = "http://vllm-server:8005/v1"
+# api_key_oss = "infant"
 
 # Optional, File Editing model, if not provided, the default model will be used
 [fe_llm]

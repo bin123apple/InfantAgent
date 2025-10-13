@@ -74,7 +74,6 @@ dependencies = [
   "whatthepatch",
   "retry",
   "evaluate",
-  "swebench @ git+https://github.com/All-Hands-AI/SWE-bench.git@main",
   "llama-index",
   "llama-index-vector-stores-chroma",
   "chromadb",
@@ -101,3 +100,6 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["infant*"]
+
+[project.scripts]
+infant = "infant.main:cli_entry"
