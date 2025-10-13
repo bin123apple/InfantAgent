@@ -48,7 +48,7 @@ Here is an example:
 User:
 I want to click on vscode icon with the mouse. Please help me determine its **EXACT** coordinates.
 
-Asistant:
+Assistant:
 Let's check the specific location of coordinates (430, 710).
 <localize>
 localization_point(430,710)
@@ -219,8 +219,7 @@ def localization_done(x: int, y: int) -> tuple:
 
 def dispatch(func_name, args, kwargs):
     """
-    根据函数名和参数自动调用对应函数。
-    要求对应函数在当前作用域中可访问（例如 globals()）。
+    Automatically calls the corresponding function based on the function name and parameters.
     """
     func = globals().get(func_name)
     if func is None:
@@ -442,20 +441,19 @@ def image_to_base64(image_path: str) -> str:
 def extract_coordinates(result: list[str]):
     text = result[0].strip()
 
-    # 如果有 <answer> 标签，就提取标签内的内容；否则就直接用 text
+    # If the response is wrapped in <answer>...</answer>, extract the content inside
     answer_match = re.search(r'<answer>\s*(.*?)\s*</answer>', text, re.DOTALL)
     if answer_match:
         content = answer_match.group(1)
     else:
         content = text  
 
-    # 按 (x, y) 形式提取
+    # extract (x, y) or (x1, y1, x2, y2)
     point_match = re.search(r'\(\s*(\d+)\s*,\s*(\d+)\s*\)', content)
     if point_match:
         x, y = map(int, point_match.groups())
         return (x, y)
 
-    # 如果是 (x1, y1, x2, y2) 形式，取中心点
     box_match = re.search(r'\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)', content)
     if box_match:
         x1, y1, x2, y2 = map(int, box_match.groups())
@@ -528,7 +526,7 @@ def image_description_to_coordinate(agent: Agent, icon, desc, image):
     return coordination
 
 
-async def localization_visual(agent: Agent, memory: Memory):
+async def localization_visual(agent: Agent, memory: IPythonRun):
     '''
     Localize the image description to the coordinate for accurate mouse click.
     Args:
@@ -537,6 +535,8 @@ async def localization_visual(agent: Agent, memory: Memory):
     Returns:
         Memory: The updated memory object.
     '''
+    if hasattr(memory, 'code') and memory.code:
+        tmp_code = memory.code
     computer = agent.computer
     if isinstance(memory, IPythonRun) and memory.code:
         pattern = r"mouse_(?:left_click|double_click|move|right_click)\(.*?\)"
@@ -581,4 +581,6 @@ async def localization_visual(agent: Agent, memory: Memory):
                     logger.error("Coordination is not a valid tuple.")
             except (SyntaxError, ValueError) as e:
                 logger.error(f"Failed to parse coordination: {coordination}. Error: {e}")  
+    if hasattr(memory, 'code') and memory.code:
+        memory.code = tmp_code
     return memory

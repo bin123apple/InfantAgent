@@ -42,3 +42,7 @@ def check_accumulated_cost(current_cost, max_cost):
         return True
     return False
 
+class NeedUserInput(Exception):
+    """内部用于标记：Agent 需要用户输入，先中断并返回给前端。"""
+    def __init__(self, prompt: str):
+        self.prompt = prompt

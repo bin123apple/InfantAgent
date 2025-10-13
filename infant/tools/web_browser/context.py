@@ -1602,10 +1602,47 @@ class BrowserContext:
 		msg = f'🔍  Scrolled down the page by {amount}'
 		print(msg)
 
-	async def google_search(self, content: str):
-
+	async def google_search(self, content: str, max_retries: int = 3):
 		query = quote(content)
 		url = f"https://www.google.com/search?q={query}"
+		
+		for attempt in range(max_retries):
+			try:
+				await self.navigate_to(url)
+				page = await self.get_current_page()
+				
+				selectors_to_try = [
+					"div#search",
+					"div#rso",
+					"[data-ved]",
+					"h3",
+					"div.g"
+				]
+				
+				element_found = False
+				for selector in selectors_to_try:
+					try:
+						await page.wait_for_selector(selector, timeout=5000)
+						element_found = True
+						break
+					except:
+						continue
+				
+				if not element_found:
+					raise Exception("No elements found")
 
-		await self.navigate_to(url)
-		await asyncio.sleep(2) # wait for the page to load
+				await asyncio.sleep(1)
+				return True
+				
+			except Exception as e:
+				
+				if "timeout" in str(e).lower():
+					raise Exception(e)
+				
+				if attempt < max_retries - 1:
+					wait_time = 2 ** attempt
+					await asyncio.sleep(wait_time)
+				else:
+					raise e
+		
+		return False

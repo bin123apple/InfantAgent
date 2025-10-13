@@ -108,8 +108,44 @@ def parse_response(resp: str) -> str:
     # parse ipython run
     python_code = re.search(r'<execute_ipython>(.*?)</execute_ipython>', resp, re.DOTALL)
     if python_code:
+        # parse source code and thought
         code_group = python_code.group(1).strip()
         thought = resp.replace(python_code.group(0), '').strip()
+        
+        # Check if the visual grounding is needed
+        pattern = r"mouse_(?:left_click|double_click|move|right_click)\(.*?\)"
+        match = re.search(pattern, code_group)
+        if match:
+            memory = IPythonRun(code=code_group,thought=thought,special_type='visual_grounding')
+            memory.source = 'assistant'
+            logger.info(memory, extra={'msg_type': 'IPythonRun'})
+            return memory
+        
+        # Check if the web interaction is needed 
+        web_cmds = [
+            'open_browser', 'navigate_to', 'refresh_page', 'go_back', 'go_forward',
+            'close_current_tab', 'execute_javascript', 'switch_to_tab', 'create_new_tab',
+            'save_cookies', 'select_dropdown_option', 'google_search', 'close'
+        ]
+        matched_cmd = next((cmd for cmd in web_cmds if code_group.startswith(cmd + "(")), None)
+        if matched_cmd:
+            memory = IPythonRun(code=code_group,thought=thought,special_type='web_interaction')
+            memory.source = 'assistant'
+            logger.info(memory, extra={'msg_type': 'IPythonRun'})
+            return memory
+        
+        if 'edit_file(' in code_group:
+            memory = IPythonRun(code=code_group,thought=thought,special_type='file_editing')
+            memory.source = 'assistant'
+            logger.info(memory, extra={'msg_type': 'IPythonRun'})
+            return memory
+        
+        if 'make_new_tool(' in code_group:
+            memory = IPythonRun(code=code_group,thought=thought,special_type='make_tool')
+            memory.source = 'assistant'
+            logger.info(memory, extra={'msg_type': 'IPythonRun'})
+            return memory
+        
         memory = IPythonRun(code=code_group,thought=thought)
         memory.source = 'assistant'
         logger.info(memory, extra={'msg_type': 'IPythonRun'})
@@ -165,7 +201,7 @@ def parse_response(resp: str) -> str:
         return memory
     
     # Others are consider as normal message
-    memory = Message(content=resp)
+    memory = Message(thought=resp)
     memory.source = 'assistant'
     logger.info(memory, extra={'msg_type': 'Message'})
     return memory

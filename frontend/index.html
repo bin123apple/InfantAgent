@@ -1,13 +1,547 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Infant AI Assistant Dashboard</title>
+  <link rel="icon" type="image/png" href="asset/Logo.png">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <style>
+    /* Layout */
+    body, html { height: 100%; margin: 0; padding: 0; font-family: Arial, sans-serif; }
+    .dashboard { display: flex; height: 100vh; }
+    .chat-area { 
+      flex: 0 0 25%;
+      padding: 5px 0;
+      padding-left: 5px;
+      display: flex; 
+      flex-direction: column;
+      min-width: 300px;
+    }
+    
+    /* Added styles for the resizer */
+    .resizer {
+      width: 6px;
+      background-color: #e0e0e0;
+      cursor: col-resize;
+      position: relative;
+      transition: background-color 0.2s ease;
+    }
+    
+    .resizer:hover {
+      background-color: #4a6fa5;
+    }
+    
+    .resizer:active {
+      background-color: #3a5a8a;
+    }
+    
+    /* Indicator in the middle of the resizer */
+    .resizer::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 2px;
+      height: 40px;
+      background-color: #999;
+      border-radius: 1px;
+    }
+    .chat-messages { flex: 1; overflow-y: auto; border: 1px solid #ccc; border-radius: 4px; padding: 8px; margin: 5px 0; }
+    .user-input { display: flex; align-items: center; margin: 5px 0; }
+    .user-input textarea { flex: 1; resize: none; padding: 6px; }
+    .user-input button { margin-left: 4px; }
+
+    /* Status panel */
+    .status-panel { margin: 5px 0; font-size: 0.9em; }
+    .status-item { display: flex; gap: 4px; margin-bottom: 2px; }
+    .status-label { font-weight: bold; }
+
+    /* Right dashboard grid */
+    .dashboard-right {
+      flex: 0 0 75%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 5px;
+      padding: 10px;
+      position: relative;
+      pointer-events: auto;
+      min-width: 400px;
+      height: 100vh;
+      box-sizing: border-box;
+    }
+    
+    .panel { 
+      border: 1px solid #ccc; 
+      border-radius: 4px; 
+      padding: 0;
+      display: flex; 
+      flex-direction: column; 
+      overflow: hidden;
+      position: relative;
+      z-index: 1;
+      min-height: 0;
+      min-width: 0;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+    }
+    
+    /* Fullscreen state: span all grid cells and be on top */
+    .panel.fullspan {
+      grid-column: 1 / -1;
+      grid-row: 1 / -1;
+      z-index: 10;
+    }
+    
+    /* Hide non-target panels */
+    .panel.hidden {
+      display: none;
+    }
+    
+    .panel-header { 
+      font-weight: bold; 
+      margin: 0;
+      padding: 8px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: start; 
+      background: #fafafa;
+      border-bottom: 0.5px solid #e0e0e0;
+      z-index: 100;
+    }
+    
+    /* Content area styles - key fixes */
+    .panel-content {
+      flex: 1;
+      overflow: hidden;
+      padding: 0px;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      word-wrap: break-word;
+      word-break: break-all;
+      overflow-wrap: break-word;
+      hyphens: auto;
+      max-width: 100%;
+    }
+    
+    .terminal-output { 
+      background: #000; 
+      color: #0f0; 
+      font-family: monospace; 
+      font-size: 12px;
+      padding: 6px; 
+      flex: 1; 
+      overflow-x: auto;
+      overflow-y: auto; 
+      word-wrap: break-word; 
+      word-break: normal;
+      overflow-wrap: break-word;
+      white-space: pre-wrap;
+      margin: 0;
+      min-height: 0;
+      max-width: 100%;
+      line-height: 1.4;
+    }
+    
+    .notebook-output { 
+      background: #f5f5f5; 
+      font-family: monospace; 
+      font-size: 12px;
+      padding: 6px; 
+      flex: 1; 
+      overflow-x: auto;
+      overflow-y: auto; 
+      word-wrap: break-word; 
+      word-break: normal;
+      overflow-wrap: break-word;
+      white-space: pre-wrap;
+      margin: 0;
+      min-height: 0;
+      max-width: 100%;
+      line-height: 1.4;
+    }
+    
+    /* Subtask list styles */
+    #subtaskList {
+      word-wrap: break-word;
+      word-break: break-all;
+      hyphens: auto;
+      white-space: normal;
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      margin: 0;
+      padding: 0;
+      list-style-type: disc;
+      padding-left: 20px;
+      max-width: 100%;
+    }
+    
+    #subtaskList li {
+      word-wrap: break-word;
+      word-break: break-all;
+      hyphens: auto;
+      white-space: normal;
+      margin-bottom: 4px;
+      line-height: 1.4;
+      max-width: 100%;
+      overflow-wrap: break-word;
+    }
+    
+    /* iframe styles to ensure it fills the panel content */
+    .iframe-container {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    
+    #desktopFrame {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    /*Fullscreen Button*/
+    .fs-btn {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 24px;
+      height: 24px;
+      line-height: 24px;
+      text-align: center;
+      background: transparent;
+      border: none;
+      font-size: 1rem;
+      cursor: pointer;
+      z-index: 101;
+      pointer-events: auto;
+    }
+    
+    .fs-btn:hover {
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 4px;
+    }
+
+    /* Modal */
+    .modal {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: none; justify-content: center; align-items: center;
+    }
+    .modal-content {
+      background: #fff; padding: 20px;
+      border-radius: 4px; width: 90%; max-width: 400px;
+      position: relative;
+    }
+    .close-btn {
+      position: absolute; top: 10px; right: 15px;
+      font-size: 1em; cursor: pointer;
+      background: transparent; border: none; 
+    }
+    .close-btn:hover {
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 4px;
+    }
+    .form-group { margin-bottom: 10px; }
+    .submit-button { margin-top: 10px; }
+
+    .setting-btn {
+      background: transparent; 
+      border: none; 
+      font-size: 1.2em; 
+      padding-right: 5px;
+      color:#f5f5f5}
+
+    .setting-btn:hover {
+      background: rgba(0, 0, 0, 0.05); 
+      border-radius: 4px;}
+
+    ol, li { /* Or ol li */
+      list-style-position: inside;
+    }
+  </style>
+  <style>
+    :root{ --dpr:1; --px: calc(1px / var(--dpr)); }
+    .panel .panel-header{ padding: calc(0.5 * var(--px)) 8px; }
+    .panel.fullspan .panel-header{ padding: 8px 12px; }
+    .panel .panel-header .fs-btn { top: calc(0.5 * var(--px)); right: 2px; }
+    .panel.fullspan .panel-header .fs-btn { top: 4px; right: 4px; }
+    .panel .panel-header { font-size: 10px; padding: 0.05em 0.6em; }  /* Not full screen */
+    .panel.fullspan .panel-header { font-size: 16px; padding: 0.5em 0.75em; } /* full screen */
+    .panel .panel-header { position: relative; }
+
+    .panel .panel-header .fs-btn{
+      position: absolute;
+      top: 50%;
+      right: 6px;
+      transform: translateY(-50%);
+      width: 28px; height: 28px;
+      line-height: 28px;
+      z-index: 101;
+    }
+    
+    .panel.fullspan .panel-header .fs-btn{ right: 10px; }
+    
+    .panel .panel-header .fs-btn:focus-visible{
+      outline: 2px solid #4a90e2;
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard">
+    <!-- Left: Chat area -->
+    <div class="chat-area">
+      <header style="display: flex; justify-content: space-between; align-items: center; margin: 5px 0; padding: 0 5px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <img src="asset/Logo.png" alt="Logo" style="width: 50px; height: 50px;">
+          <h1 style="margin: 0; font-size: 1.2em;">Infant AI Assistant</h1>
+        </div>
+        <button type="button" id="settingsLink" class="setting-btn"><i class="fa-solid fa-gear"></i></button>
+        <!-- <a href="#" id="settingsLink" style="font-size: 0.9em;"><i class="fa-solid fa-gear"></i></a> -->
+      </header>
+
+      <div id="chatMessages" class="chat-messages">
+        <div class="message system">
+          <div class="message-content">
+            <p>Welcome to Infant AI Assistant! How can I help you today?</p>
+          </div>
+        </div>
+      </div>  
+
+      <div class="status-panel">
+        <div class="status-item">
+          <span class="status-label">Agent Status:</span>
+          <span id="agentStatus" class="status-value">Ready</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Current Task:</span>
+          <span id="currentTask" class="status-value">None</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Model:</span>
+          <span id="modelInfo" class="status-value">Unknown</span>
+        </div>
+      </div>
+
+      <div class="user-input">
+        <textarea id="userInput" placeholder="Type your request here..."></textarea>
+        <button id="sendButton" title="Send"><i class="fas fa-paper-plane"></i></button>
+        <button id="resetButton" title="Reset"><i class="fas fa-sync-alt"></i></button>
+        <button id="uploadFilesBtn" title="Upload files"><i class="fas fa-file-upload"></i></button>
+        <input type="file" id="fileUploadFiles" style="display:none" multiple>
+        <button id="uploadFolderBtn" title="Upload folder"><i class="fas fa-folder-open"></i></button>
+        <input type="file" id="fileUploadFolder" style="display:none" webkitdirectory directory>
+      </div>
+    </div>
+
+    <!-- The resizer div between chat area and dashboard panels -->
+    <div class="resizer" id="resizer"></div>
+    
+    <!-- Right: Dashboard panels -->
+    <div class="dashboard-right">
+      <div id="subtasksPanel" class="panel">
+        <div class="panel-header">
+          <i class="fa-solid fa-list-check" style="padding-right: 5px;"></i>
+          Subtasks
+          <button type="button" class="fs-btn" data-panel="subtasksPanel" title="Full Screen"><i class="fa-solid fa-expand"></i></button>
+        </div>
+        <div class="panel-content">
+          <ul id="subtaskList"></ul>
+        </div>
+      </div>
+      
+      <div id="desktopPanel" class="panel">
+        <div class="panel-header">
+          <i class="fa-solid fa-tv" style="padding-right: 2px;"></i>
+          System Desktop
+          <button type="button" class="fs-btn" data-panel="desktopPanel" title="Full Screen"><i class="fa-solid fa-expand"></i></button>
+        </div>
+        <div class="panel-content">
+          <div class="iframe-container">
+            <iframe
+              id="desktopFrame"
+              src="http://localhost:4443/guacamole/#/client/R05PTUUgRGVza3RvcCAoUkRQKQBjAGRlZmF1bHQ"
+              allow="fullscreen">
+            </iframe>
+          </div>
+        </div>
+      </div>
+      
+      <div id="terminalPanel" class="panel">
+        <div class="panel-header">
+          <i class="fa-solid fa-terminal" style="padding-right: 5px;"></i>
+          Terminal
+          <button type="button" class="fs-btn" data-panel="terminalPanel" title="Full Screen"><i class="fa-solid fa-expand"></i></button>
+        </div>
+        <div class="panel-content">
+          <div class="terminal-output" id="terminalOutput"></div>
+        </div>
+      </div>
+      
+      <div id="notebookPanel" class="panel">
+        <div class="panel-header">
+          <i class="fa-solid fa-file-code" style="padding-right: 5px;"></i>
+          Jupyter Code
+          <button type="button" class="fs-btn" data-panel="notebookPanel" title="Full Screen"><i class="fa-solid fa-expand"></i></button>
+        </div>
+        <div class="panel-content">
+          <div class="notebook-output" id="notebookOutput"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal">
+    <div class="modal-content">
+      <button type="button" id="closeSettings" class="close-btn"><i class="fa-solid fa-xmark"></i></button>
+      <h2>Settings</h2>
+      <form id="settingsForm">
+        <div class="form-group">
+          <label for="modelSelect">LLM Model:</label>
+          <select id="modelSelect">
+            <option value="claude-sonnet-4-20250514">Claude 4 Sonnet</option>
+            <option value="gpt-4o">GPT-4o</option>
+            <option value="gpt-4-turbo">GPT-4 Turbo</option>
+          </select>
+        </div>
+        <div class="form-group"> 
+          <label for="modelApiKey">API Key:</label>
+          <input type="password" id="modelApiKey" required>
+        </div>
+        <div class="form-group">
+          <label for="temperatureSlider">Temperature:</label>
+          <input type="range" id="temperatureSlider" min="0" max="1" step="0.1" value="0.9">
+          <span id="temperatureValue">0.9</span>
+        </div>
+        <div class="form-group">
+          <label for="maxTokensInput">Max Output Tokens:</label>
+          <input type="number" id="maxTokensInput" min="100" max="10000" value="8191">
+        </div>
+        <button type="submit" class="submit-button">Save Settings</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="js/backend-connector.js"></script>
+  <script src="js/script.js"></script>
+  
+  <script>
+    // Adjustable divider functionality
+    document.addEventListener('DOMContentLoaded', function() {
+      const resizer = document.getElementById('resizer');
+      const chatArea = document.querySelector('.chat-area');
+      const dashboardRight = document.querySelector('.dashboard-right');
+      
+      let isResizing = false;
+      
+      resizer.addEventListener('mousedown', function(e) {
+        isResizing = true;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        
+        // Prevent text selection
+        e.preventDefault();
+      });
+      
+      document.addEventListener('mousemove', function(e) {
+        if (!isResizing) return;
+        
+        const dashboardRect = document.querySelector('.dashboard').getBoundingClientRect();
+        const mouseX = e.clientX - dashboardRect.left;
+        const dashboardWidth = dashboardRect.width;
+        
+        const leftPercentage = (mouseX / dashboardWidth) * 100;
+        
+        const minLeft = 20;
+        const maxLeft = 80;
+        const clampedPercentage = Math.max(minLeft, Math.min(maxLeft, leftPercentage));
+        
+        chatArea.style.flexBasis = clampedPercentage + '%';
+        dashboardRight.style.flexBasis = (100 - clampedPercentage) + '%';
+        
+        chatArea.style.flexGrow = '0';
+        chatArea.style.flexShrink = '0';
+        dashboardRight.style.flexGrow = '0';
+        dashboardRight.style.flexShrink = '0';
+      });
+      
+      document.addEventListener('mouseup', function() {
+        if (isResizing) {
+          isResizing = false;
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+        }
+      });
+      
+      document.addEventListener('selectstart', function(e) {
+        if (isResizing) {
+          e.preventDefault();
+        }
+      });
+    });
+    
+    document.addEventListener('DOMContentLoaded', function() {
+      const fullscreenButtons = document.querySelectorAll('.fs-btn');
+      
+      fullscreenButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          const panelId = this.getAttribute('data-panel');
+          const targetPanel = document.getElementById(panelId);
+          const allPanels = document.querySelectorAll('.panel');
+          
+          if (!targetPanel) return;
+          
+          const isFullscreen = targetPanel.classList.contains('fullspan');
+          
+          if (isFullscreen) {
+            // quit fullscreen mode
+            allPanels.forEach(panel => {
+              panel.classList.remove('fullspan', 'hidden');
+            });
+            this.innerHTML = '<i class="fa-solid fa-expand"></i>';
+            this.title = 'Full Screen';
+          } else {
+            // enter fullscreen mode
+            allPanels.forEach(panel => {
+              if (panel.id === panelId) {
+                panel.classList.add('fullspan');
+                panel.classList.remove('hidden');
+              } else {
+                panel.classList.add('hidden');
+                panel.classList.remove('fullspan');
+              }
+            });
+            this.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            this.title = 'Exit Full Screen';
+          }
+        });
+      });
+    });
+  </script>
+  <script>
+    (function setDPR(){
+      const apply = () =>
+        document.documentElement.style.setProperty('--dpr', (window.devicePixelRatio || 1));
+      window.addEventListener('load', apply);
+      window.addEventListener('resize', apply);
+      apply();
+    })();
+  </script>
+</body>
 </html>

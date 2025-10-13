@@ -8,6 +8,7 @@ from infant.util.debug import print_messages # For debugging
 from infant.agent.state.state import State, AgentState
 from infant.agent.memory.memory import ( 
     Task,
+    CmdRun,
     Finish, 
     Memory, 
     Message, 
@@ -41,11 +42,13 @@ from infant.agent.memory.restore_memory import (
 )
 
 from infant.helper_functions.visual_helper_functions import localization_visual
-from infant.helper_functions.file_edit_helper_function import line_drift_correction
-from infant.helper_functions.browser_helper_function import convert_web_browse_commands
+from infant.helper_functions.file_edit_helper_function import file_editing
+from infant.helper_functions.browser_helper_function import web_interaction
+from infant.helper_functions.toolmaker_helper_function import make_tool
 from infant.agent.memory.file_related_memory import get_diff_patch, git_add_or_not
 import asyncio
 import logging
+from infant.config import Config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -58,6 +61,7 @@ class Agent:
                  execution_llm: LLM_API_BASED | None = None,
                  vg_llm: LLM_OSS_BASED | None = None,
                  fe_llm: LLM_API_BASED | None = None,
+                 tm_llm: LLM_API_BASED | None = None,
                  ap_llm: LLM_API_BASED | None = None,
                  computer: Computer | None = None,
         ) -> None:
@@ -73,6 +77,7 @@ class Agent:
         self.execution_llm = execution_llm
         self.vg_llm = vg_llm
         self.fe_llm = fe_llm
+        self.tm_llm = tm_llm
         self.ap_llm = ap_llm
         self.computer = computer
         self.agent_config = agent_config
@@ -90,7 +95,7 @@ class Agent:
         self.execution_task_end_prompt = execution_task_end_prompt
 
     def _active_llms(self):
-        """Return a tuple of all non‑None LLM instances owned by the agent."""
+        """Return a tuple of all non-None LLM instances owned by the agent."""
         return tuple(
             llm for llm in (
                 self.planning_llm,
@@ -116,8 +121,9 @@ class Agent:
                 await self.execution()
                 
                 # upload to git
-                git_add_or_not(user_response=True, computer=self.computer)
-                await asyncio.sleep(1)
+                if self.agent_config.use_git:
+                    git_add_or_not(user_response=True, computer=self.computer)
+                    await asyncio.sleep(1)
             except Exception as e:
                 logger.error(f"Error in agent step: {e}\n{traceback.format_exc()}")
                 await self.change_agent_state(new_state=AgentState.ERROR)
@@ -132,18 +138,32 @@ class Agent:
             memory = parse(resp) 
             if isinstance(memory, Message):
                 self.state.memory_list.append(memory)
+                await self.state.memory_queue.put(self.state.memory_list[-1])
                 if self.agent_config.fake_response_mode:
-                    planning_fake_user_response = Message(content=planning_fake_user_response_prompt)
+                    planning_fake_user_response = Message(thought=planning_fake_user_response_prompt)
                     planning_fake_user_response.source = 'user'
                     self.state.memory_list.append(planning_fake_user_response)
+                    await self.state.memory_queue.put(self.state.memory_list[-1])
                 else:
-                    user_response = await asyncio.get_event_loop().run_in_executor(None, input, "Witing for user input:")
-                    user_message = Message(content=user_response)
+                    user_response = await asyncio.get_event_loop().run_in_executor(None, input, "Waiting for user input:")
+                    user_message = Message(thought=user_response)
                     user_message.source = 'user'
                     self.state.memory_list.append(user_message)
+                    await self.state.memory_queue.put(self.state.memory_list[-1])
             else:
                 self.state.memory_list.append(memory)
+                await self.state.memory_queue.put(self.state.memory_list[-1])
             await asyncio.sleep(0.3)
+        
+        # log cost
+        self.state.total_cost += self.planning_llm.metrics.accumulated_cost
+        logger.info(
+            'Planning Cost: %.6f USD | Total Cost: %.6f USD',
+            self.planning_llm.metrics.accumulated_cost,
+            self.state.total_cost,
+        )
+        
+        # Change state if need
         if isinstance(self.state.memory_list[-1], Finish):
             await self.change_agent_state(new_state=AgentState.FINISHED)
             
@@ -158,6 +178,7 @@ class Agent:
         # resp = '<clf_task>file_edit, file_understand,  code_exec</clf_task>'
         memory = parse(resp) 
         self.state.memory_list.append(memory)
+        await self.state.memory_queue.put(self.state.memory_list[-1])
 
     async def execution(self) -> TaskFinish:
         assert isinstance(self.state.memory_list[-1], Classification)
@@ -177,42 +198,89 @@ class Agent:
                 self.state.memory_list.extend(mem_blc)
 
             memory = parse(resp)
-            if memory.runnable:
-                # record the descritpion of the image
-                if hasattr(memory, 'code') and memory.code:
-                    tmp_code = memory.code
+            if memory.runnable: # IPythonRun / CmdRun
+                # record the description of the image
+                # if hasattr(memory, 'code') and memory.code:
+                #     tmp_code = memory.code
 
-                memory = await localization_visual(self, memory)
-                memory = convert_web_browse_commands(memory) # convert the commands to correct format     
-                method = getattr(self.computer, memory.action)
-                if not memory.result:
-                    memory.result = await method(memory)
+                # memory = await localization_visual(self, memory)
+                # memory = convert_web_browse_commands(memory) # convert the commands to correct format     
+                # method = getattr(self.computer, memory.action)
+                # if not memory.result:
+                #     memory.result = await method(memory)
 
-                # Make sure the edit_file() command is correct
-                if isinstance(memory, IPythonRun):
-                    if 'edit_file' in memory.code and "Here is the code that you are trying to modified:" in memory.result:
-                        result, modified_command = await line_drift_correction(memory, self.computer)
-                        logger.info(f"Modified command: {modified_command}")
-                        memory.result = result # restore result
-                        tmp_code = modified_command # restore code
+                # # Make sure the edit_file() command is correct
+                # if isinstance(memory, IPythonRun):
+                #     if 'edit_file' in memory.code and "Here is the code that you are trying to modified:" in memory.result:
+                #         result, modified_command = await line_drift_correction(memory, self.computer)
+                #         logger.info(f"Modified command: {modified_command}")
+                #         memory.result = result # restore result
+                #         tmp_code = modified_command # restore code
 
-                memory.result = truncate_output(output = memory.result)
+                # memory.result = truncate_output(output = memory.result)
 
-                # convert the coordinate back to image description
-                if hasattr(memory, 'code') and memory.code:
-                    memory.code = tmp_code
+                # # convert the coordinate back to image description
+                # if hasattr(memory, 'code') and memory.code:
+                #     memory.code = tmp_code
+                memory = await self.execute_runnable_memory(memory)
                     
                 logger.info(f'Execution Result\n{memory.result}', extra={'msg_type': 'Execution Result'})
                 backup_image_memory(memory, constant.MOUNT_PATH)
                 self.state.memory_list.append(memory)
+                await self.state.memory_queue.put(self.state.memory_list[-1])
             elif isinstance(memory, Message):
                 self.state.memory_list.append(memory)
-                execution_fake_user_response = Message(content=tool_fake_user_response_prompt)
+                await self.state.memory_queue.put(self.state.memory_list[-1])
+                execution_fake_user_response = Message(thought=tool_fake_user_response_prompt)
                 execution_fake_user_response.source = 'user'
                 self.state.memory_list.append(execution_fake_user_response)
+                await self.state.memory_queue.put(self.state.memory_list[-1])
             else:
                 self.state.memory_list.append(memory)
+                await self.state.memory_queue.put(self.state.memory_list[-1])
             await asyncio.sleep(0.3)
+
+        # log cost
+        self.state.total_cost += self.execution_llm.metrics.accumulated_cost
+        logger.info(
+            'Execution Cost: %.6f USD | Total Cost: %.6f USD',
+            self.execution_llm.metrics.accumulated_cost,
+            self.state.total_cost,
+        )
+        
+    async def execute_runnable_memory(self, memory: IPythonRun | CmdRun) -> list[dict]:
+        """
+        Run the runnable memory based on different situations.
+        1. Visual grounding: convert the image description to coordinates
+        2. Web browsing: convert the web browsing commands to correct format
+        3. File editing: make sure the edit_file() command is correct
+        4. Making new tools
+        others: directly run the command
+        return the memory with updated result
+        """
+        # Visual grounding
+        if memory.special_type == 'visual_grounding':
+            memory = await localization_visual(self, memory)
+        
+        # Web browsing
+        if memory.special_type == 'web_interaction':  
+            memory = await web_interaction(self, memory) # convert the commands to correct format
+
+        # File editing
+        if memory.special_type == 'file_editing':
+            memory = await file_editing(self, memory)
+            
+        # Tool making
+        if memory.special_type == 'make_tool':
+            memory = await make_tool(self, memory)
+                
+        method = getattr(self.computer, memory.action)
+        if not memory.result:
+            memory.result = await method(memory)
+
+        memory.result = truncate_output(output = memory.result)
+
+        return memory
     
     async def change_agent_state(self, new_state: AgentState):
         logger.info(f"Changing agent state to: {new_state}")
@@ -319,3 +387,29 @@ class Agent:
             if check_accumulated_cost(total_cost, self.agent_config.max_budget_per_task):
                 await self.change_agent_state(new_state=AgentState.ERROR)
             await asyncio.sleep(1)
+
+
+    async def update_agent_config(self, config: Config = None) -> None: 
+        plan_parameter = config.get_litellm_params(overrides = config.planning_llm)
+        planning_llm = LLM_API_BASED(plan_parameter)
+        classification_parameter = config.get_litellm_params(overrides = config.classification_llm)
+        classification_llm = LLM_API_BASED(classification_parameter)
+        execution_parameter = config.get_litellm_params(overrides = config.execution_llm)
+        execution_llm = LLM_API_BASED(execution_parameter)
+        fe_parameter = config.get_litellm_params(overrides = config.fe_llm)
+        fe_llm = LLM_API_BASED(fe_parameter)
+        tm_parameter = config.get_litellm_params(overrides = config.tm_llm)
+        tm_llm = LLM_API_BASED(tm_parameter)
+        ap_parameter = config.get_litellm_params(overrides = config.ap_llm)
+        ap_llm = LLM_API_BASED(ap_parameter)
+        agent_parameter = config.get_agent_params()
+
+        self.planning_llm = planning_llm
+        self.classification_llm = classification_llm
+        self.execution_llm = execution_llm
+        self.fe_llm = fe_llm
+        self.tm_llm = tm_llm
+        self.ap_llm = ap_llm
+        self.agent_config = agent_parameter
+
+        logger.info(f'Agent Updated successfully.')

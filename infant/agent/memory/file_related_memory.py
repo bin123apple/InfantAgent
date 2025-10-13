@@ -40,9 +40,11 @@ def get_diff_patch(computer: Computer):
     # get the git diff
     exit_code, git_patch = computer.execute(
         f'git diff --no-color --cached'
-    , timeout=30)
-    if exit_code != 0:
-        logger.error('Failed to get git diff')
+    , timeout=60)
+    
+    # 0 means no diff, 1 means has diff
+    if exit_code not in (0, 1):
+        logger.error("git diff failed")
         return ''
 
     cleaned_patch_lines = []

@@ -1,4 +1,5 @@
-import os
+from __future__ import annotations
+
 import traceback
 from infant.config import config
 from infant.agent.parser import parse
@@ -6,8 +7,27 @@ from infant.computer.computer import Computer
 from infant.llm.llm_api_base import LLM_API_BASED
 from infant.agent.memory.memory import IPythonRun
 from infant.util.logger import infant_logger as logger
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from infant.agent.agent import Agent
 
-async def line_drift_correction(memory: IPythonRun, computer: Computer) -> str:
+async def file_editing(agent: Agent, memory: IPythonRun) -> str:
+    if hasattr(memory, 'code') and memory.code:
+        tmp_code = memory.code
+    method = getattr(agent.computer, memory.action)
+    if not memory.result:
+        memory.result = await method(memory)
+    if isinstance(memory, IPythonRun):
+        if 'edit_file' in memory.code and "Here is the code that you are trying to modified:" in memory.result:
+            result, modified_command = await line_drift_correction(agent.computer, memory)
+            logger.info(f"Modified command: {modified_command}")
+            memory.result = result # restore result
+            tmp_code = modified_command # restore code
+    if hasattr(memory, 'code') and memory.code:
+        memory.code = tmp_code
+    return memory
+
+async def line_drift_correction(computer: Computer, memory: IPythonRun) -> str:
     '''
     fix the line drift problem with in the edit_file() function
     '''

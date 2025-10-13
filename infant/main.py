@@ -3,8 +3,8 @@ import uuid
 import asyncio
 import traceback
 from datetime import datetime
-from infant.config import config
 from infant.agent.agent import Agent
+from infant.config import Config, config
 from infant.computer.computer import Computer
 from infant.llm.llm_api_base import LLM_API_BASED
 from infant.llm.llm_oss_base import LLM_OSS_BASED
@@ -14,14 +14,17 @@ from infant.util.save_dataset import save_to_dataset
 from infant.agent.memory.memory import Finish, IPythonRun
 from infant.prompt.tools_prompt import IMPORTS
 import infant.util.constant as constant
+import os 
+from pathlib import Path
 
 async def run_single_step(agent: Agent, user_request_text: str, image = None):
     agent.state.memory_list.append(Userrequest(text=user_request_text, images=image))
+    await agent.state.memory_queue.put(agent.state.memory_list[-1])
 
     monitor_task = asyncio.create_task(agent.monitor_agent_state())
     special_case_task = asyncio.create_task(agent.special_case_handler())
     step_task = asyncio.create_task(agent.step())
-    
+
     await monitor_task
 
     if not step_task.done():
@@ -42,7 +45,16 @@ async def run_single_step(agent: Agent, user_request_text: str, image = None):
     answer = finish_memory.thought
     return answer
 
-async def initialize_agent():
+async def initialize_agent(config: Config = None):
+    if config is None:
+        config = Config()
+        config.finalize_config()
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        root_dir = Path(current_dir).resolve().parent
+        CONFIG_FILE = root_dir / "config.toml"
+        user_config = config._load()
+        config.__dict__.update(user_config)
+
     # Initialize the API Based LLM
     plan_parameter = config.get_litellm_params(overrides = config.planning_llm)
     planning_llm = LLM_API_BASED(plan_parameter)
@@ -54,6 +66,8 @@ async def initialize_agent():
     vg_llm = LLM_OSS_BASED(vg_parameter)
     fe_parameter = config.get_litellm_params(overrides = config.fe_llm)
     fe_llm = LLM_API_BASED(fe_parameter)
+    tm_parameter = config.get_litellm_params(overrides = config.tm_llm)
+    tm_llm = LLM_API_BASED(tm_parameter)
     ap_parameter = config.get_litellm_params(overrides = config.ap_llm)
     ap_llm = LLM_API_BASED(ap_parameter)
      
@@ -61,7 +75,7 @@ async def initialize_agent():
     computer_parameter = config.get_computer_params()
     sid = str(uuid.uuid4())
     computer = Computer(computer_parameter, sid = sid)
-    
+    constant.MOUNT_PATH = computer.workspace_mount_path
     # cd to the workspace/clear the workspace/activate conda
     exit_code, output = computer.execute(f'cd /workspace && rm -rf *')
     if exit_code != 0:
@@ -87,7 +101,7 @@ async def initialize_agent():
     agent_parameter = config.get_agent_params()
     agent = Agent(agent_config = agent_parameter, planning_llm = planning_llm,
                   classification_llm = classification_llm, execution_llm = execution_llm,
-                  vg_llm = vg_llm, fe_llm = fe_llm, ap_llm = ap_llm, computer = computer)
+                  vg_llm = vg_llm, fe_llm = fe_llm, tm_llm = tm_llm, ap_llm = ap_llm, computer = computer)
     logger.info(f'Agent initialized successfully.')
     exit_code, output = computer.execute(f'cd /workspace && rm -rf *')
     
@@ -98,6 +112,7 @@ async def initialize_agent():
     import_memory = IPythonRun(code = "press_key('Escape')")
     await computer.run_ipython(import_memory)
     return agent, computer
+
 
 async def main():
 
@@ -113,7 +128,14 @@ async def main():
                 logger.info(f'Current working directory: {output}')
                 user_request = input("Input your request or use type exit to refresh the agent: ")
                 if user_request.lower() == 'exit':
+                    # reset state
                     agent.state.reset()
+
+                    # reset accumulated cost
+                    for llm in agent._active_llms():
+                        llm.metrics.accumulated_cost = 0
+
+                    # clean workspace
                     exit_code, output = computer.execute(f'cd /workspace && rm -rf *')
                     logger.info("Agent state reset.")
                     user_request = input("Input your new request: ")
@@ -135,7 +157,7 @@ async def main():
         await cleanup(agent=agent, computer=computer)
 
 async def cleanup(agent: None | Agent = None, computer: None | Computer = None):
-    
+
     # Handle the screenshots
     screenshots_dir = "/workspace/screenshots/"
     end_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -146,7 +168,7 @@ async def cleanup(agent: None | Agent = None, computer: None | Computer = None):
         logger.info(f"Screenshots moved successfully to: {log_folder}")
     else:
         logger.warning(f"Failed to move screenshots. Directory might not exist. Output: {output}")
-        
+
     # record the log to dataset
     if config.feedback_mode and exit_code == 0:
         mount_path = config.workspace_mount_path

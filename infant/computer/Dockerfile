@@ -1,9 +1,94 @@
 FROM ubuntu:22.04
 
-# language & timezone
+ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=en_US.UTF-8
 ENV TZ=America/New_York
-ENV DEBIAN_FRONTEND=noninteractive
+
+# ---- Base OS, GNOME desktop, tools ----
+RUN rm -f /etc/update-motd.d/60-unminimize /etc/update-motd.d/98-fsck-at-reboot && \
+    apt-get update && \
+    apt-get -y -o Dpkg::Options::="--force-confnew" -o APT::Immediate-Configure=false dist-upgrade && \
+    apt-get install -y --no-install-recommends \
+      ca-certificates curl wget gnupg software-properties-common apt-transport-https locales \
+      gnome ubuntu-desktop gdm3 dbus-x11 \
+      mesa-utils libegl1-mesa libvdpau1 && \
+    sed -i 's/#WaylandEnable=false/WaylandEnable=false/' /etc/gdm3/custom.conf && \
+    echo "$TZ" > /etc/timezone && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
+    apt-get install -y tzdata && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# ---- XRDP (RDP server for the desktop) ----
+RUN apt-get update && apt-get install -y --no-install-recommends xrdp && \
+    adduser xrdp ssl-cert || true && \
+    printf "export DESKTOP_SESSION=gnome\nexec gnome-session\n" > /etc/xrdp/startwm.sh && \
+    chmod +x /etc/xrdp/startwm.sh && \
+    rm -rf /var/lib/apt/lists/*
+
+# # ---- Create a login user (change as needed) ----
+# ARG DESKTOP_USER=infant
+# ARG DESKTOP_PASS=123
+# RUN if ! id -u "${DESKTOP_USER}" >/dev/null 2>&1; then useradd -m -s /bin/bash "${DESKTOP_USER}"; fi && \
+#     echo "${DESKTOP_USER}:${DESKTOP_PASS}" | chpasswd && \
+#     usermod -aG sudo "${DESKTOP_USER}"
+
+# ---- Tomcat + Guacamole WebApp + guacd (all-in-one) ----
+ENV GUAC_VERSION=1.5.5
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        tomcat9 tomcat9-admin tomcat9-common \
+        guacd libguac-client-rdp0 libguac-client-vnc0 libguac-client-ssh0 && \
+    rm -rf /var/lib/apt/lists/*
+
+    RUN mkdir -p /var/lib/tomcat9/webapps /etc/guacamole && \
+    wget -q https://downloads.apache.org/guacamole/${GUAC_VERSION}/binary/guacamole-${GUAC_VERSION}.war \
+      -O /var/lib/tomcat9/webapps/guacamole.war || \
+    wget -q https://archive.apache.org/dist/guacamole/${GUAC_VERSION}/binary/guacamole-${GUAC_VERSION}.war \
+      -O /var/lib/tomcat9/webapps/guacamole.war && \
+    ln -sf /etc/guacamole /usr/share/tomcat9/.guacamole
+
+# guacd.conf
+RUN mkdir -p /etc/guacamole && \
+    cat >/etc/guacamole/guacd.conf <<EOF
+[daemon]
+log_level = info
+
+[server]
+bind_host = 0.0.0.0
+bind_port = 4822
+EOF
+
+# guacamole.properties pointing to local guacd
+RUN cat >/etc/guacamole/guacamole.properties <<EOF
+guacd-hostname: localhost
+guacd-port: 4822
+EOF
+
+# ---------- Tools & i18n (optional) ----------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      vim nano git unzip zip openssh-server python3 python3-pip \
+      fonts-noto-color-emoji language-pack-zh-hans && \
+    rm -rf /var/lib/apt/lists/* && \
+    ln -sf /usr/bin/python3 /usr/bin/python && \
+    locale-gen en_US.UTF-8 zh_CN.UTF-8
+ENV LANGUAGE=en_US:en
+
+# ---------- Startup ----------
+RUN cat >/usr/local/bin/start-all.sh <<'EOF'
+#!/usr/bin/env bash
+set -e
+# DBus (GNOME expects it)
+if command -v service >/dev/null 2>&1; then service dbus start || true; else dbus-daemon --system --fork || true; fi
+# XRDP
+mkdir -p /var/run/xrdp; chown xrdp:xrdp /var/run/xrdp || true
+/usr/sbin/xrdp-sesman -n &
+/usr/sbin/xrdp -n &
+# guacd
+/usr/sbin/guacd -f &
+# Tomcat (serves /guacamole on :8080)
+exec catalina.sh run
+EOF
+RUN chmod +x /usr/local/bin/start-all.sh
+
 
 # install gnome desktop and other tools
 RUN \
@@ -100,36 +185,9 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive \
     echo 'export LD_PRELOAD=/usr/lib/libdlfaker.so:/usr/lib/libvglfaker.so:$LD_PRELOAD' > /etc/profile.d/virtualgl.sh && \
     sed -i 's/use-ssh-agent/no-use-ssh-agent/' /etc/X11/Xsession.options
 
-# install nomachine (remote desktop)
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive \
-    apt-get install -y --no-install-recommends \
-    xfonts-base xfonts-75dpi xfonts-100dpi \
-    xfonts-scalable net-tools xauth \
-    xserver-xorg-video-dummy && \
-    # Install NoMachine binary and dependencies.
-    # Ensure the nx user ID is not in the normal user range.
-    groupadd -r -g 2000 nx && \
-    useradd -u 2000 -r -g nx nx && \
-    # Install NoMachine Enterprise Desktop
-    NOMACHINE_MAJOR_VERSION="8.16-PRODUCTION" && \
-    NOMACHINE_VERSION="8.16.1_1" && \
-    echo "VERSION: ${NOMACHINE_VERSION}" && \
-    echo "MAJOR_VERSION: ${NOMACHINE_MAJOR_VERSION}" && \
-    curl -sSL https://download.nomachine.com/packages/${NOMACHINE_MAJOR_VERSION}/Linux/nomachine-enterprise-desktop_${NOMACHINE_VERSION}_amd64.deb -o nomachine-enterprise-desktop_${NOMACHINE_VERSION}_amd64.deb && \
-    dpkg -i nomachine-enterprise-desktop_${NOMACHINE_VERSION}_amd64.deb && \
-    rm nomachine-enterprise-desktop_${NOMACHINE_VERSION}_amd64.deb && \
-    # Workaround for NoMachine configuring audio for
-    # the lightdm user but not for a normal user.
-    echo 'mkdir -p ~/.config/pulse\nif [ ! -f ~/.config/pulse/client.conf ]; then\ncp /etc/pulse/client.conf ~/.config/pulse/client.conf\nsed -i "s/; default-server =/default-server = unix:\/tmp\/pulse-socket/g" ~/.config/pulse/client.conf\nfi' > /etc/profile.d/create-pulse-clientconf.sh && \
-    echo 'load-module module-native-protocol-unix auth-anonymous=1 socket=/tmp/pulse-socket' >> /etc/pulse/default.pa && \
-   echo '[GDM]\n# GDM default config, no need to set xserver-command' > /etc/gdm3/custom.conf
-
-
 # Install dbus-session
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dbus-user-session
-# Nomachine Use EGL capture
-RUN sudo /etc/NX/nxserver --eglcapture yes
-RUN sudo sed -i '$a WaylandModes "egl,compositor,drm"' /usr/NX/etc/node.cfg
+
 # Turn off Gnome Shell Animations
 RUN gsettings set org.gnome.desktop.interface enable-animations false
 # Install Vim
@@ -162,7 +220,7 @@ RUN apt-get update && apt-get install -y \
 RUN mkdir -p -m0755 /var/run/sshd
 
 # symlink python3 to python
-RUN ln -s /usr/bin/python3 /usr/bin/python
+RUN [ -e /usr/bin/python ] || ln -s /usr/bin/python3 /usr/bin/python
 
 # language and locale settings
 RUN apt-get update && \
@@ -176,13 +234,20 @@ RUN apt-get update && \
 ENV LANGUAGE=en_US:en
 
 # prevent automatic updates and notifications
-RUN apt-get remove -y update-notifier update-manager-core update-manager && \
-    systemctl disable --now apt-daily-upgrade.timer apt-daily.timer || true && \
-    rm -rf /usr/lib/ubuntu-release-upgrader/ && \
-    gsettings set org.gnome.software download-updates false && \
-    sed -i 's/^Prompt=lts/Prompt=never/' /etc/update-manager/release-upgrades && \
-    sed -i 's/^APT::Periodic::Unattended-Upgrade "1";/APT::Periodic::Unattended-Upgrade "0";/' /etc/apt/apt.conf.d/20auto-upgrades && \
-    sed -i 's|Exec=/usr/bin/google-chrome-stable %U|Exec=/usr/bin/google-chrome-stable --new-tab chrome://newtab|' /usr/share/applications/google-chrome.desktop
+# Disable APT periodic & unattended upgrades in containers (no systemctl, no gsettings)
+RUN set -eux; \
+    apt-get update; \
+    apt-get -y remove unattended-upgrades || true; \
+    printf 'APT::Periodic::Enable "0";\nAPT::Periodic::Update-Package-Lists "0";\nAPT::Periodic::Download-Upgradeable-Packages "0";\nAPT::Periodic::AutocleanInterval "0";\n' \
+      > /etc/apt/apt.conf.d/10periodic; \
+    printf 'APT::Periodic::Unattended-Upgrade "0";\n' \
+      > /etc/apt/apt.conf.d/20auto-upgrades; \
+    if [ -f /etc/update-manager/release-upgrades ]; then \
+      sed -i 's/^Prompt=.*/Prompt=never/' /etc/update-manager/release-upgrades; \
+    fi; \
+    if [ -f /usr/share/applications/google-chrome.desktop ]; then \
+      sed -i 's|Exec=/usr/bin/google-chrome-stable %U|Exec=/usr/bin/google-chrome-stable --new-tab chrome://newtab|' /usr/share/applications/google-chrome.desktop; \
+    fi
 
 # install xvfb and gnome-session-flashback for headless mode
 RUN apt-get update && \
@@ -190,9 +255,6 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy Install Script
-COPY GeForce-XorgDisplaySettingAuto.sh /home
-COPY Tesla-XorgDisplaySettingAuto.sh /home
-COPY vulkan-ubuntu-22.04.sh /home
 WORKDIR /home
 
 # RUN chmod +x /home/Tesla-XorgDisplaySettingAuto.sh && \
@@ -208,10 +270,13 @@ RUN echo "" > /infant/bash.bashrc
 RUN rm -f Miniforge3.sh
 
 # - agentskills dependencies
+RUN apt-get autoclean
 RUN /infant/miniforge3/bin/pip install --upgrade pip
-RUN /infant/miniforge3/bin/pip install jupyterlab notebook jupyter_kernel_gateway flake8 Pillow
-RUN /infant/miniforge3/bin/pip install python-docx PyPDF2 python-pptx pylatexenc openai openpyxl
-RUN /infant/miniforge3/bin/pip install python-dotenv toml termcolor pydantic python-docx pyyaml docker pexpect tenacity e2b browsergym minio
+RUN /infant/miniforge3/bin/pip install --no-cache-dir jupyterlab notebook jupyter_kernel_gateway flake8 Pillow python-docx PyPDF2 python-pptx pylatexenc openai openpyxl python-dotenv toml termcolor pydantic python-docx pyyaml docker pexpect tenacity e2b browsergym minio
+
+
+EXPOSE 3389 8080
+CMD ["/usr/local/bin/start-all.sh"]
 
 # Build
-# docker build -t ubuntu-gnome-nomachine:22.04 -f Dockerfile .
+# docker build -t ubuntu-gnome-nomachine:latest -f Dockerfile .

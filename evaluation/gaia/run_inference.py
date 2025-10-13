@@ -123,6 +123,7 @@ def process_instance(instance: dict):
 
 async def run_single_step(agent: Agent, user_request_text: str):
     agent.state.memory_list.append(Userrequest(text=user_request_text))
+    await agent.state.memory_queue.put(agent.state.memory_list[-1])
 
     monitor_task = asyncio.create_task(agent.monitor_agent_state())
     special_case_task = asyncio.create_task(agent.special_case_handler())
@@ -149,7 +150,7 @@ async def run_single_step(agent: Agent, user_request_text: str):
     return answer
 
 async def run_single_instance(instance: dict, logger):
-    # Intialize the docker and the Agent
+    # Initialize the docker and the Agent
     agent = await initialize_docker_agent(instance=instance, config=config)
     task_id: str = instance.get("task_id", "unknown")
     logger.info(f"Running instance: {task_id}")

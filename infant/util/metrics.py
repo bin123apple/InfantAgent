@@ -36,7 +36,6 @@ class Metrics:
     def add_function_cost(self, function_name: str, cost: float) -> None:
         """
         Add cost for a specific function
-
         """
         if cost < 0:
             raise ValueError('Added cost cannot be negative.')

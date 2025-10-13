@@ -19,7 +19,8 @@ from infant.util.exceptions import ComputerInvalidBackgroundCommandError
 from infant.util.logger import infant_logger as logger
 from infant.config import ComputerParams
 from infant.prompt.tools_prompt import tool_trace_code, tool_filter_bash_code
-from infant.agent.memory.memory import IPythonRun, CmdRun
+from infant.helper_functions.setting_up import PYTHON_SETUP_CODE
+from infant.agent.memory.memory import IPythonRun, CmdRun 
 from infant.helper_functions.audio_helper_function import parse_audio # for exec()
 from infant.helper_functions.video_helper_function import parse_video, watch_video # for exec()
 
@@ -192,7 +193,23 @@ class Computer:
                 raise e
 
         # auto login to the nomachine
-        self.automate_nomachine_login(initial_session = self.is_initial_session)
+        # self.automate_nomachine_login(initial_session = self.is_initial_session)
+        info = self.ensure_and_login_guac(
+            base_url=f"http://localhost:{self.gui_port}/guacamole",  # such as 4443
+            web_user="web", web_pass="web",
+            rdp_user="infant", rdp_pass="123",
+            connection_name="GNOME Desktop (RDP)",
+        )
+        print(info["client_url"] or info["index_url"])
+        
+        self.config_xorg_for_gui()
+        
+        # set up chrome for fast manual openning
+        output = self.run_python(PYTHON_SETUP_CODE)
+        print(f"Set up chrome for fast manual openning, output: {output}")
+        
+        self.execute('export PYTHONIOENCODING=utf-8')
+
         
     def init_plugins(self):
         """Load a plugin into the computer."""
@@ -369,19 +386,8 @@ class Computer:
             logger.info(f"result.stdout while trying to remove known host port {port}", result.stdout)
             logger.info(f"Successfully removed known host port: {port}.")
         except subprocess.CalledProcessError as e:
-            logger.info(f"Error while trying to delate known host port {port}:", e.stderr)
-        
-        ### For root user    
-        # try:
-        #     # Add host key to known_hosts to avoid interactive prompt
-        #     subprocess.run(
-        #         ["ssh-keyscan", "-p", port, hostname],
-        #         stdout=open(f"{os.path.expanduser('~')}/.ssh/known_hosts", "a"),
-        #         stderr=subprocess.DEVNULL,
-        #     )
-        # except Exception as e:
-        #     logger.exception(f'Failed to add host key to known_hosts: {e}', exc_info=False)
-            
+            logger.info(f"Error while trying to delete known host port {port}:", e.stderr)
+          
     # Use the retry decorator, with a maximum of 5 attempts and a fixed wait time of 5 seconds between attempts
     @retry(stop=stop_after_attempt(5), wait=wait_fixed(5))
     def __ssh_login(self):
@@ -419,6 +425,261 @@ class Computer:
         # cd to workspace
         self.ssh.sendline(f'cd {self.computer_workspace_dir}')
         self.ssh.prompt()
+    
+    def ensure_guac_ready(
+        self, *,
+        web_user: str = "web",
+        web_pass: str = "web",
+        rdp_user: str = "infant",
+        rdp_pass: str = "123",
+        connection_name: str = "GNOME Desktop (RDP)",
+        timeout_s: float = 15.0,
+    ):
+        """Set up Guacamole."""
+        # Target: GNOME Shell, common Dock, skip color management pop-ups, Guac initial 1280x1080 + dynamic follow
+        INITIAL_W = 1920
+        INITIAL_H = 1080
+        FAVORITES = "['google-chrome.desktop','code.desktop','thunderbird.desktop','libreoffice-writer.desktop','libreoffice-calc.desktop','libreoffice-impress.desktop','org.gnome.Terminal.desktop']"
+        self.execute('sudo id infant >/dev/null 2>&1 || sudo useradd -m -s /bin/bash infant')
+        cmds = [
+            # Basic directories and GUACAMOLE_HOME symlink
+            "mkdir -p /etc/guacamole /var/lib/tomcat9/webapps /usr/share/tomcat9 || true",
+            "ln -sf /etc/guacamole /usr/share/tomcat9/.guacamole",
+
+            # XRDP use GNOME Shell (Xorg)
+            r"""bash -lc 'cat > /etc/xrdp/startwm.sh << "SH"
+    #!/bin/sh
+    unset DBUS_SESSION_BUS_ADDRESS
+    unset XDG_RUNTIME_DIR
+    export GNOME_SHELL_SESSION_MODE=ubuntu
+    export XDG_CURRENT_DESKTOP=ubuntu:GNOME
+    export XDG_SESSION_DESKTOP=ubuntu
+    if command -v /usr/libexec/gnome-session-binary >/dev/null 2>&1; then
+    exec /usr/libexec/gnome-session-binary --session=ubuntu
+    else
+    exec gnome-session --session=ubuntu
+    fi
+    SH
+    chmod +x /etc/xrdp/startwm.sh'""",
+
+            # System-level dconf defaults: hide desktop mount icons + set Dock favorites
+            "mkdir -p /etc/dconf/db/local.d /etc/dconf/profile",
+            r"""bash -lc 'cat > /etc/dconf/profile/user << "EOF"
+    user-db:user
+    system-db:local
+    '""",
+            r"""bash -lc 'cat > /etc/dconf/db/local.d/00-infant << "EOF"
+    [org/gnome/nautilus/desktop]
+    volumes-visible=false
+
+    [org/gnome/shell]
+    favorite-apps=%s
+
+    [org/gnome/shell/extensions/ding]
+    show-mounts=false
+    show-network-volumes=false
+    '""" % FAVORITES,
+            "dconf update || true",
+
+            # Write favorites to infant user config (try best without session bus)
+            r"""bash -lc 'if id -u %s >/dev/null 2>&1; then \
+    sudo -H -u %s dbus-launch --exit-with-session gsettings set org.gnome.shell favorite-apps "%s" || true; \
+    fi'""" % (rdp_user, rdp_user, FAVORITES),
+
+
+            # Write user-mapping.xml (enable display-update + initial 1280x1080 + higher DPI)
+            r"""bash -lc 'cat > /etc/guacamole/user-mapping.xml << "XML"
+    <user-mapping>
+    <authorize username="%s" password="%s">
+        <connection name="%s">
+        <protocol>rdp</protocol>
+        <param name="hostname">localhost</param>
+        <param name="port">3389</param>
+        <param name="username">%s</param>
+        <param name="password">%s</param>
+
+        <!-- Initial resolution + dynamic follow browser window -->
+        <param name="width">%d</param>
+        <param name="height">%d</param>
+        <param name="resize-method">none</param>
+        <param name="dpi">120</param>
+        <param name="enable-font-smoothing">true</param>
+
+        <param name="color-depth">24</param>
+        <param name="security">any</param>
+        <param name="ignore-cert">true</param>
+        </connection>
+    </authorize>
+    </user-mapping>'""" % (web_user, web_pass, connection_name, rdp_user, rdp_pass, INITIAL_W, INITIAL_H),
+
+            # guacamole.properties
+            r"""bash -lc 'cat > /etc/guacamole/guacamole.properties << "EOF"
+    guacd-hostname: localhost
+    guacd-port: 4822
+    user-mapping: /etc/guacamole/user-mapping.xml
+    auth-provider: net.sourceforge.guacamole.net.basic.BasicFileAuthenticationProvider'""",
+
+            r"""bash -lc 'U=$(getent passwd tomcat >/dev/null && echo tomcat || echo tomcat9); \
+    chown "$U:$U" /etc/guacamole/user-mapping.xml || true; \
+    chmod 640 /etc/guacamole/user-mapping.xml; chmod 755 /etc/guacamole'""",
+
+            # Ensure /var/run/xrdp exists（xrdp/guacd）
+            r"mkdir -p /var/run/xrdp && chown xrdp:xrdp /var/run/xrdp || true",
+            r"""bash -lc 'pgrep -x guacd >/dev/null || /usr/sbin/guacd -f >/var/log/guacd.log 2>&1 &'""",
+            r"""bash -lc 'pgrep -x xrdp-sesman >/dev/null || /usr/sbin/xrdp-sesman -n >/var/log/xrdp-sesman.log 2>&1 &'""",
+            r"""bash -lc 'pgrep -x xrdp >/dev/null || /usr/sbin/xrdp -n >/var/log/xrdp.log 2>&1 &'""",
+
+            # start tomcat9
+            r"""bash -lc 'pgrep -f org.apache.catalina.startup.Bootstrap >/dev/null \
+    || catalina.sh start \
+    || (catalina.sh run >/var/log/catalina-run.log 2>&1 &)'""",
+
+            # Clean volume
+            r"""bash -lc 'set -eux; \
+U=infant; \
+U_ID=$(id -u "$U"); \
+export XDG_RUNTIME_DIR=/run/user/$U_ID; \
+export DBUS_SESSION_BUS_ADDRESS=unix:path=$XDG_RUNTIME_DIR/bus; \
+[ -S "$XDG_RUNTIME_DIR/bus" ] || (mkdir -p "$XDG_RUNTIME_DIR"; /usr/bin/dbus-daemon --session --address="unix:path=$XDG_RUNTIME_DIR/bus" --fork || true); \
+FAVS="[ '\''google-chrome.desktop'\'', '\''code.desktop'\'', '\''thunderbird.desktop'\'', '\''libreoffice-writer.desktop'\'', '\''libreoffice-calc.desktop'\'', '\''libreoffice-impress.desktop'\'', '\''org.gnome.Nautilus.desktop'\'', '\''org.gnome.Terminal.desktop'\'', '\''org.gnome.Settings.desktop'\'' ]"; \
+sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" gsettings set org.gnome.shell.extensions.dash-to-dock show-mounts false || true; \
+sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" gsettings set org.gnome.shell.extensions.dash-to-dock show-trash false || true; \
+sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" gsettings set org.gnome.shell favorite-apps "$FAVS" || true; \
+sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" gsettings set org.gnome.shell.extensions.dash-to-dock dash-max-icon-size 48 || true'""",
+
+            # Add apps to dock
+            r"""bash -lc 'set -eux; rm -f /etc/dconf/db/local.d/00-infant /etc/dconf/db/local.d/00-favorites || true; mkdir -p /etc/dconf/db/local.d /etc/dconf/profile; printf "%s\n" "user-db:user" "system-db:local" > /etc/dconf/profile/user; printf "%s\n" "[org/gnome/shell]" "favorite-apps=['\''google-chrome.desktop'\'','\''code.desktop'\'','\''thunderbird.desktop'\'','\''libreoffice-writer.desktop'\'','\''libreoffice-calc.desktop'\'','\''libreoffice-impress.desktop'\'','\''org.gnome.Terminal.desktop'\'','\''org.gnome.Nautilus.desktop'\'','\''org.gnome.Settings.desktop'\'']" "" "[org/gnome/shell/extensions/dash-to-dock]" "show-mounts=false" "show-trash=false" "dash-max-icon-size=48" > /etc/dconf/db/local.d/00-favorites; dconf update'
+"""
+            # skip secrate check
+            r"""bash -lc 'set -euo pipefail; apt-get update && apt-get install -y gnome-keyring dbus-user-session && install -d -m 755 /etc/xdg/autostart && printf "[Desktop Entry]\nType=Application\nName=Secret Service (gnome-keyring)\nExec=/usr/bin/gnome-keyring-daemon --start --components=secrets\nOnlyShowIn=GNOME;GNOME-Flashback;Unity;XFCE;LXDE;MATE;\nX-GNOME-Autostart-Phase=Initialization\nX-GNOME-Autostart-Notify=false\nNoDisplay=true\n" > /etc/xdg/autostart/gnome-keyring-secrets.desktop'
+"""
+            # Open desktop
+            r"""bash -lc 'dpkg -s xorgxrdp >/dev/null 2>&1 || (apt-get update && apt-get install -y --no-install-recommends xrdp xorgxrdp guacd)'
+""",
+            r"""bash -lc 'set -eux; mkdir -p /var/run/xrdp; chown xrdp:xrdp /var/run/xrdp || true; getent group ssl-cert >/dev/null && adduser xrdp ssl-cert || true; pgrep -x xrdp-sesman >/dev/null || (/usr/sbin/xrdp-sesman -n  >/var/log/xrdp-sesman.foreground.log 2>&1 &); pgrep -x xrdp >/dev/null        || (/usr/sbin/xrdp -n       >/var/log/xrdp.foreground.log        2>&1 &); pgrep -x guacd >/dev/null        || (/usr/sbin/guacd -f      >/var/log/guacd.foreground.log       2>&1 &); ss -lntp 2>/dev/null | grep -E ":(3389|4822)\\b" || true'
+""",
+            r"""bash -lc 'pgrep -f org.apache.catalina.startup.Bootstrap >/dev/null || catalina.sh start || (catalina.sh run >/var/log/catalina-run.log 2>&1 &)'
+"""
+        ]
+
+        for cmd in cmds:
+            code, logs = self.container.exec_run(['/bin/bash', '-lc', cmd])
+            if code != 0:
+                raise RuntimeError(f"Guac setup step failed: {cmd}\n{logs.decode(errors='ignore')}")
+
+        import time
+        start = time.time()
+        while time.time() - start < timeout_s:
+            code, _ = self.container.exec_run(
+                ['/bin/bash', '-lc', 'curl -fsS http://localhost:8080/guacamole/ >/dev/null']
+            )
+            if code == 0:
+                break
+            time.sleep(0.5)
+        else:
+            raise TimeoutError("Guacamole web UI not ready at :8080/guacamole")
+
+    def config_xorg_for_gui(self):
+        # Fix /etc/hosts to avoid sudo warning about hostname
+        self.execute("HN=$(hostname)")
+        self.execute('grep -qE "(^|\\s)${HN}(\\s|$)" /etc/hosts || echo "127.0.1.1 ${HN}" | sudo tee -a /etc/hosts >/dev/null')
+        
+        # VARIABLES: target Xauthority path and infant's UID/GID (fallback to current user if not exist)
+        self.execute("XAUTH=/home/infant/.Xauthority")
+        self.execute("U=$(id -u infant 2>/dev/null || id -u)")
+        self.execute("G=$(id -g infant 2>/dev/null || id -g)")
+        
+        # return rights and set to 600
+        self.execute('sudo chown ${U}:${G} "$XAUTH" || sudo chown ${U} "$XAUTH"')
+        self.execute('sudo chmod 600 "$XAUTH"')
+        
+        # Clean up stale lock files
+        self.execute('sudo rm -f "$XAUTH"-c "$XAUTH"-l "$XAUTH".lock || true')
+        
+        # Read the cookie for display :10
+        self.execute("""COOKIE=$(sudo -u \#${U} XAUTHORITY="$XAUTH" xauth list 2>/dev/null | awk '/:10.*MIT-MAGIC-COOKIE-1/ {print $NF; exit}')""")
+        self.execute('''[ -n "$COOKIE" ] || COOKIE=$(mcookie)''')
+        
+        # Write three common keys (:10 / <hostname>/unix:10 / localhost/unix:10)
+        self.execute('HOST=$(hostname)')
+        self.execute('sudo -u \#${U} XAUTHORITY="$XAUTH" xauth add ":10" . "$COOKIE"')
+        self.execute('sudo -u \#${U} XAUTHORITY="$XAUTH" xauth add "$HOST/unix:10" . "$COOKIE"')
+        self.execute('sudo -u \#${U} XAUTHORITY="$XAUTH" xauth add "localhost/unix:10" . "$COOKIE"')
+        
+        # export DISPLAY=:10
+        self.execute("grep -qx 'export DISPLAY=:10' ~/.bashrc || echo 'export DISPLAY=:10' >> ~/.bashrc && source ~/.bashrc")
+        self.execute('export XAUTHORITY=/home/infant/.Xauthority')
+        
+        # Prevent screen from locking or going blank
+        self.execute("gsettings set org.gnome.desktop.session idle-delay 0")
+        self.execute("gsettings set org.gnome.desktop.screensaver lock-delay 0")
+        self.execute("gsettings set org.gnome.desktop.screensaver lock-enabled false")
+        self.execute("gsettings set org.gnome.settings-daemon.plugins.power idle-dim false")
+        self.execute("gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-timeout 0")
+        self.execute("gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type 'nothing'")
+        self.execute("gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-battery-timeout 0 || true")
+        self.execute("gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-battery-type 'nothing' || true")
+        self.execute("gsettings set org.gnome.desktop.screensaver idle-activation-enabled false")
+        self.execute("gsettings set org.gnome.desktop.lockdown disable-lock-screen true")
+
+        self.execute("source ~/.bashrc")
+        
+        
+
+    def ensure_and_login_guac(
+        self, *,
+        base_url: str,
+        web_user: str = "web",
+        web_pass: str = "web",
+        rdp_user: str = "infant",
+        rdp_pass: str = "123",
+        connection_name: str = "GNOME Desktop (RDP)",
+        verify_tls: bool = True,
+        timeout: float = 10.0,
+    ):
+        """One-step: ensure Guacamole is configured inside the container + login and get direct URL."""
+        # First ensure Guacamole is configured and ready inside the container
+        self.ensure_guac_ready(
+            web_user=web_user, web_pass=web_pass,
+            rdp_user=rdp_user, rdp_pass=rdp_pass,
+            connection_name=connection_name,
+        )
+
+        # login and get token + direct URL to the connection
+        import requests
+        base = base_url.rstrip('/')
+        s = requests.Session()
+        s.verify = verify_tls
+
+        r = s.post(
+            f"{base}/api/tokens",
+            data={"username": web_user, "password": web_pass},
+            headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
+            timeout=timeout,
+        )
+        r.raise_for_status()
+        j = r.json()
+        token = j["authToken"]
+        data_source = j.get("dataSource") or (j.get("availableDataSources") or ["default", "file"])[0]
+
+        conn_id = None
+        if connection_name:
+            r = s.get(f"{base}/api/session/data/{data_source}/connections",
+                    params={"token": token}, timeout=timeout)
+            r.raise_for_status()
+            resp = r.json()
+            if isinstance(resp, dict):
+                for obj in resp.values():
+                    if obj.get("name") == connection_name:
+                        conn_id = obj.get("identifier")
+                        break
+            if not conn_id:
+                raise RuntimeError(f"Connection '{connection_name}' not found in data source '{data_source}'.")
+
+        index_url = f"{base}/?token={token}"
+        client_url = f"{base}/#/client/{conn_id}?token={token}" if conn_id else None
+        return {"token": token, "data_source": data_source, "index_url": index_url, "client_url": client_url}
+
 
     def automate_nomachine_login(self, initial_session: bool = False):
         logger.info('Attempting to automatically connect to the virtual desktop.')
@@ -432,8 +693,8 @@ class Computer:
         self.execute("source ~/.bashrc")
         
         time.sleep(2) # wait for the installation to finish
-        logger.info(f"Please check the details at: 'https://localhost:{self.gui_port}'")
-        logger.info(f"For first-time users, please go to https://localhost:{self.gui_port} to set up and skip unnecessary steps.")
+        logger.info(f"Please check the details at: 'http://localhost:{self.gui_port}/guacamole'")
+        logger.info(f"For first-time users, please go to http://localhost:{self.gui_port}/guacamole to set up and skip unnecessary steps.")
         try:
             # time.sleep(5000) # DEBUG: Check the nomachine login
             if initial_session:
@@ -608,26 +869,26 @@ class Computer:
             return 0, all_output
 
         self.ssh.sendline(cmd)
-        # --- 检查是否掉进交互环境，若是则 10 s 后自动退出 ---
+        # --- check if we are in Python REPL / pdb / IPython / less/more ---
         try:
-            # 0,1,2 = REPL/pdb   3,4,5 = 分页器   6 = EOF
+            # 0,1,2 = REPL/pdb   3,4,5 = pager   6 = EOF
             idx = self.ssh.expect([
                     r'>>> $',                 # 0  Python REPL
                     r'\(Pdb\)\s*',            # 1  pdb / ipdb
                     r'In \[\d+\]:\s*',        # 2  IPython
-                    r'--More--',              # 3  less/more 翻页提示
-                    pexpect.EOF               # 6  子进程正常结束
+                    r'--More--',              # 3  less/more
+                    pexpect.EOF               # 6  EOF
                 ],
                 timeout=1
             )
 
-            # ---------- 根据 idx 采取动作 -------------------
-            if idx in (0, 1, 2):                 # 掉进 Python / pdb / IPython
-                time.sleep(10)                   # 留 10 秒调试
-                self.ssh.sendline('q')           # pdb 退出
-                self.ssh.sendline('quit()')      # Python REPL 退出
-                self.ssh.sendintr()              # 兜底 Ctrl-C
-            elif idx in (3, 4):               # 正在分页器
+            # ---------- Take actions based on the state ----------
+            if idx in (0, 1, 2):                 # Found Python REPL / pdb / IPython
+                time.sleep(10)                   # wait for any output to arrive
+                self.ssh.sendline('q')           # pdb exit
+                self.ssh.sendline('quit()')      # Python REPL exit
+                self.ssh.sendintr()              # send ctrl-c to stop the running command
+            elif idx in (3, 4):               # Found less/more pager
                 self.ssh.send('q') 
         except Exception:
             pass
@@ -853,12 +1114,17 @@ class Computer:
                     shm_size='2g',
                     cap_add=['SYS_ADMIN', 'SYS_BOOT'],
                     devices=['/dev/tty0'],
+                    # ports={
+                    #     4000: self.nomachine_bind_port,
+                    #     # 22: self.ssh_bind_port,
+                    #     22: self._ssh_port,
+                    #     4443: self.gui_port,
+                    #     # f'{self._ssh_port}/tcp':self._ssh_port,
+                    # },
                     ports={
-                        4000: self.nomachine_bind_port,
-                        # 22: self.ssh_bind_port,
-                        22: self._ssh_port,
-                        4443: self.gui_port,
-                        # f'{self._ssh_port}/tcp':self._ssh_port,
+                        '8080/tcp': self.gui_port,
+                        '22/tcp': self._ssh_port,
+                        '3389/tcp': 3389,
                     },
                     volumes=self.volumes,
                     environment={
@@ -918,22 +1184,22 @@ class Computer:
         self.docker_client.close()
 
     # Run command in the computer
-    def split_commands_by_and(self, commands):
-        split_commands = []
-        commands = self.split_bash_commands(commands)
-        for command in commands:
-            if 'context.execute_javascript' in command:
-                split_commands.append(command)
-                continue
-            split_commands += command.split('&&')
+    # def split_commands_by_and(self, commands):
+    #     split_commands = []
+    #     commands = self.split_bash_commands(commands)
+    #     for command in commands:
+    #         if 'context.execute_javascript' in command:
+    #             split_commands.append(command)
+    #             continue
+    #         split_commands += command.split('&&')
         
-        return [cmd.strip() for cmd in split_commands]
+    #     return [cmd.strip() for cmd in split_commands]
     
     def _run_immediately(self, command: str) -> str:
         try:
             command_trace_outputs = ''
             command_outputs =''
-            commands = self.split_commands_by_and(command)
+            commands = self.split_bash_commands(command)
             for command in commands: 
                 trace_output = None 
                 if self.trace and ('python ' in command or 'python3' in command): 

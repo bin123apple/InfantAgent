@@ -18,53 +18,108 @@ GET_STATE_CODE = """state = await context.get_state()
 print(state)
 """
 
-OPEN_BROWSER_CODE = """import subprocess
-import time
-import socket
-import asyncio
+OPEN_BROWSER_CODE = """import os, subprocess, time, socket, asyncio, pathlib, textwrap
 
-# Launch Chrome with remote debugging and a custom profile directory
-with open("/tmp/log.log", "w") as log_file:
-    subprocess.Popen(
+PORT = 9222
+ADDR = "127.0.0.1"
+
+# send DISPLAY and XAUTHORITY to the subprocess
+env = os.environ.copy()
+env["DISPLAY"] = ":10"
+env["XAUTHORITY"] = "/home/infant/.Xauthority"
+
+script = r'''set -euo pipefail
+HN=$(hostname)
+grep -qE "(^|[[:space:]])${HN}([[:space:]]|$)" /etc/hosts || echo "127.0.1.1 ${HN}" | sudo tee -a /etc/hosts >/dev/null
+if id infant >/dev/null 2>&1; then
+  U=$(id -u infant); G=$(id -g infant); XHOME=$(getent passwd infant | cut -d: -f6)
+else
+  U=$(id -u); G=$(id -g); XHOME=$(getent passwd "$(id -un)" | cut -d: -f6); [ -n "$XHOME" ] || XHOME="${HOME}"
+fi
+XAUTH="${XHOME}/.Xauthority"
+sudo -u \#${U} mkdir -p "${XHOME}"
+[ -e "${XAUTH}" ] || sudo -u \#${U} touch "${XAUTH}"
+sudo chown ${U}:${G} "$XAUTH" || sudo chown ${U} "$XAUTH"
+sudo chmod 600 "$XAUTH"
+sudo rm -f "$XAUTH"-c "$XAUTH"-l "$XAUTH".lock || true
+COOKIE=$(sudo -u \#${U} XAUTHORITY="$XAUTH" xauth list 2>/dev/null | awk '/:10.*MIT-MAGIC-COOKIE-1/ {print $NF; exit}')
+[ -n "$COOKIE" ] || COOKIE=$(mcookie)
+HOST=$(hostname)
+for name in ":10" "$HOST/unix:10" "localhost/unix:10"; do
+  sudo -u \#${U} XAUTHORITY="$XAUTH" xauth add "$name" . "$COOKIE"
+done
+export DISPLAY=:10 XAUTHORITY="$XAUTH"
+C2=$(xauth -f "$XAUTHORITY" list | awk '$1 ~ /(^|\/)unix:10$/ && $3=="MIT-MAGIC-COOKIE-1" {print $NF; exit}')
+[ -n "$C2" ] || C2=$(xauth -f "$XAUTHORITY" list | awk '/:10.*MIT-MAGIC-COOKIE-1/ {print $NF; exit}')
+for name in ":10" "$HOST/unix:10" "localhost/unix:10"; do
+  xauth -f "$XAUTHORITY" add "$name" . "$C2"
+done
+if command -v xdpyinfo >/dev/null 2>&1; then
+  xdpyinfo >/dev/null && echo "X OK (:10)" || echo "X FAIL"
+else
+  echo "xdpyinfo not installed, skipping check"
+fi
+'''
+
+res = subprocess.run(["bash","-lc", script], capture_output=True, text=True)
+res.check_returncode()
+chrome_proc = None
+try:
+    with socket.create_connection((ADDR, PORT), timeout=1):
+        print("✅ Detected existing Chrome on 9222, reusing it")
+except OSError:
+    print("⚙️  No Chrome on 9222, launching a new one")
+    chrome_proc = subprocess.Popen(
         [
-            "google-chrome",
+            "/usr/bin/google-chrome",
             "--no-first-run",
             "--remote-debugging-port=9222",
-            "--remote-debugging-address=0.0.0.0",
+            "--remote-debugging-address=127.0.0.1",
             "--user-data-dir=/tmp/chrome-profile",
             "--start-maximized",
+            "--disable-gpu",
+            "--disable-dev-shm-usage",
         ],
-        stdout=log_file,
+        stdout=open("/tmp/log.log","w"),
         stderr=subprocess.STDOUT,
-        close_fds=True
+        close_fds=True,
+        env=env,
     )
-
-# Wait for the DevTools port to be open
-def wait_for_port(host, port, timeout=15):
     start = time.time()
-    while time.time() - start < timeout:
+    while time.time() - start < 5:
         try:
-            with socket.create_connection((host, port), timeout=1):
-                return
+            with socket.create_connection((ADDR, PORT), timeout=1):
+                break
         except OSError:
-            time.sleep(0.2)
-    raise RuntimeError(f"Port {port} not open after {timeout} seconds")
+            time.sleep(0.3)
+    else:
+        try:
+            with open("/tmp/log.log","r") as f:
+                tail = "".join(f.readlines()[-80:])
+                print("---- /tmp/log.log (tail) ----", tail)
+        except Exception:
+            pass
+        raise RuntimeError("Chrome on 9222 didn't start in time. See /tmp/log.log")
 
-wait_for_port("127.0.0.1", 9222)
-
+# Connect to the browser using your existing interface and take a screenshot
 config = BrowserConfig(
     headless=False,
     chrome_instance_path='/usr/bin/google-chrome',
-    cdp_url="http://127.0.0.1:9222"
+    cdp_url=f"http://{ADDR}:{PORT}"
 )
-
 browser = Browser(config)
 context = await browser.new_context()
 
-# Give the page a moment to render before taking a screenshot
 await asyncio.sleep(2)
 take_screenshot()
 EOL"""
+
+CLOSE_BROWSER_CODE = '''await context.close()
+chrome_proc.terminate()
+rc = chrome_proc.wait(timeout=5)
+print(f"Chrome exited with code {rc}")
+take_screenshot()
+'''
 
 LOCALIZATION_SYSTEM_PROMPT_BROWSER = '''I want to click on {item_to_click} with the mouse. {description}
 Please help me determine the exact DOM element node that I need to click on. 
@@ -198,11 +253,16 @@ def extract_web_commands(tool_str: str):
     matches = re.findall(r'-\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(', tool_str)
     return set(matches)
 
-def convert_web_browse_commands(memory: IPythonRun) -> Memory:
+async def web_interaction(agent: Agent ,memory: IPythonRun) -> Memory:
 
+    if hasattr(memory, 'code') and memory.code:
+        tmp_code = memory.code
     if hasattr(memory, 'code'):
         if memory.code == 'open_browser()':
             memory.code = OPEN_BROWSER_CODE
+            return memory
+        elif memory.code == 'close()':
+            memory.code = CLOSE_BROWSER_CODE
             return memory
             
         web_tools = extract_web_commands(tool_web_browse)
@@ -213,6 +273,12 @@ def convert_web_browse_commands(memory: IPythonRun) -> Memory:
             return memory
         
         memory.code = f'await context.{memory.code.strip()}\ntake_screenshot()'
+        
+        # Execute the command if not executed
+        method = getattr(agent.computer, memory.action)
+        memory.result = await method(memory)
+    if hasattr(memory, 'code') and memory.code:
+        memory.code = tmp_code
     return memory
     
 
