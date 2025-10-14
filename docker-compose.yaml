@@ -50,6 +50,10 @@ services:
       # vLLM server configuration
       - base_url_oss=http://vllm-server:8005/v1
       - api_key_oss=infant
+      - SSH_HOSTNAME=${SSH_HOSTNAME:-computer-container}
+      - SSH_PORT=${SSH_PORT:-63710}
+      - SSH_USERNAME=${SSH_USERNAME:-infant}
+      - SSH_PASSWORD=${SSH_PASSWORD:-123}
     volumes:
       # Mount workspace for persistent data
       - ./workspace:/app/workspace
@@ -62,15 +66,15 @@ services:
     networks:
       - infant-network
     depends_on:
-      - computer-container
+      - infant-computer
       - vllm-server
 
   # Computer container with desktop environment
-  computer-container:
+  infant-computer:
     build:
       context: ./infant/computer
       dockerfile: Dockerfile
-    image: ubuntu-gnome-guacamole:latest
+    image: ubuntu-gnome-guacamole:22.04
     container_name: infant-computer
     restart: unless-stopped
     ports:
