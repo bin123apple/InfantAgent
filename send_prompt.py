@@ -30,9 +30,13 @@ def send_prompt_to_agent(prompt: str, container_name: str = "infant-agent-cli"):
             print("Please start the containers with: docker compose up -d")
             return False
 
-        # Send the prompt via docker exec
-        # We'll write the prompt to stdin of the running container
-        exec_cmd = ["docker", "exec", "-i", container_name, "sh", "-c", f"echo '{prompt}'"]
+        # Escape single quotes in the prompt for bash
+        escaped_prompt = prompt.replace("'", "'\\''")
+
+        # Send the prompt to the container's stdin (PID 1)
+        # We need to write to /proc/1/fd/0 which is the stdin of the main process
+        exec_cmd = ["docker", "exec", "-i", container_name, "bash", "-c",
+                   f"printf '%s\\n' '{escaped_prompt}' > /proc/1/fd/0"]
 
         print(f"📤 Sending prompt to agent: {prompt}")
         print(f"⏳ Agent is processing your request...")
@@ -42,8 +46,9 @@ def send_prompt_to_agent(prompt: str, container_name: str = "infant-agent-cli"):
 
         if result.returncode == 0:
             print("✅ Prompt sent successfully!")
-            print("\n📋 To view agent logs, run:")
+            print("\n📋 To view agent logs in real-time, run:")
             print(f"   docker logs -f {container_name}")
+            print("\n💡 Or use: python send_prompt.py --logs --follow")
             return True
         else:
             print(f"❌ Error sending prompt: {result.stderr}")
@@ -51,7 +56,8 @@ def send_prompt_to_agent(prompt: str, container_name: str = "infant-agent-cli"):
 
     except subprocess.CalledProcessError as e:
         print(f"❌ Error: {e}")
-        print(f"stderr: {e.stderr}")
+        if e.stderr:
+            print(f"stderr: {e.stderr}")
         return False
     except Exception as e:
         print(f"❌ Unexpected error: {e}")

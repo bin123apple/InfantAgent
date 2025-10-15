@@ -121,24 +121,34 @@ This is the recommended approach for running InfantAgent as a complete container
    The agent is ready to receive prompts once you see the log:
    ```
    INFO: Current working directory: /workspace
+   Input your request or use type exit to refresh the agent:
    ```
 
-   You can interact with the agent using the provided CLI tools:
+   **Recommended Method - Direct Attach:**
    ```bash
-   # Send a single prompt
-   python3 send_prompt.py "Create a Python script to analyze data.csv"
+   # Attach to the running container
+   docker attach infant-agent-cli
 
-   # Interactive mode
-   python3 send_prompt.py --interactive
+   # Type your prompt and press Enter
+   # Example: "Create a Python script to analyze data.csv"
 
-   # View agent logs
-   python3 send_prompt.py --logs
-
-   # Using bash script
-   ./agent_cli.sh send "Your task here"
-   ./agent_cli.sh logs -f
-   ./agent_cli.sh status
+   # To detach without stopping, press: Ctrl+P then Ctrl+Q
    ```
+
+   **Alternative Methods:**
+   ```bash
+   # Send prompt via pipe
+   echo "Your task here" | docker attach --no-stdin --sig-proxy=false infant-agent-cli
+
+   # View logs in real-time
+   docker logs -f infant-agent-cli
+
+   # Using provided scripts (may have limitations)
+   python3 send_prompt.py "Create a Python script"
+   ./agent_cli.sh logs -f
+   ```
+
+   **📖 For detailed usage instructions, see [USAGE.md](USAGE.md)**
 
 7. **Troubleshooting**
    ```bash
