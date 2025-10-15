@@ -18,7 +18,7 @@ RUN rm -f /etc/update-motd.d/60-unminimize /etc/update-motd.d/98-fsck-at-reboot 
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # ---- XRDP (RDP server for the desktop) ----
-RUN apt-get update && apt-get install -y --no-install-recommends xrdp && \
+RUN apt-get update && apt-get install -y --no-install-recommends xrdp xorgxrdp && \
     adduser xrdp ssl-cert || true && \
     printf "export DESKTOP_SESSION=gnome\nexec gnome-session\n" > /etc/xrdp/startwm.sh && \
     chmod +x /etc/xrdp/startwm.sh && \

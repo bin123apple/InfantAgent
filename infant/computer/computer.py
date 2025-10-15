@@ -365,8 +365,11 @@ class Computer:
 
         logger.debug(f'Executing command as root: {cmd}')
 
+        # Wrap the command to capture exit code inline
+        wrapped_cmd = f'{cmd}; __exit_code=$?; echo "EXIT_CODE:$__exit_code"'
+
         # Send command
-        self.ssh_root.sendline(cmd)
+        self.ssh_root.sendline(wrapped_cmd)
 
         # Wait for command to complete
         success = self.ssh_root.prompt(timeout=timeout)
@@ -383,21 +386,26 @@ class Computer:
         # Clean up output
         command_output = command_output.removesuffix('\r\n')
 
-        # Get exit code
-        self.ssh_root.sendline('echo $?')
-        self.ssh_root.prompt(timeout=2)
-        exit_code_str = self.ssh_root.before.strip()
-
-        # Parse exit code
-        cleaned_exit_code = exit_code_str.replace('echo $?', '').strip()
-        try:
-            exit_code = int(cleaned_exit_code)
-        except ValueError:
-            logger.error(f'Invalid exit code: {cleaned_exit_code}')
-            exit_code = -1
-
         # Remove ANSI escape codes from output
         command_output = re.sub(r'\x1b\[[0-9;]*[mK]', '', command_output)
+
+        # Extract exit code from output
+        exit_code = 0
+        if 'EXIT_CODE:' in command_output:
+            try:
+                # Find the exit code marker
+                exit_marker_pos = command_output.rfind('EXIT_CODE:')
+                exit_code_line = command_output[exit_marker_pos:].split('\n')[0]
+                exit_code_str = exit_code_line.replace('EXIT_CODE:', '').strip()
+                exit_code = int(exit_code_str)
+                # Remove the exit code marker from output
+                command_output = command_output[:exit_marker_pos].rstrip()
+            except (ValueError, IndexError) as e:
+                logger.error(f'Failed to parse exit code from output: {e}')
+                exit_code = -1
+        else:
+            logger.warning('Exit code marker not found in output, assuming success')
+            exit_code = 0
 
         logger.debug(f'Command completed with exit code {exit_code}')
 
@@ -540,7 +548,7 @@ chmod 640 /etc/guacamole/user-mapping.xml; chmod 755 /etc/guacamole'""",
 || catalina.sh start \
 || (catalina.sh run >/var/log/catalina-run.log 2>&1 &)'""",
 
-            # Clean volume icons and set dock settings
+            # Clean volume
             r"""bash -lc 'set -eux; \
 U=infant; \
 U_ID=$(id -u "$U"); \
@@ -553,32 +561,24 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
 sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" gsettings set org.gnome.shell favorite-apps "$FAVS" || true; \
 sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" gsettings set org.gnome.shell.extensions.dash-to-dock dash-max-icon-size 48 || true'""",
 
-            # Add apps to dock (alternative dconf method)
-            r"""bash -lc 'set -eux; rm -f /etc/dconf/db/local.d/00-infant /etc/dconf/db/local.d/00-favorites || true; mkdir -p /etc/dconf/db/local.d /etc/dconf/profile; printf "%s\n" "user-db:user" "system-db:local" > /etc/dconf/profile/user; printf "%s\n" "[org/gnome/shell]" "favorite-apps=['\''google-chrome.desktop'\'','\''code.desktop'\'','\''thunderbird.desktop'\'','\''libreoffice-writer.desktop'\'','\''libreoffice-calc.desktop'\'','\''libreoffice-impress.desktop'\'','\''org.gnome.Terminal.desktop'\'','\''org.gnome.Nautilus.desktop'\'','\''org.gnome.Settings.desktop'\'']" "" "[org/gnome/shell/extensions/dash-to-dock]" "show-mounts=false" "show-trash=false" "dash-max-icon-size=48" > /etc/dconf/db/local.d/00-favorites; dconf update'
+            # Add apps to dock (with prompt-friendly dconf update)
+            r"""bash -lc 'set -eu; rm -f /etc/dconf/db/local.d/00-infant /etc/dconf/db/local.d/00-favorites || true; mkdir -p /etc/dconf/db/local.d /etc/dconf/profile; printf "%s\n" "user-db:user" "system-db:local" > /etc/dconf/profile/user; printf "%s\n" "[org/gnome/shell]" "favorite-apps=['\''google-chrome.desktop'\'','\''code.desktop'\'','\''thunderbird.desktop'\'','\''libreoffice-writer.desktop'\'','\''libreoffice-calc.desktop'\'','\''libreoffice-impress.desktop'\'','\''org.gnome.Terminal.desktop'\'','\''org.gnome.Nautilus.desktop'\'','\''org.gnome.Settings.desktop'\'']" "" "[org/gnome/shell/extensions/dash-to-dock]" "show-mounts=false" "show-trash=false" "dash-max-icon-size=48" > /etc/dconf/db/local.d/00-favorites; dconf update >/dev/null 2>&1 || true; echo "DCONF_STEP_DONE"'
 """,
-
-            # Skip secret/keyring check
-            r"""bash -lc 'set -euo pipefail; apt-get update && apt-get install -y gnome-keyring dbus-user-session && install -d -m 755 /etc/xdg/autostart && printf "[Desktop Entry]\nType=Application\nName=Secret Service (gnome-keyring)\nExec=/usr/bin/gnome-keyring-daemon --start --components=secrets\nOnlyShowIn=GNOME;GNOME-Flashback;Unity;XFCE;LXDE;MATE;\nX-GNOME-Autostart-Phase=Initialization\nX-GNOME-Autostart-Notify=false\nNoDisplay=true\n" > /etc/xdg/autostart/gnome-keyring-secrets.desktop'
+            # Configure gnome-keyring autostart
+            r"""bash -lc 'install -d -m 755 /etc/xdg/autostart && printf "[Desktop Entry]\nType=Application\nName=Secret Service (gnome-keyring)\nExec=/usr/bin/gnome-keyring-daemon --start --components=secrets\nOnlyShowIn=GNOME;GNOME-Flashback;Unity;XFCE;LXDE;MATE;\nX-GNOME-Autostart-Phase=Initialization\nX-GNOME-Autostart-Notify=false\nNoDisplay=true\n" > /etc/xdg/autostart/gnome-keyring-secrets.desktop'
 """,
-
-            # Install and ensure XRDP packages
-            r"""bash -lc 'dpkg -s xorgxrdp >/dev/null 2>&1 || (apt-get update && apt-get install -y --no-install-recommends xrdp xorgxrdp guacd)'
-""",
-
-            # Final service startup with port verification
             r"""bash -lc 'set -eux; mkdir -p /var/run/xrdp; chown xrdp:xrdp /var/run/xrdp || true; getent group ssl-cert >/dev/null && adduser xrdp ssl-cert || true; pgrep -x xrdp-sesman >/dev/null || (/usr/sbin/xrdp-sesman -n  >/var/log/xrdp-sesman.foreground.log 2>&1 &); pgrep -x xrdp >/dev/null        || (/usr/sbin/xrdp -n       >/var/log/xrdp.foreground.log        2>&1 &); pgrep -x guacd >/dev/null        || (/usr/sbin/guacd -f      >/var/log/guacd.foreground.log       2>&1 &); ss -lntp 2>/dev/null | grep -E ":(3389|4822)\\b" || true'
 """,
-
-            # Ensure tomcat9 is running
             r"""bash -lc 'pgrep -f org.apache.catalina.startup.Bootstrap >/dev/null || catalina.sh start || (catalina.sh run >/var/log/catalina-run.log 2>&1 &)'
 """
         ]
 
-        # Execute all configuration commands as root
+        # Execute all configuration commands as root with extended timeout
         logger.info(f"Executing {len(cmds)} Guacamole configuration commands...")
         for idx, cmd in enumerate(cmds, 1):
             logger.debug(f"Setup step {idx}/{len(cmds)}: {cmd[:80]}...")
-            exit_code, output = self._execute_as_root(cmd)
+            # Use 300 second timeout for setup commands (5 minutes)
+            exit_code, output = self._execute_as_root(cmd, timeout=300)
             if exit_code != 0:
                 error_msg = f"Guac setup step {idx} failed with exit code {exit_code}"
                 logger.error(f"{error_msg}\nCommand: {cmd}\nOutput: {output}")

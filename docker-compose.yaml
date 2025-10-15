@@ -81,7 +81,7 @@ services:
       # SSH port - maps container port 22 to host (computer.py line 1126)
       - "${SSH_PORT:-63710}:22"
       # Guacamole web interface - maps container port 8080 to host (computer.py line 1125)
-      - "${GUI_PORT:-4443}:4443"
+      - "${GUI_PORT:-4443}:8080"
       # RDP port for remote desktop - maps container port 3389 (computer.py line 1127)
       - "3389:3389"
     environment:
