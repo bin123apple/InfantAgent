@@ -308,9 +308,7 @@ class LLM_API_BASED:
         """
         try:
             cur_cost = self.completion_cost(response)
-            caller = self._get_caller_function()
             if self.cost_metric_supported and cur_cost > 0:
-                self.metrics.add_function_cost(caller, cur_cost)
                 logger.info(
                     'Cost: %.6f USD | Accumulated Cost: %.6f USD',
                     cur_cost,

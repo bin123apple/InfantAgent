@@ -56,10 +56,7 @@ workspace/*
 tests/agent/workspace/*
 
 # tests
-tests/
-
-# debug
-tests/debug/*
+draft_tests/
 
 # dataset
 dataset/*
@@ -73,6 +70,9 @@ infant/backup_images/
 
 # egg
 InfantAI.egg-info/
+
+# todo
+todo
 
 # evaluation
 evaluation/swe_bench/predictions.jsonl

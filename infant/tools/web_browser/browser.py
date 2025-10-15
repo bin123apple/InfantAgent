@@ -62,7 +62,7 @@ class Browser:
 	"""
 	Playwright browser on steroids.
 
-	This is persistant browser factory that can spawn multiple browser contexts.
+	This is persistent browser factory that can spawn multiple browser contexts.
 	It is recommended to use only one instance of Browser per your application (RAM usage will grow otherwise).
 	"""
 

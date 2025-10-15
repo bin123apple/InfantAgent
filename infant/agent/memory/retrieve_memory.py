@@ -44,7 +44,7 @@ def execution_memory_rtve(memory_list: list, summarize_all_steps=False) -> list 
     - Keep the first memory. # FIXME: I assume the first memory is userrequest, for multi-turns, we need to update this.
     - Keep the last Task and all memory after it except the classification memory.
     - For prior memory before the last Task, only keep those where memory is Task.
-    - For the final step (Agent finished all the tasks), the memory should contain all the detailed memory execpt Classification & Critic.
+    - For the final step (Agent finished all the tasks), the memory should contain all the detailed memory except Classification & Critic.
     '''
     memory_block = []
     dc_ml = copy.deepcopy(memory_list)

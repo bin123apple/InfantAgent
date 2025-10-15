@@ -121,7 +121,7 @@ def main(
     accuracy = sum(r['correct'] for r in report) / len(report)
     print(f"Total Accuracy: {accuracy*100:.2f}%\n")
 
-    print("\n—— Accuray of each level ——\n")
+    print("\n—— Accuracy of each level ——\n")
     for lvl in sorted(stats.keys(), key=lambda x: (x=="Unknown", x)):
         tot = stats[lvl]["total"]
         corr = stats[lvl]["correct"]

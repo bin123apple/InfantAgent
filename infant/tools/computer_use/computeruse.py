@@ -239,7 +239,7 @@ def open_application(app_name):
 def mouse_drag(x_start, y_start, x_end, y_end, button="left"):
     """
     Simulates dragging the mouse from one position to another with smooth movements.    
-    Mouse drag may not be very accurate in Linux as the screen is sperated into multiple cells.
+    Mouse drag may not be very accurate in Linux as the screen is separated into multiple cells.
     Args:
         x_start (int): x-coordinate of the starting position.
         y_start (int): y-coordinate of the starting position.

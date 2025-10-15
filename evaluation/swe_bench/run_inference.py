@@ -14,7 +14,7 @@ import concurrent.futures
 from infant.config import config, ComputerParams
 from datasets import load_dataset
 from infant.agent.agent import Agent
-from infant.computer.computer import Computer
+from infant.computer.computer import create_computer_from_params
 from infant.llm.llm_api_base import LLM_API_BASED
 from infant.llm.llm_oss_base import LLM_OSS_BASED
 from infant.agent.memory.restore_memory import truncate_output
@@ -153,7 +153,7 @@ async def initialize_docker_agent(instance: dict, config=config)-> Agent:
 
     sid = str(uuid.uuid4())
     try:
-        computer = Computer(computer_parameter, sid = sid)
+        computer = create_computer_from_params(computer_parameter, sid = sid)
     except:
         logger.error({traceback.format_exc()})
         
@@ -202,6 +202,7 @@ async def initialize_docker_agent(instance: dict, config=config)-> Agent:
 
 async def run_single_step(agent: Agent, user_request_text: str):
     agent.state.memory_list.append(Userrequest(text=user_request_text))
+    await agent.state.memory_queue.put(agent.state.memory_list[-1])
 
     monitor_task = asyncio.create_task(agent.monitor_agent_state())
     special_case_task = asyncio.create_task(agent.special_case_handler())
@@ -296,7 +297,7 @@ def unit_test(agent: Agent, instance: dict):
         return True, None, test_files
 
 async def run_single_instance(instance: dict, logger):
-    # Intialize the docker and the Agent
+    # Initialize the docker and the Agent
     agent = await initialize_docker_agent(instance=instance, config=config)
     
     # prepare the repo

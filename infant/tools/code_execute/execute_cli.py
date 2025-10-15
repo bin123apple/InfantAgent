@@ -30,7 +30,7 @@ def execute_code(code, print_output=True):
             response = requests.post(
                 POST_URL,
                 json={'kernel_id': kernel_id, 'code': code},
-                timeout=5
+                timeout=(5, 30) 
             )
             response.raise_for_status()
 

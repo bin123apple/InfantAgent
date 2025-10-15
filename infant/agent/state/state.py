@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass, field
 from infant.util.metrics import Metrics
 from infant.agent.state.agent_state import AgentState
@@ -15,6 +16,7 @@ class State:
     iteration: int = 0
     max_iterations: int = 100
     num_of_chars: int = 0
+    memory_queue: asyncio.Queue = asyncio.Queue()
     #background_commands_obs: list[CmdOutputObservation] = field(default_factory=list)
     memory_list: list = field(default_factory=list)
     inputs: dict = field(default_factory=dict)
@@ -40,11 +42,14 @@ class State:
     critic_result: bool = True
     verify_step_by_step: bool = False # Care! This will be expensive!
     continuous_errors: int = 0 # Avoid infinite errors
+    pending_user_response = None
+    total_cost = 0
 
     def reset(self):
         self.iteration: int = 0
         self.num_of_chars: int = 0
         self.delegate_level: int = 0
+        self.total_cost: int = 0
         self.steps: list | None = None
         self.current_step: int | None = None
         self.step_iteration: int | None = None
@@ -61,3 +66,4 @@ class State:
         self.critic: bool = False
         self.critic_result: bool = True
         self.continuous_errors: int = 0
+        self.pending_user_response = None

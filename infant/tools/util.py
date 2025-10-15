@@ -31,17 +31,27 @@ def update_pwd_decorator(func):
     return wrapper
 
 def _is_valid_filename(file_name) -> bool:
-    if not file_name or not isinstance(file_name, str) or not file_name.strip():
+    if not isinstance(file_name, str) or not file_name.strip():
         return False
-    invalid_chars = '<>:"/\\|?*'
-    if os.name == 'nt':  # Windows
-        invalid_chars = '<>:"/\\|?*'
-    elif os.name == 'posix':  # Unix-like systems
-        invalid_chars = '\0'
+    if '\0' in file_name:
+        return False
 
-    for char in invalid_chars:
-        if char in file_name:
+    if os.name == 'nt':  # Windows
+        if any(c in file_name for c in '<>:"/\\|?*'):
             return False
+        if file_name != file_name.rstrip(' .'):
+            return False
+        reserved = {
+            'CON','PRN','AUX','NUL',
+            *(f'COM{i}' for i in range(1,10)),
+            *(f'LPT{i}' for i in range(1,10)),
+        }
+        if file_name.split('.')[0].upper() in reserved:
+            return False
+    else:
+        if '/' in file_name:
+            return False
+
     return True
 
 def _is_valid_path(path) -> bool:

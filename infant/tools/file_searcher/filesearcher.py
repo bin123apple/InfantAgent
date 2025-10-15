@@ -4,6 +4,57 @@ from infant.tools.util import update_pwd_decorator, search_function_line_number
 from infant.tools.util import CURRENT_FILE
 from infant.tools.file_reader.filereader import open_file
 
+@update_pwd_decorator
+def search_content(file_path: str, content: str) -> list[tuple[int, int]]:
+    """
+    Searches for the given content in the specified file and opens the file at the first match.
+    Args:
+        file_path (str): The path of the file to search.
+        content (str): The content to search for.
+    Returns:
+        list[tuple[int, int]]: A list of tuples containing the start and end line numbers of the matches.
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        ValueError: If the content is empty.
+    """
+    try:
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        with open(file_path, "r", encoding="utf-8") as f:
+            text = f.read()
+        line_numbers = []
+        line = 1
+        for ch in text:
+            line_numbers.append(line)
+            if ch == "\n":
+                line += 1
+
+        spans: list[tuple[int, int]] = []
+        start = 0
+        while True:
+            idx = text.find(content, start)
+            if idx == -1:
+                break
+            end_idx = idx + len(content) - 1
+            spans.append((line_numbers[idx], line_numbers[end_idx]))
+            start = idx + 1
+
+        if not spans:
+            print(f"No matches for the given content in '{file_path}'.")
+            return
+
+        for i, (start_line, end_line) in enumerate(spans):
+            print(f"Match {i + 1}: Lines {start_line} to {end_line}")
+            mid_line = (start_line + end_line) // 2
+            context_lines = end_line - start_line + 5
+            open_file(path=file_path, line_number=mid_line, context_lines=context_lines)
+
+        return
+
+    except Exception as e:
+        raise e
+
 
 @update_pwd_decorator
 def search_function(file_path: str, function_signature: str) -> str:

@@ -36,11 +36,11 @@ def replace_function(
     new_code: str
     ) -> None:
     """Replace some lines inside the function 
-    (This is used to avoid some potential wrong line numberproblems in edit_file funtion)
+    (This is used to avoid some potential wrong line numberproblems in edit_file function)
 
     Args:
         filename: str: The name of the file to create.
-        code_to_replace: str: The origianl code that will be replaced
+        code_to_replace: str: The original code that will be replaced
         new_code: str: new code that will be used
     """
     global CURRENT_FILE, CURRENT_LINE, WINDOW
@@ -68,9 +68,9 @@ def replace_function(
     src_abs_path = os.path.abspath(file_name)
     first_error_line = None
     try:
-        # # lint the origianl file
+        # # lint the original file
         if ENABLE_AUTO_LINT:
-            origianl_lint_error, origianl_first_error_line = _lint_file(file_name)      
+            original_lint_error, original_first_error_line = _lint_file(file_name)      
               
         with tempfile.NamedTemporaryFile('w', delete=False) as temp_file:
             temp_file_path = temp_file.name
@@ -149,9 +149,9 @@ def replace_function(
 
                 result = '\n'.join(remaining_lines)
                 return result
-            if origianl_lint_error:
+            if original_lint_error:
                 if lint_error is not None:
-                    lint_error = subtract_strings(origianl_lint_error, lint_error)
+                    lint_error = subtract_strings(original_lint_error, lint_error)
                 if lint_error == "":
                     lint_error = None
                     first_error_line = None
@@ -179,7 +179,7 @@ def replace_function(
                     f'{lint_error}\n'
                     'You may need to do one or several of the following:\n'
                     '1) Specify the correct code block that you want to modify;\n' 
-                    '2) Make sure that the Args position is correct (the 2nd arg is the origianl code that will be replaced and the 3rd arg is the new code that will be used);\n' 
+                    '2) Make sure that the Args position is correct (the 2nd arg is the original code that will be replaced and the 3rd arg is the new code that will be used);\n' 
                     '3) Choose another command (Such as edit_file(file_name, start, start_str end, end_str, content) command).\n'
                     '4) Use open_file(path, line_number, context_lines) command to check the details of where you want to modify and improve your command.\n'
                     'DO NOT re-run the same failed edit command. Running it again will lead to the same error.'
@@ -231,11 +231,11 @@ def replace_code(
     new_code: str
     ) -> None:
     """Replace some lines inside the function 
-    (This is used to avoid some potential wrong line numberproblems in edit_file funtion)
+    (This is used to avoid some potential wrong line numberproblems in edit_file function)
 
     Args:
         filename: str: The name of the file to create.
-        code_to_replace: str: The origianl code that will be replaced
+        code_to_replace: str: The original code that will be replaced
         new_code: str: new code that will be used
     """
     global CURRENT_FILE, CURRENT_LINE, WINDOW
@@ -263,9 +263,9 @@ def replace_code(
     src_abs_path = os.path.abspath(file_name)
     first_error_line = None
     try:
-        # # lint the origianl file
+        # # lint the original file
         if ENABLE_AUTO_LINT:
-            origianl_lint_error, origianl_first_error_line = _lint_file(file_name)      
+            original_lint_error, original_first_error_line = _lint_file(file_name)      
               
         with tempfile.NamedTemporaryFile('w', delete=False) as temp_file:
             temp_file_path = temp_file.name
@@ -362,8 +362,9 @@ def replace_code(
 
                 result = '\n'.join(remaining_lines)
                 return result
-            if origianl_lint_error:
-                lint_error = subtract_strings(origianl_lint_error, lint_error)
+            if original_lint_error:
+                if lint_error is not None:
+                    lint_error = subtract_strings(original_lint_error, lint_error)
                 if lint_error == "":
                     lint_error = None
                     first_error_line = None
@@ -391,7 +392,7 @@ def replace_code(
                     f'{lint_error}\n'
                     'You may need to do one or several of the following:\n'
                     '1) Specify the correct code block that you want to modify;\n' 
-                    '2) Make sure that the Args position is correct (the 2nd arg is the origianl code that will be replaced and the 3rd arg is the new code that will be used);\n' 
+                    '2) Make sure that the Args position is correct (the 2nd arg is the original code that will be replaced and the 3rd arg is the new code that will be used);\n' 
                     '3) Choose another command (Such as edit_file(file_name, start, start_str end, end_str, content) command).\n'
                     '4) Use open_file(path, line_number, context_lines) command to check the details of where you want to modify and improve your command.\n'
                     'DO NOT re-run the same failed edit command. Running it again will lead to the same error.'
@@ -486,9 +487,9 @@ def _edit_or_append_file(
     src_abs_path = os.path.abspath(file_name)
     first_error_line = None
     try:
-        # # lint the origianl file
+        # # lint the original file
         if ENABLE_AUTO_LINT:
-            origianl_lint_error, origianl_first_error_line = _lint_file(file_name)
+            original_lint_error, original_first_error_line = _lint_file(file_name)
         # Create a temporary file
         with tempfile.NamedTemporaryFile('w', delete=False) as temp_file:
             temp_file_path = temp_file.name
@@ -627,8 +628,9 @@ def _edit_or_append_file(
 
                 result = '\n'.join(remaining_lines)
                 return result
-            if origianl_lint_error:
-                lint_error = subtract_strings(origianl_lint_error, lint_error)
+            if original_lint_error:
+                if lint_error is not None:
+                    lint_error = subtract_strings(original_lint_error, lint_error)
                 if lint_error == "":
                     lint_error = None
                     first_error_line = None
@@ -791,7 +793,7 @@ def replace_content(file_name: str, old_content: str, new_content: str | None = 
         raise Exception(
             f"No replacement was performed, old_content `{old_content}` did not appear verbatim in {file_name}. "
             "Please ensure it appears exactly once.\n"
-            "If the issue presists, please use edit_file() function to modify the file."
+            "If the issue persists, please use edit_file() function to modify the file."
         )
     if occurrences > 1:
         # 计算所有出现位置对应的行号，提示用户
@@ -817,7 +819,7 @@ def replace_content(file_name: str, old_content: str, new_content: str | None = 
         raise Exception(
             f"No replacement was performed. Multiple occurrences of old_content `{old_content}` "
             f"in lines {lines}. Please ensure it appears exactly once"
-            "If the issue presists, please use edit_file() function to modify the file."
+            "If the issue persists, please use edit_file() function to modify the file."
         )
 
     # -------- 记录替换范围行号（用于打印）--------

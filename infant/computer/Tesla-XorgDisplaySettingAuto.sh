@@ -8,25 +8,60 @@ if ! getent group nopasswdlogin > /dev/null; then
   sudo groupadd nopasswdlogin
 fi
 sudo usermod -aG nopasswdlogin $CreateUserAccount
-echo "Install NVIDIA Driver"
-# sudo /etc/init.d/lightdm stop
-# Install NVIDIA drivers, including X graphic drivers by omitting --x-{prefix,module-path,library-path,sysconfig-path}
-if ! command -v nvidia-xconfig &> /dev/null; then
-  # export DRIVER_VERSION=$(head -n1 </proc/driver/nvidia/version | awk '{print $10}')
-  export DRIVER_VERSION=570.133.20
-  # https://us.download.nvidia.com/tesla/570.133.20/NVIDIA-Linux-x86_64-570.133.20.run
-  BASE_URL=https://us.download.nvidia.com/tesla
-  cd /tmp
-  sudo curl -fsSL -O $BASE_URL/$DRIVER_VERSION/NVIDIA-Linux-x86_64-$DRIVER_VERSION.run
-  sudo sh NVIDIA-Linux-x86_64-$DRIVER_VERSION.run -x
-  cd NVIDIA-Linux-x86_64-$DRIVER_VERSION
-  sudo ./nvidia-installer --silent \
-                    --no-kernel-module \
-                    --install-compat32-libs \
-                    --no-nouveau-check 
-  sudo rm -rf /tmp/NVIDIA*
-  cd ~
+sudo /etc/init.d/lightdm stop
+
+echo "Installing NVIDIA Driver"
+export DRIVER_VERSION=$(
+  { grep -oE '[0-9]+\.[0-9]+\.[0-9]+' /proc/driver/nvidia/version 2>/dev/null \
+    || nvidia-smi --query-gpu=driver_version --format=csv,noheader; } | head -n1)
+
+candidates=(
+  "12.9.0"
+  "12.8.1"
+  "12.8.0"
+  "12.7.1"
+  "12.7.0"
+  "12.6.0"
+  "12.5.2"
+  "12.5.0"
+  "12.4.1"
+  "12.4.0"
+  "12.3.1"
+  "12.3.0"
+  "12.2.2"
+  "12.2.0"
+)
+
+gpu_name=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null || echo "")
+if echo "$gpu_name" | grep -Eiq 'GeForce|RTX|Quadro'; then
+  BASE_URL="https://developer.download.nvidia.com/compute/cuda"
+else
+  BASE_URL="https://developer.download.nvidia.com/compute/cuda"
 fi
+
+FOUND=""
+for cuda in "${candidates[@]}"; do
+  URL="${BASE_URL}/${cuda}/local_installers/cuda_${cuda}_${DRIVER_VERSION}_linux.run"
+  if curl -sfI "$URL" &>/dev/null; then
+    FOUND="$cuda"
+    echo "Found matching CUDA bundle: $cuda"
+    break
+  fi
+done
+
+if [[ -z "$FOUND" ]]; then
+  echo "Error: no CUDA installer found for driver ${DRIVER_VERSION}" >&2
+  exit 1
+fi
+
+curl -fSL -o cuda_${FOUND}_${DRIVER_VERSION}.run \
+     "${BASE_URL}/${FOUND}/local_installers/cuda_${FOUND}_${DRIVER_VERSION}_linux.run"
+
+sh cuda_${FOUND}_${DRIVER_VERSION}.run --silent --extract=/tmp/cuda_pkg
+sudo sh /tmp/cuda_pkg/NVIDIA-Linux-x86_64-${DRIVER_VERSION}.run \
+     --silent --no-kernel-modules --install-compat32-libs --no-nouveau-check
+rm cuda_${FOUND}_${DRIVER_VERSION}.run
+rm -rf /tmp/cuda_pkg
 
 # Check if GPU rendering is set
 if [ "$RenderType" == "Gpu" ]; then

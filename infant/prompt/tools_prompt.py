@@ -18,6 +18,7 @@ Please collaborate with me to fulfill a request. For each step, provide the nece
 
 **Example:**
 {one_shot}
+{make_new_tool_prompt}
 
 **Instructions for Task Completion:**
 > If you think the **current task** is already solved, please say:
@@ -133,6 +134,7 @@ Please use the following file editing functions to add, delete, search, and modi
 - edit_file(file_name: str, start_line: int, start_str: str, end_line: int, end_str: str, content: str): Edits the specified file by replacing the content between start and end lines with the new content. file_name: Name of the file. start_line: Starting line number. start_str: String content in Starting line. end_line: Ending line number. end_str: String content in Ending line. content: New content to replace.
 - append_file(file_name, content, start_line): Appends given content to a file. file_name: Name of the file. content: Content to append. start_line: Line number to start appending from (default is the end of the file).
 - search_function(file_path, function_signature): Search and show a function in the file. For the function_signature, you should only input the function name.
+- search_content(file_path, content): Search and show the content in the file. For the content, you should only input the content you want to search.
 Please put the file editing commands you think need to be executed within <execute_ipython>...</execute_ipython> tags.
 '''
 
@@ -815,3 +817,9 @@ sort -u "$temp_file" > /tmp/unique_lines.txt
 grep -F "$at_line" /tmp/unique_lines.txt > /tmp/final_output.txt
 
 '''
+
+make_new_tool_prompt = '''You can also create a new tool with following command if necessary:
+<execute_ipython>
+make_new_tool(functionality: str, function_name: str, function_inputs: list, function_outputs: str)
+</execute_ipython>
+and invoke it during subsequent task execution.'''

@@ -1,0 +1,161 @@
+version: '3.8'
+
+services:
+  # vLLM server for OSS model inference
+  
+  vllm-server:
+    build:
+      context: .
+      dockerfile: Dockerfile_vllm
+    container_name: vllm-server
+    restart: unless-stopped
+    ports:
+      - "8005:8005"
+    environment:
+      - HUGGING_FACE_HUB_TOKEN=${HF_API_KEY:-}
+    volumes:
+      # Cache Hugging Face models
+      - ${HF_HOME:-huggingface-cache}:/root/.cache/huggingface
+    networks:
+      - infant-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["all"]
+              capabilities: [gpu, utility, compute, graphics]
+    
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8005/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  # InfantAgent main CLI application
+  infant-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: infant-agent:latest
+    container_name: infant-agent-cli
+    restart: unless-stopped
+    stdin_open: true  # Enable interactive mode (docker run -i)
+    tty: true         # Allocate a pseudo-TTY (docker run -t)
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - PYTHONUNBUFFERED=1
+      - PYTHONIOENCODING=utf-8
+      # vLLM server configuration
+      - base_url_oss=http://vllm-server:8005/v1
+      - api_key_oss=infant
+      - SSH_HOSTNAME=${SSH_HOSTNAME:-computer-container}
+      - SSH_PORT=${SSH_PORT:-63710}
+      - SSH_USERNAME=${SSH_USERNAME:-infant}
+      - SSH_PASSWORD=${SSH_PASSWORD:-123}
+    volumes:
+      # Mount workspace for persistent data
+      - ./workspace:/app/workspace
+      # Mount cache directory
+      - ./cache:/tmp/cache
+      # Mount config for easy updates
+      - ./config.toml:/app/config.toml:ro
+      # Mount Docker socket for container management
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - infant-network
+    depends_on:
+      - infant-computer
+      - vllm-server
+
+  # Computer container with desktop environment
+  infant-computer:
+    build:
+      context: ./infant/computer
+      dockerfile: Dockerfile
+    image: ubuntu-gnome-guacamole:22.04
+    container_name: infant-computer
+    restart: unless-stopped
+    ports:
+      # SSH port - maps container port 22 to host (computer.py line 1126)
+      - "${SSH_PORT:-63710}:22"
+      # Guacamole web interface - maps container port 8080 to host (computer.py line 1125)
+      - "${GUI_PORT:-4443}:8080"
+      # RDP port for remote desktop - maps container port 3389 (computer.py line 1127)
+      - "3389:3389"
+    environment:
+      # Display configuration (computer.py line 1135)
+      - DISPLAY=:0
+      # User account creation - "infant" if run_as_infant, "root" otherwise (computer.py line 1131)
+      - CreateUserAccount=${CREATE_USER_ACCOUNT:-infant}
+      # Render type for graphics (computer.py line 1132)
+      - RenderType=${RENDER_TYPE:-gpu}
+      # NVIDIA driver type: Tesla, GeForce, etc. (computer.py line 1133)
+      - NvidiaDriver=${NVIDIA_DRIVER:-Tesla}
+      # GPU device visibility (computer.py line 1134)
+      - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-0}
+      # Timezone
+      - TZ=America/New_York
+    volumes:
+      # Shared workspace between agent and computer (computer.py line 1169)
+      - ${WORKSPACE_MOUNT_PATH:-./workspace}:/workspace
+      # Cache directory for infant user (computer.py line 1170)
+      - ${CACHE_DIR:-./cache}:/home/infant/.cache
+    networks:
+      - infant-network
+    # Shared memory size (computer.py line 1114)
+    shm_size: '2gb'
+    stdin_open: true
+    tty: true
+    # Privileged mode required for systemd and desktop (computer.py line 1111)
+    privileged: true
+    # User namespace mode (computer.py line 1112)
+    userns_mode: host
+    # IPC mode (computer.py line 1113)
+    ipc: host
+    # Capabilities required for systemd (computer.py line 1115)
+    cap_add:
+      - SYS_ADMIN
+      - SYS_BOOT
+    # TTY device access (computer.py line 1116)
+    devices:
+      - /dev/tty0
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           device_ids: ['${NVIDIA_DEVICE_ID:-0}']
+    #           capabilities: [gpu, utility, compute, graphics]
+    # systemd init command (computer.py line 1137)
+    command: ["/sbin/init", "-D", "-o", "PermitRootLogin=yes"]
+    healthcheck:
+      # Check Guacamole is responding on port 8080 (internal port)
+      test: ["CMD", "curl", "-f", "http://localhost:8080/guacamole/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+networks:
+  infant-network:
+    driver: bridge
+
+volumes:
+  workspace:
+    driver: local
+  cache:
+    driver: local
+  huggingface-cache:
+    driver: local
+
+
+
+# docker run -it --gpus all \
+#     -v HF_HOME:/root/.cache/huggingface \
+#     -p 8005:8005 \
+#     vllm/vllm-openai:latest \
+#     --model ByteDance-Seed/UI-TARS-1.5-7B \
+#     --dtype bfloat16 \
+#     --gpu-memory-utilization 0.9
