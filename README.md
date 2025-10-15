@@ -41,7 +41,134 @@ We’ve switched from NoMachine to the open-source Guacamole for desktop sharing
 
 Now, it is only tested on `linux` server with `Nvidia Tesla GPU (A100, H200 ...)`. The GPU is for open-spurce model inference. There may be some bugs for Mac/Windows.
 
-## Setup 
+## Setup
+
+### Option 1: Docker Compose Setup (Recommended)
+
+This is the recommended approach for running InfantAgent as a complete containerized system with all services.
+
+1. **Prerequisites**
+   - Docker and Docker Compose installed
+   - NVIDIA GPU with drivers installed (for vLLM inference)
+   - NVIDIA Container Toolkit installed
+
+2. **Configure Environment Variables**
+
+   Create a `.env` file in the project root:
+   ```bash
+   cd InfantAgent
+   cp .env.example .env
+   ```
+
+   Edit `.env` and add your API keys:
+   ```bash
+   # Required: Claude API key for the agent
+   ANTHROPIC_API_KEY=your_anthropic_api_key_here
+
+   # Optional: Hugging Face token for downloading models
+   HF_API_KEY=your_huggingface_token_here
+
+   # Optional: Custom port configuration
+   SSH_PORT=63710
+   GUI_PORT=4443
+   ```
+
+3. **Build and Start All Services**
+   ```bash
+   # Build all containers (first time only)
+   docker compose build
+
+   # Start all services in background
+   docker compose up -d
+
+   # View logs
+   docker compose logs -f
+
+   # View agent logs specifically
+   docker compose logs -f infant-agent-cli
+   ```
+
+4. **Access the Services**
+   - **Guacamole Web Desktop**: http://localhost:4443/guacamole/
+     - Login: `web` / `web`
+     - Connection: Click "GNOME Desktop (RDP)"
+   - **SSH to Computer Container**: `ssh infant@localhost -p 63710` (password: `123`)
+   - **RDP Direct Access**: `localhost:3389` (username: `infant`, password: `123`)
+   - **vLLM Server**: http://localhost:8005 (for OSS model inference)
+
+5. **Managing Containers**
+   ```bash
+   # Stop all services
+   docker compose down
+
+   # Restart specific service
+   docker compose restart infant-agent-cli
+
+   # Rebuild after code changes
+   docker compose down
+   docker compose build infant-agent
+   docker compose up -d
+
+   # View running containers
+   docker compose ps
+
+   # Execute commands in agent container
+   docker exec -it infant-agent-cli bash
+   ```
+
+6. **Interacting with the Agent**
+
+   The agent is ready to receive prompts once you see the log:
+   ```
+   INFO: Current working directory: /workspace
+   Input your request or use type exit to refresh the agent:
+   ```
+
+   **Recommended Method - Direct Attach:**
+   ```bash
+   # Attach to the running container
+   docker attach infant-agent-cli
+
+   # Type your prompt and press Enter
+   # Example: "Create a Python script to analyze data.csv"
+
+   # To detach without stopping, press: Ctrl+P then Ctrl+Q
+   ```
+
+   **Alternative Methods:**
+   ```bash
+   # Send prompt via pipe
+   echo "Your task here" | docker attach --no-stdin --sig-proxy=false infant-agent-cli
+
+   # View logs in real-time
+   docker logs -f infant-agent-cli
+
+   # Using provided scripts (may have limitations)
+   python3 send_prompt.py "Create a Python script"
+   ./agent_cli.sh logs -f
+   ```
+
+   **📖 For detailed usage instructions, see [USAGE.md](USAGE.md)**
+
+7. **Troubleshooting**
+   ```bash
+   # Check service health
+   docker compose ps
+
+   # View detailed logs
+   docker compose logs infant-computer
+   docker compose logs vllm-server
+
+   # Restart unhealthy services
+   docker compose restart
+
+   # Clean up and rebuild
+   docker compose down -v  # Remove volumes
+   docker compose build --no-cache
+   docker compose up -d
+   ```
+
+### Option 2: Manual Setup (Advanced)
 
 1. Setup environment
 ```

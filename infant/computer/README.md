@@ -1,6 +1,6 @@
 # Quick Start
 
-docker build -t ubuntu-gnome-nomachine:22.04 -f Dockerfile .
+docker build -t ubuntu-gnome-guacamole:22.04 -f Dockerfile .
 
 ./run_docker.sh
 

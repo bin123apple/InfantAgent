@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from infant.agent.agent import Agent
 from urllib.parse import urljoin
-from infant.computer.computer import Computer
+from infant.computer.computer import Computer as Computer
 from infant.agent.memory.memory import Memory, IPythonRun
 from infant.util.debug import print_messages # for debug
 from infant.util.logger import infant_logger as logger

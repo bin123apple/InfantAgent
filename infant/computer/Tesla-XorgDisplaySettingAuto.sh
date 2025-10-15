@@ -3,7 +3,10 @@
 echo "127.0.0.1    infant-computer" | sudo tee -a /etc/hosts
 echo "Please set $CreateUserAccount password:"
 sudo adduser $CreateUserAccount
-# Add user to nopasswdlogin
+# Add user to nopasswdlogin if group exists, otherwise create it
+if ! getent group nopasswdlogin > /dev/null; then
+  sudo groupadd nopasswdlogin
+fi
 sudo usermod -aG nopasswdlogin $CreateUserAccount
 sudo /etc/init.d/lightdm stop
 
@@ -63,6 +66,11 @@ rm -rf /tmp/cuda_pkg
 # Check if GPU rendering is set
 if [ "$RenderType" == "Gpu" ]; then
   echo "Using GPU rendering, starting virtual display configuration"
+  # Ensure cvt is installed
+  if ! command -v cvt &> /dev/null; then
+    echo "[INFO] Installing xcvt for cvt..."
+    sudo apt-get update && sudo apt-get install -y xcvt
+  fi
   # GPU rendering: configure virtual display
   echo "X11 set"
 
@@ -93,13 +101,29 @@ if [ "$RenderType" == "Gpu" ]; then
   export CDEPTH=24
   HEX_ID=$(sudo nvidia-smi --query-gpu=pci.bus_id --id="$GPU_SELECT" --format=csv | sed -n 2p)
   IFS=":." ARR_ID=($HEX_ID)
-  BUS_ID=PCI:$((16#${ARR_ID[1]})):$((16#${ARR_ID[2]})):$((16#${ARR_ID[3]}))
+  BUS_ID=PCI:${ARR_ID[1]}:${ARR_ID[2]}:${ARR_ID[3]}
   export MODELINE=$(cvt -r ${SIZEW} ${SIZEH} | sed -n 2p)
+  if [ -z "$MODELINE" ]; then
+    echo "[ERROR] Failed to generate modeline with cvt. Check if cvt is installed and working."
+    exit 1
+  fi
   sudo nvidia-xconfig --virtual="${SIZEW}x${SIZEH}" --depth="$CDEPTH" --allow-empty-initial-configuration --busid="$BUS_ID" 
   sudo sed -i '/Driver\s\+"nvidia"/a\    Option       "HardDPMS" "false"' /etc/X11/xorg.conf
   sudo sed -i '/Section\s\+"Monitor"/a\    '"$MODELINE" /etc/X11/xorg.conf
   sudo sed -i '/SubSection\s\+"Display"/a\        Viewport 0 0' /etc/X11/xorg.conf
   sudo sed -i '/Section\s\+"ServerLayout"/a\    Option "AllowNVIDIAGPUScreens"' /etc/X11/xorg.conf
+  # Start Xvfb if Xorg is not running
+  if ! pgrep Xorg > /dev/null; then
+    echo "[INFO] Starting Xvfb on :0..."
+    sudo apt-get install -y xvfb
+    Xvfb :0 -screen 0 1920x1200x24 &
+    sleep 2
+  fi
+  export DISPLAY=:0
+  # Log Xorg errors if any
+  if [ -f /var/log/Xorg.0.log ]; then
+    tail -n 20 /var/log/Xorg.0.log || true
+  fi
 else
   echo "Using default CPU rendering mode"
 fi
@@ -159,4 +183,4 @@ gnome-session &
 
 sleep 5
 sudo /etc/NX/nxserver --restart
-sudo tail -n 100 /usr/NX/var/log/nxserver.log > /tmp/nxserver_restart.log
+sudo tail -f /usr/NX/var/log/nxserver.log > /tmp/nxserver_restart.log

@@ -18,18 +18,18 @@ RUN rm -f /etc/update-motd.d/60-unminimize /etc/update-motd.d/98-fsck-at-reboot 
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # ---- XRDP (RDP server for the desktop) ----
-RUN apt-get update && apt-get install -y --no-install-recommends xrdp && \
+RUN apt-get update && apt-get install -y --no-install-recommends xrdp xorgxrdp && \
     adduser xrdp ssl-cert || true && \
     printf "export DESKTOP_SESSION=gnome\nexec gnome-session\n" > /etc/xrdp/startwm.sh && \
     chmod +x /etc/xrdp/startwm.sh && \
     rm -rf /var/lib/apt/lists/*
 
 # # ---- Create a login user (change as needed) ----
-# ARG DESKTOP_USER=infant
-# ARG DESKTOP_PASS=123
-# RUN if ! id -u "${DESKTOP_USER}" >/dev/null 2>&1; then useradd -m -s /bin/bash "${DESKTOP_USER}"; fi && \
-#     echo "${DESKTOP_USER}:${DESKTOP_PASS}" | chpasswd && \
-#     usermod -aG sudo "${DESKTOP_USER}"
+ARG DESKTOP_USER=infant
+ARG DESKTOP_PASS=123
+RUN if ! id -u "${DESKTOP_USER}" >/dev/null 2>&1; then useradd -m -s /bin/bash "${DESKTOP_USER}"; fi && \
+    echo "${DESKTOP_USER}:${DESKTOP_PASS}" | chpasswd && \
+    usermod -aG sudo "${DESKTOP_USER}"
 
 # ---- Tomcat + Guacamole WebApp + guacd (all-in-one) ----
 ENV GUAC_VERSION=1.5.5
@@ -219,6 +219,10 @@ RUN apt-get update && apt-get install -y \
 
 RUN mkdir -p -m0755 /var/run/sshd
 
+# Enable root SSH login
+RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+    sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+
 # symlink python3 to python
 RUN [ -e /usr/bin/python ] || ln -s /usr/bin/python3 /usr/bin/python
 
@@ -274,6 +278,13 @@ RUN apt-get autoclean
 RUN /infant/miniforge3/bin/pip install --upgrade pip
 RUN /infant/miniforge3/bin/pip install --no-cache-dir jupyterlab notebook jupyter_kernel_gateway flake8 Pillow python-docx PyPDF2 python-pptx pylatexenc openai openpyxl python-dotenv toml termcolor pydantic python-docx pyyaml docker pexpect tenacity e2b browsergym minio
 
+
+RUN echo "infant ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/infant && \
+    chmod 0440 /etc/sudoers.d/infant
+
+# # ---- Set root password ----
+ARG ROOT_PASS=123
+RUN echo "root:${ROOT_PASS}" | chpasswd
 
 EXPOSE 3389 8080
 CMD ["/usr/local/bin/start-all.sh"]

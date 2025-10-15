@@ -8,7 +8,7 @@ import subprocess
 import concurrent.futures
 from infant.config import config, ComputerParams
 from infant.agent.agent import Agent
-from infant.computer.computer import Computer
+from infant.computer.computer import create_computer_from_params
 from infant.llm.llm_api_base import LLM_API_BASED
 from infant.llm.llm_oss_base import LLM_OSS_BASED
 from infant.agent.memory.memory import Userrequest, Finish, IPythonRun
@@ -63,7 +63,7 @@ async def initialize_docker_agent(instance: dict, config=config)-> Agent:
 
     sid = str(uuid.uuid4())
     try:
-        computer = Computer(computer_parameter, sid = sid)
+        computer = create_computer_from_params(computer_parameter, sid = sid)
     except:
         logger.error({traceback.format_exc()})
 

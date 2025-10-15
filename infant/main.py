@@ -5,7 +5,7 @@ import traceback
 from datetime import datetime
 from infant.agent.agent import Agent
 from infant.config import Config, config
-from infant.computer.computer import Computer
+from infant.computer.computer import Computer as Computer
 from infant.llm.llm_api_base import LLM_API_BASED
 from infant.llm.llm_oss_base import LLM_OSS_BASED
 from infant.agent.memory.memory import Userrequest
@@ -48,12 +48,16 @@ async def run_single_step(agent: Agent, user_request_text: str, image = None):
 async def initialize_agent(config: Config = None):
     if config is None:
         config = Config()
-        config.finalize_config()
         current_dir = os.path.dirname(os.path.abspath(__file__))
         root_dir = Path(current_dir).resolve().parent
         CONFIG_FILE = root_dir / "config.toml"
         user_config = config._load()
         config.__dict__.update(user_config)
+        config.finalize_config()
+
+    # Initialize variables to None for error handling
+    computer = None
+    agent = None
 
     # Initialize the API Based LLM
     plan_parameter = config.get_litellm_params(overrides = config.planning_llm)
@@ -71,19 +75,42 @@ async def initialize_agent(config: Config = None):
     ap_parameter = config.get_litellm_params(overrides = config.ap_llm)
     ap_llm = LLM_API_BASED(ap_parameter)
      
-    # Initialize the computer
+    # Initialize the computer using SSH-based connection
+    # When running from within the infant-agent container, connect to computer-container
+    # via the docker network using the container name as hostname
     computer_parameter = config.get_computer_params()
-    sid = str(uuid.uuid4())
-    computer = Computer(computer_parameter, sid = sid)
-    constant.MOUNT_PATH = computer.workspace_mount_path
+
+    # Create Computer instance
+    # Connect to 'infant-computer' (container name) on port 22 within docker network
+    computer = Computer(
+        ssh_hostname='infant-computer',  # Docker network container name
+        ssh_port=22,  # Internal container port (not the mapped host port)
+        ssh_password=computer_parameter.ssh_password or '123',
+        ssh_username='infant' if computer_parameter.run_as_infant else 'root',
+        ssh_root_password='123',  # Root password for setup
+        timeout=computer_parameter.computer_timeout or 120,
+        workspace_dir=computer_parameter.workspace_mount_path_in_computer or '/workspace',
+        enable_auto_lint=False,  # Set to True to enable auto-linting
+        initialize_plugins=True,  # Initialize plugins and tools
+    )
+
+    # Set the workspace mount path for constant
+    constant.MOUNT_PATH = config.workspace_mount_path
+
     # cd to the workspace/clear the workspace/activate conda
-    exit_code, output = computer.execute(f'cd /workspace && rm -rf *')
+    # Use sudo to handle permission issues, or change ownership first
+    exit_code, output = computer.execute(f'cd /workspace && sudo rm -rf * 2>/dev/null || rm -rf *')
     if exit_code != 0:
-        logger.error(f'Failed to clear the workspace directory: {output}')
-        sys.exit(1)
+        logger.warning(f'Failed to clear some files in workspace directory: {output}')
+        # Try changing ownership and removing again
+        exit_code, output = computer.execute(f'cd /workspace && sudo chown -R {computer.ssh_username}:{computer.ssh_username} . && rm -rf *')
+        if exit_code != 0:
+            logger.error(f'Failed to clear the workspace directory after changing ownership: {output}')
+        else:
+            logger.info("Workspace directory has been cleared successfully (after ownership change).")
     else:
         logger.info("Workspace directory has been cleared successfully.")
-    
+
     # activate conda
     exit_code, output = computer.execute(f'source /infant/miniforge3/etc/profile.d/conda.sh')
     exit_code, output = computer.execute('export PATH=/infant/miniforge3/bin:$PATH')
@@ -113,8 +140,14 @@ async def initialize_agent(config: Config = None):
     await computer.run_ipython(import_memory)
     return agent, computer
 
+    # Note: If an exception occurs during initialization, agent and/or computer may be None
+    # The calling function should handle this appropriately
+
 
 async def main():
+    # Initialize variables to None for error handling
+    agent = None
+    computer = None
 
     try:
         # Initialize the agent
@@ -157,6 +190,10 @@ async def main():
         await cleanup(agent=agent, computer=computer)
 
 async def cleanup(agent: None | Agent = None, computer: None | Computer = None):
+    # Check if computer is available
+    if computer is None:
+        logger.warning("Computer not initialized, skipping cleanup")
+        return
 
     # Handle the screenshots
     screenshots_dir = "/workspace/screenshots/"
@@ -176,6 +213,10 @@ async def cleanup(agent: None | Agent = None, computer: None | Computer = None):
         save_to_dataset(agent.state.memory_list, image_data_path)
 
 
+def cli_entry():
+    """Entry point for the CLI command."""
+    asyncio.run(main())
+
 # Run the main function
 if __name__ == "__main__":
-    asyncio.run(main())
+    cli_entry()

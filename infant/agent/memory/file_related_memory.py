@@ -1,5 +1,5 @@
 import re
-from infant.computer.computer import Computer
+from infant.computer.computer import Computer as Computer
 from infant.util.logger import infant_logger as logger
 
 def get_diff_patch(computer: Computer):
