@@ -3,7 +3,7 @@ from __future__ import annotations
 import traceback
 from infant.config import config
 from infant.agent.parser import parse
-from infant.computer.computer import Computer
+from infant.computer.computer import Computer as Computer
 from infant.llm.llm_api_base import LLM_API_BASED
 from infant.agent.memory.memory import IPythonRun
 from infant.util.logger import infant_logger as logger

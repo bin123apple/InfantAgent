@@ -3,7 +3,7 @@ from infant.agent.parser import parse
 from infant.config import AgentParams
 from infant.llm.llm_api_base import LLM_API_BASED
 from infant.llm.llm_oss_base import LLM_OSS_BASED
-from infant.computer.computer import Computer
+from infant.computer.computer import Computer as Computer
 from infant.util.debug import print_messages # For debugging
 from infant.agent.state.state import State, AgentState
 from infant.agent.memory.memory import ( 
