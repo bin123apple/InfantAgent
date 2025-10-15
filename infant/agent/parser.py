@@ -47,19 +47,6 @@ def parse_response(resp: str) -> str:
     
     # parse user input
     # FIXME: Implement a function to convert the user input to Userrequest class 
-    
-    # parse summary
-    summary = {}
-    tags = ['key_steps', 'reason']
-    for tag in tags:
-        match = re.search(rf'<{tag}>(.*?)</{tag}>', resp, re.DOTALL)
-        if match:
-            summary[tag] = match.group(1).strip()
-    if bool(summary):
-        memory = Summarize(summary=summary)
-        memory.source = 'assistant'
-        return memory
-    
     # parse task
     task_match = re.search(r'<task>(.*?)</task>', resp, re.DOTALL)
     target = None

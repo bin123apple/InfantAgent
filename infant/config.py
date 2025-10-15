@@ -209,6 +209,13 @@ class Config:
     intermediate_results_dir: str = os.path.join(os.getcwd(), 'workspace')
     
     def __str__(self):
+        def to_items(obj):
+            if isinstance(obj, dict):
+                return obj.items()
+            if hasattr(obj, "__dict__"):
+                return vars(obj).items()
+            return []
+
         sections = [
             ("### litellm Attributes ###", self.get_litellm_params()),
             ("### vllm Attributes ###", self.get_vllm_params()),
@@ -216,9 +223,10 @@ class Config:
             ("### Computer Attributes ###", self.get_computer_params()),
         ]
 
-        # Format each section
-        return '\n\n'.join([f"{title}\n" + '\n'.join([f"{key}: {value}" for key, value in params.items()]) for title, params in sections])
-
+        return "\n\n".join(
+            f"{title}\n" + "\n".join(f"{k}: {v}" for k, v in to_items(params))
+            for title, params in sections
+        )
 
     def finalize_config(self):
         """
@@ -381,7 +389,7 @@ class Config:
         """Read and cache the TOML configuration file."""
         if not CONFIG_FILE.exists():
             raise FileNotFoundError(
-                f"Configuration file '{CONFIG_FILE}' was not found – please create it "
+                f"Configuration file '{CONFIG_FILE}' was not found - please create it "
                 "(see docs/agent_config_example.toml)."
             )
         return toml.load(CONFIG_FILE)
