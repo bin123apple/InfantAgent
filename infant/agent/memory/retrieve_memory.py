@@ -33,6 +33,34 @@ def planning_memory_rtve(memory_list: list, summarize_all_steps=False) -> list |
     
     return memory_block
 
+# def execution_memory_rtve(memory_list: list, summarize_all_steps=False) -> list | None:
+#     '''
+#     Retrieve the memory from the state.history for execution without user request.
+    
+#     Input: memory_list: All the memory.
+#     output: retrieved memory block.
+    
+#     For intermediate steps, the memory should only contain:
+#     - Keep the first memory. # FIXME: I assume the first memory is userrequest, for multi-turns, we need to update this.
+#     - Keep the last Task and all memory after it except the classification memory.
+#     - For prior memory before the last Task, only keep those where memory is Task.
+#     - For the final step (Agent finished all the tasks), the memory should contain all the detailed memory except Classification & Critic.
+#     '''
+#     memory_block = []
+#     dc_ml = copy.deepcopy(memory_list)
+
+#     # If all the tasks are finished and the agent is asked to summarize all the steps
+#     if summarize_all_steps:
+#         memory_block = dc_ml
+#     else:
+#         for i in range(len(dc_ml)):
+#             memory = dc_ml[i]
+#             if not isinstance(memory, (Classification)):  
+#                 memory_block.append(memory)
+#     return memory_block
+
+
+# TODO: Test it 
 def execution_memory_rtve(memory_list: list, summarize_all_steps=False) -> list | None:
     '''
     Retrieve the memory from the state.history for execution without user request.
@@ -44,7 +72,7 @@ def execution_memory_rtve(memory_list: list, summarize_all_steps=False) -> list 
     - Keep the first memory. # FIXME: I assume the first memory is userrequest, for multi-turns, we need to update this.
     - Keep the last Task and all memory after it except the classification memory.
     - For prior memory before the last Task, only keep those where memory is Task.
-    - For the final step (Agent finished all the tasks), the memory should contain all the detailed memory except Classification & Critic.
+    - For the final step (Agent finished all the tasks), the memory should contain all the detailed memory execpt Classification & Critic.
     '''
     memory_block = []
     dc_ml = copy.deepcopy(memory_list)
@@ -53,12 +81,31 @@ def execution_memory_rtve(memory_list: list, summarize_all_steps=False) -> list 
     if summarize_all_steps:
         memory_block = dc_ml
     else:
-        for i in range(len(dc_ml)):
+        # Find the last index where action is Task
+        last_task_index = None
+        for i in reversed(range(len(dc_ml))):
             memory = dc_ml[i]
-            if not isinstance(memory, (Classification)):  
-                memory_block.append(memory)
-    return memory_block
+            if isinstance(memory, Task):
+                last_task_index = i
+                break
 
+        if last_task_index is None:
+            # No Task found; include only Task if any
+            for memory in dc_ml:
+                if isinstance(memory, Task):
+                    memory_block.append(memory)
+        else:
+            memory_block.append(dc_ml[0]) # Keep the user_request memory
+            
+            # For indices before last_task_index, include only Task
+            for i in range(1, last_task_index):
+                memory = dc_ml[i]
+                if isinstance(memory, Task):
+                    memory_block.append(memory)
+            for memory in dc_ml[last_task_index:]:
+                if not isinstance(memory, Classification):  
+                        memory_block.append(memory)
+    return memory_block
 
 
 def classification_memory_rtve(memory_list: list) -> list | None:

@@ -1,13 +1,16 @@
 import re
 import gc
 import copy
+import json
 import torch
+import litellm
+import requests
+from openai import OpenAI
 from vllm import LLM, SamplingParams
 from infant.config import VllmParams
 from vllm.distributed.parallel_state import destroy_model_parallel
 from infant.util.logger import infant_logger as logger
 from infant.agent.memory.memory import Message, CmdRun, IPythonRun
-import litellm
 
 class LLM_OSS_BASED:
     def __init__(self, args: VllmParams):
@@ -117,8 +120,7 @@ class LLM_OSS_BASED:
             for response in request_output[0].outputs:
                 response_list.append(response.text)
             return response_list
-        else: 
-            logger.warning("Using remote model.")
+        else:
             request_output = self.completion_remote(messages, stop)
             logger.info(f"Request output: {request_output}")
             number_of_answers = len(request_output.choices) # list of choices (answers)
@@ -135,20 +137,71 @@ class LLM_OSS_BASED:
                 response_list.append(response.message.content)
             return response_list
         
-    
-    def completion_remote(self, messages, stop: list | None = None) -> list:
-        '''
-        Generate several a list of responses. (Based on the number of sampling_n)
-        '''
-        logger.info(f'messages: {messages}')
-        response_list = litellm.completion(
+    def completion_remote(self, messages, stop: list | None = None):
+        client = OpenAI(
+            base_url=f"{self.base_url_oss.rstrip('/')}/v1",
+            api_key=getattr(self.args, "api_key", "EMPTY"),
+        )
+        return client.chat.completions.create(
             model=self.model,
             messages=messages,
-            api_base=self.base_url_oss,
-            api_key=self.api_key_oss,
-            temperature=self.args.vllm_temperature,
-            max_tokens=self.args.max_tokens)
-        return response_list
+            temperature=getattr(self.args, "vllm_temperature", 0.7),
+            max_tokens=getattr(self.args, "max_tokens", 1024),
+            n=getattr(self.args, "sampling_n", 1),
+            stop=stop if stop else None,
+        )        
+    # def completion_remote(self, messages, stop: list | None = None) -> list[str]:
+    #     """
+    #     直接请求 vLLM 的 OpenAI-兼容接口，返回文本列表（按 n 的数量）。
+    #     """
+    #     url = f"{self.base_url_oss.rstrip('/')}/v1/chat/completions"  # 关键：带 /v1
+    #     headers = {
+    #         "Content-Type": "application/json",
+    #         # 如果你的 vLLM 起服务时配置了鉴权，这里加：
+    #         # "Authorization": f"Bearer {self.args.api_key}"
+    #     }
+
+    #     payload = {
+    #         "model": self.model,                                   # vLLM 不严格校验名字，但保留即可
+    #         "messages": messages,                                  # OpenAI Chat 格式
+    #         "temperature": getattr(self.args, "vllm_temperature", 0.7),
+    #         "max_tokens": getattr(self.args, "max_tokens", 1024),
+    #         "n": getattr(self.args, "sampling_n", 1),              # 如需多采样
+    #     }
+    #     if stop:  # 覆盖/传递 stop
+    #         payload["stop"] = stop
+
+    #     # 可选：其他采样参数
+    #     for k in ("top_p", "presence_penalty", "frequency_penalty"):
+    #         v = getattr(self.args, k, None)
+    #         if v is not None:
+    #             payload[k] = v
+
+    #     logger.info(f"POST {url} payload={json.dumps({k:payload[k] for k in payload if k!='messages'})}")
+    #     resp = requests.post(url, headers=headers, json=payload, timeout=300)
+    #     if resp.status_code != 200:
+    #         raise RuntimeError(f"vLLM HTTP {resp.status_code}: {resp.text}")
+
+    #     data = resp.json()
+    #     return data
+        # 返回纯文本列表（与现有测试期望一致的话，通常取 content）
+        # texts = []
+        # for choice in data.get("choices", []):
+        #     msg = choice.get("message") or {}
+        #     texts.append(msg.get("content", ""))  # 空串兜底
+        # return texts
+    # def completion_remote(self, messages, stop: list | None = None) -> list:
+    #     '''
+    #     Generate several a list of responses. (Based on the number of sampling_n)
+    #     '''
+    #     logger.info(f'messages: {messages}')
+    #     response_list = litellm.completion(
+    #         model=self.model,
+    #         messages=messages,
+    #         api_base=self.base_url_oss,
+    #         temperature=self.args.vllm_temperature,
+    #         max_tokens=self.args.max_tokens)
+    #     return response_list
 
 
     def get_token_count(self, request_output):

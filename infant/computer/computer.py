@@ -19,7 +19,7 @@ from infant.util.exceptions import ComputerInvalidBackgroundCommandError
 from infant.util.logger import infant_logger as logger
 from infant.config import ComputerParams
 from infant.prompt.tools_prompt import tool_trace_code, tool_filter_bash_code
-from infant.helper_functions.setting_up import PYTHON_SETUP_CODE
+from infant.helper_functions.setting_up import PYTHON_SETUP_CODE, PYTHON_SETUP_CODE_VIRTUAL_CONNECTION
 from infant.agent.memory.memory import IPythonRun, CmdRun 
 from infant.helper_functions.audio_helper_function import parse_audio # for exec()
 from infant.helper_functions.video_helper_function import parse_video, watch_video # for exec()
@@ -208,8 +208,11 @@ class Computer:
         output = self.run_python(PYTHON_SETUP_CODE)
         print(f"Set up chrome for fast manual openning, output: {output}")
         
+        output = self.run_python(PYTHON_SETUP_CODE_VIRTUAL_CONNECTION)
+        print(f"Set up chrome for virtual connection..")
+        
         self.execute('export PYTHONIOENCODING=utf-8')
-
+        # time.sleep(10000000) # for debugging
         
     def init_plugins(self):
         """Load a plugin into the computer."""
@@ -1121,10 +1124,15 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
                     #     4443: self.gui_port,
                     #     # f'{self._ssh_port}/tcp':self._ssh_port,
                     # },
+                    # ports={
+                    #     '8080/tcp': self.gui_port,
+                    #     '22/tcp': self._ssh_port,
+                    #     '3389/tcp': 3389,
+                    # },
                     ports={
                         '8080/tcp': self.gui_port,
                         '22/tcp': self._ssh_port,
-                        '3389/tcp': 3389,
+                        '3389/tcp': None,
                     },
                     volumes=self.volumes,
                     environment={

@@ -29,6 +29,8 @@ env["DISPLAY"] = ":10"
 env["XAUTHORITY"] = "/home/infant/.Xauthority"
 
 script = r'''set -euo pipefail
+PROFILE="/run/user/$(id -u)/chrome-${HOSTNAME}-$$"
+mkdir -p "$PROFILE"
 HN=$(hostname)
 grep -qE "(^|[[:space:]])${HN}([[:space:]]|$)" /etc/hosts || echo "127.0.1.1 ${HN}" | sudo tee -a /etc/hosts >/dev/null
 if id infant >/dev/null 2>&1; then
@@ -75,7 +77,7 @@ except OSError:
             "--no-first-run",
             "--remote-debugging-port=9222",
             "--remote-debugging-address=127.0.0.1",
-            "--user-data-dir=/tmp/chrome-profile",
+            "--user-data-dir=$PROFILE",
             "--start-maximized",
             "--disable-gpu",
             "--disable-dev-shm-usage",

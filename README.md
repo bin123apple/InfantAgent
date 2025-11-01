@@ -60,7 +60,7 @@ docker build -t ubuntu-gnome-nomachine:latest -f Dockerfile .
 
 3. Run
 ```
-export CUDA_VISIBLE_DEVICES=0,1 # For Visual Grounding model inference
+export CUDA_VISIBLE_DEVICES=4,5 # For Visual Grounding model inference
 uvicorn backend:app --log-level info
 ```
 

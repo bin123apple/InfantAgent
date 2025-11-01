@@ -16,8 +16,37 @@ from infant.util.logger import infant_logger as logger
 from infant.util.logger import reset_logger_for_multiprocessing, LOG_DIR
 from infant.prompt.tools_prompt import IMPORTS
 import infant.util.constant as constant
+from typing import List, Dict, Any, Optional
 
-def extract_metadata(filename):
+def extract_metadata(filename: str) -> List[Dict[str, Any]]:
+    """
+    读取元数据：
+    - 若为 .parquet：使用 pandas 读取并转为 list[dict]
+    - 若为 .jsonl/.json：使用逐行 JSON 解析（保留你原本逻辑）
+    额外处理：若没有 task_id 但有 id，则重命名为 task_id
+    """
+    ext = os.path.splitext(filename)[1].lower()
+
+    if ext == ".parquet":
+        import pandas as pd  # 需要安装 pyarrow 或 fastparquet
+        df = pd.read_parquet(filename)
+
+        # 如果没有 task_id，但有 id，则重命名
+        if "task_id" not in df.columns:
+            if "id" in df.columns:
+                df = df.rename(columns={"id": "task_id"})
+            else:
+                # 不强制要求一定有 task_id，但给个提醒
+                print("[extract_metadata] Warning: parquet 中未找到 `task_id` 列。")
+
+        records = df.to_dict(orient="records")
+        # 可选：把 task_id 统一转成 str，避免后面字典键类型不一致
+        for r in records:
+            if "task_id" in r and r["task_id"] is not None:
+                r["task_id"] = str(r["task_id"])
+        return records
+
+    # 默认：按 jsonl/json 读取
     records = []
     with open(filename, 'r', encoding='utf-8') as f:
         for line in f:
@@ -26,12 +55,34 @@ def extract_metadata(filename):
                 continue
             try:
                 data = json.loads(line)
+                # 同样做下 task_id 兼容
+                if "task_id" not in data and "id" in data:
+                    data["task_id"] = data["id"]
+                if "task_id" in data and data["task_id"] is not None:
+                    data["task_id"] = str(data["task_id"])
                 records.append(data)
             except json.JSONDecodeError as e:
                 print(f"Error decoding JSON: {e}")
                 print(f"Line: {line}")
                 continue
     return records
+
+def slice_dataset(dataset: List[Dict[str, Any]],
+                   index_start: int = 0,
+                   index_end: Optional[int] = None) -> List[Dict[str, Any]]:
+    """按含头不含尾的切片规则选择一段数据，并做边界与合法性检查。"""
+    n = len(dataset)
+    if index_end is None:
+        index_end = n
+    # 规范化：防止负数/越界
+    index_start = max(0, index_start)
+    index_end = max(0, min(index_end, n))
+    if index_start >= index_end:
+        print(f"[warn] empty slice: start={index_start}, end={index_end}, total={n}")
+        return []
+    subset = dataset[index_start:index_end]
+    print(f"[info] using subset {index_start}:{index_end} of {n} (size={len(subset)})")
+    return subset
 
 async def initialize_docker_agent(instance: dict, config=config)-> Agent:
     # Initialize the API Based LLM
@@ -42,6 +93,7 @@ async def initialize_docker_agent(instance: dict, config=config)-> Agent:
     # Initialize the OSS Based LLM
     if config.use_oss_llm:
         vllm_parameter = config.get_vllm_params()
+        vllm_parameter.base_url_oss = os.getenv("VLLM_BASE_URL") # e.g., export VLLM_BASE_URL="http://127.0.0.1:8000"
         oss_llm = LLM_OSS_BASED(vllm_parameter)
     else:
         oss_llm = None
@@ -90,7 +142,8 @@ async def initialize_docker_agent(instance: dict, config=config)-> Agent:
     agent_parameter = config.get_agent_params()
     agent_parameter.fake_response_mode = True
     agent_parameter.max_budget_per_task = 10
-    agent = Agent(agent_parameter, api_llm, oss_llm, computer)
+    agent = Agent(agent_config = agent_parameter, planning_llm = api_llm, execution_llm = api_llm,
+                  fe_llm = api_llm, tm_llm = api_llm, vg_llm = oss_llm, computer = computer)
     logger.info(f'Agent initialized successfully.')
     
     import_memory = IPythonRun(code = IMPORTS)
@@ -203,10 +256,11 @@ def cleanup_docker(instance: dict):
         print(f"🗑️ Deleted folder: {workspace_folder}")
 
 async def main(predictions_file: str = "predictions.jsonl"):
-    dataset_path = "gaia_dataset/2023/validation/metadata_test.jsonl"
+    dataset_path = "gaia_dataset/2023/validation/metadata.parquet"
     dataset = extract_metadata(dataset_path)
+    dataset = slice_dataset(dataset, index_start=0, index_end=7)
 
-    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=8) as executor:
         future_to_instance = {executor.submit(process_instance, instance): instance for instance in dataset}
         for future in concurrent.futures.as_completed(future_to_instance):
             instance = future_to_instance[future]

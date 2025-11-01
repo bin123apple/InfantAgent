@@ -8,6 +8,7 @@ execution_task_end_prompt = '''If you think the current task: {task} is already 
 <task_finish>
 exit
 </task_finish>. 
+In your conclusion, please summarize the actions you took, your observations, and the current status of the task.
 Otherwise, provide the next command within the appropriate execution tag:
 > Use <execute_bash>...</execute_bash> for Bash commands.
 > Use <execute_ipython>...</execute_ipython> for my other customized commands, as I mentioned in the beginning.
