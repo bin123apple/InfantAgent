@@ -377,10 +377,26 @@ exit
 </task_finish>
 '''
 
+# tool_web_browse = '''
+# You can use the following functions to interact with the browser.
+# - open_browser(): Open the browser.
+# - navigate_to(url: str) : Navigate to the specified URL.
+# - refresh_page(): Refresh the current page.
+# - go_back(): Go back to the previous page.
+# - go_forward(): Go forward to the next page.
+# - close_current_tab(): Close the current tab.
+# - execute_javascript(script: str): Execute the specified JavaScript code.
+# - switch_to_tab(page_id: int): Switch to the tab at the specified index.
+# - create_new_tab(url: str): Open a new tab with the specified URL.
+# - save_cookies(): Save the current cookies.
+# - select_dropdown_option(selector_index: int, option: int): Select the specified option from the dropdown menu. selector_index: selector index. option: Index of the option to select.
+# - google_search(content: str): Perform a Google search for the specified content. content: The content to search for.
+# - close(): Close the browser.
+# '''
+
 tool_web_browse = '''
 You can use the following functions to interact with the browser.
 - open_browser(): Open the browser.
-- navigate_to(url: str) : Navigate to the specified URL.
 - refresh_page(): Refresh the current page.
 - go_back(): Go back to the previous page.
 - go_forward(): Go forward to the next page.

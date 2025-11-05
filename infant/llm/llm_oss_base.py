@@ -145,7 +145,7 @@ class LLM_OSS_BASED:
         return client.chat.completions.create(
             model=self.model,
             messages=messages,
-            temperature=getattr(self.args, "vllm_temperature", 0.7),
+            temperature=getattr(self.args, "vllm_temperature", 0.0),
             max_tokens=getattr(self.args, "max_tokens", 1024),
             n=getattr(self.args, "sampling_n", 1),
             stop=stop if stop else None,

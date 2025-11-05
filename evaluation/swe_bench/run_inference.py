@@ -111,12 +111,12 @@ async def initialize_docker_agent(instance: dict, config=config)-> Agent:
     api_llm = LLM_API_BASED(litellm_parameter)
 
     reason_litellm_parameter = config.get_litellm_params()
-    reason_litellm_parameter.model = 'claude-3-7-sonnet-20250219'
+    reason_litellm_parameter.model = 'claude-sonnet-4-5'
     reason_litellm_parameter.api_key = os.environ.get('ANTHROPIC_API_KEY', '')
     reasoning_llm = LLM_API_BASED(reason_litellm_parameter)
 
     execution_litellm_parameter = config.get_litellm_params()
-    execution_litellm_parameter.model = 'claude-3-7-sonnet-20250219'
+    execution_litellm_parameter.model = 'claude-sonnet-4-5'
     # execution_litellm_parameter.base_url = 'https://api.deepseek.com/v1'
     execution_litellm_parameter.api_key = os.environ.get('ANTHROPIC_API_KEY', '')
     execution_llm = LLM_API_BASED(execution_litellm_parameter)    

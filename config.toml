@@ -1,16 +1,16 @@
 # Optional, if not provided, the Global LLM will be used
 [planning_llm]
-model = "claude-sonnet-4-20250514"
+model = "claude-sonnet-4-5"
 api_key = "" # YOUR API KEY
 
 # Optional, if not provided, the Global LLM will be used
 [classification_llm]
-model = "claude-sonnet-4-20250514"
+model = "claude-sonnet-4-5"
 api_key = "" # YOUR API KEY
 
 # Optional, if not provided, the Global LLM will be used
 [execution_llm]
-model = "claude-sonnet-4-20250514"
+model = "claude-sonnet-4-5"
 api_key = "" # YOUR API KEY
 
 # Optional, Visual Grounding model, if not provided, the default VG model will be used

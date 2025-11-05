@@ -167,7 +167,7 @@ class LLM_API_BASED:
                     client = OpenAI()
                     completion = client.chat.completions.create(
                         # model="anthropic.claude-3-5-sonnet-20241022-v2:0",
-                        model = 'claude-3-7-sonnet-20250219',
+                        model = 'claude-sonnet-4-5',
                         messages=messages,
                         max_tokens=max_tokens,
                         top_p=top_p,

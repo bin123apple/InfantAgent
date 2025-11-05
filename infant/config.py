@@ -96,7 +96,7 @@ class Config:
     ap_llm: dict | None = None
     
     # litellm Attributes
-    model: str = 'claude-sonnet-4-20250514'
+    model: str = 'claude-sonnet-4-5'
     api_key: str | None = os.getenv("ANTHROPIC_API_KEY")
     base_url: str | None = None
     api_version: str | None = None
@@ -125,7 +125,7 @@ class Config:
     ## vllm Attributes (OSS-LLM)
     model_oss: str = 'ByteDance-Seed/UI-TARS-1.5-7B'
     api_key_oss: str | None = None
-    base_url_oss: str | None = None
+    base_url_oss: str | None = 'http://127.0.0.1:8888'
     tensor_parallel_size: int = 1 # Tensor parallelism splits the model's tensors across n GPUs
     max_model_len: int = 8192
     disable_custom_all_reduce: bool = True
@@ -207,6 +207,7 @@ class Config:
     consistant_computer: bool = True # whether to use the same computer for the same user
     text_only_docker: bool = False # whether to use a text-only docker image
     intermediate_results_dir: str = os.path.join(os.getcwd(), 'workspace')
+    evalution_mode = False # whether to run in evaluation mode
     
     def __str__(self):
         def to_items(obj):
@@ -376,7 +377,8 @@ class Config:
             nomachine_bind_port = self.nomachine_bind_port,
             consistant_computer = self.consistant_computer,
             text_only_docker = self.text_only_docker,
-            intermediate_results_dir = self.intermediate_results_dir
+            intermediate_results_dir = self.intermediate_results_dir,
+            evalution_mode = self.evalution_mode
         )
 
     def _load(self) -> Dict[str, Any]:
@@ -420,7 +422,8 @@ class ComputerParams:
         ssh_bind_port,
         nomachine_bind_port,
         consistant_computer,
-        intermediate_results_dir
+        intermediate_results_dir,
+        evalution_mode
     ):
         self.runtime = runtime
         self.file_store = file_store
@@ -452,6 +455,7 @@ class ComputerParams:
         self.nomachine_bind_port = nomachine_bind_port
         self.consistant_computer = consistant_computer
         self.intermediate_results_dir = intermediate_results_dir
+        self.evalution_mode = evalution_mode
 
 class LitellmParams:
     def __init__(

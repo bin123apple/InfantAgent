@@ -72,6 +72,7 @@ class Computer:
         self.nomachine_bind_port = config.nomachine_bind_port if config.nomachine_bind_port else self.find_available_tcp_port()
         self.nvidia_visible_devices = config.nvidia_visible_devices
         self.text_only_docker = config.text_only_docker
+        self.evalution_mode = config.evalution_mode
         self.volumes = self.set_volumes()
         logger.info(f'SSHBox is running as {"infant" if self.run_as_infant else "root"} user with USER_ID={self.user_id} in the computer')
         params = {
@@ -208,8 +209,9 @@ class Computer:
         output = self.run_python(PYTHON_SETUP_CODE)
         print(f"Set up chrome for fast manual openning, output: {output}")
         
-        output = self.run_python(PYTHON_SETUP_CODE_VIRTUAL_CONNECTION)
-        print(f"Set up chrome for virtual connection..")
+        if self.evalution_mode:
+            output = self.run_python(PYTHON_SETUP_CODE_VIRTUAL_CONNECTION)
+            print(f"Set up chrome for virtual connection..")
         
         self.execute('export PYTHONIOENCODING=utf-8')
         # time.sleep(10000000) # for debugging
