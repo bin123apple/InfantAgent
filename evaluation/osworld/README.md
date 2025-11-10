@@ -9,7 +9,30 @@ Because their test scripts contain a large number of evaluation functions, we co
 
 ## Performance
 
-| Model            | Visual localization Model            | Agent Version          | dataset        | Accuracy     |
-|:------------------:|:------------------:|:---------------------:|:-------------------:|:------------:|
-| Claude-3.7-Sonnet   |UI-TARS-1.5-7B| InfantAgent-2025-04-25   | osworld-test-all    | 35.27%        |
-| Gemini-2.5-pro |-| - | -       | TODO       |
+**Claude-sonnet-4-5**
+
+### Per-Domain Results (50 Steps + Tools)
+| Domain               | Runned | Success Rate |
+|:----------------------:|:------:|-------------:|
+| chrome               |   45   | 53.24%       |
+| thunderbird          |   15   | 60.00%       |
+| multi_apps           |   93   | 53.60%       |
+| gimp                 |   26   | 61.54%       |
+| libreoffice_calc     |   47   | 63.83%       |
+| libreoffice_writer   |   23   | 60.86%       |
+| libreoffice_impress  |   47   | 55.11%       |
+| os                   |   24   | 70.83%       |
+| vlc                  |   17   | 75.22%       |
+| vs_code              |   23   | 73.91%       |
+
+### Category Summaries
+| Category      | Success Rate |
+|:---------------:|:-------------:|
+| Office        | 59.74%       |
+| Daily         | 59.41%       |
+| Professional  | 67.35%       |
+
+### Overall
+| Total Runned | Current Success Rate |
+|:------------:|:---------------------:|
+|     360      | 59.86%               |
