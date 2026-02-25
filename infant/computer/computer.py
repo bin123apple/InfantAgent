@@ -5,11 +5,13 @@ Based on the original computer.py but streamlined for essential SSH functionalit
 
 import os
 import re
+import json
 import time
 import socket
 import subprocess
 from pathlib import Path
 from typing import Optional, Tuple
+import pexpect
 from pexpect import pxssh
 from tenacity import retry, stop_after_attempt, wait_fixed
 
@@ -33,6 +35,7 @@ class Computer:
         workspace_dir: str = '/workspace',
         enable_auto_lint: bool = False,
         initialize_plugins: bool = False,
+        gui_port: int = 8080,
     ):
         """
         Initialize the simplified computer connection.
@@ -47,6 +50,7 @@ class Computer:
             workspace_dir: Working directory in the container
             enable_auto_lint: Enable automatic linting
             initialize_plugins: Initialize plugins and tools
+            gui_port: Guacamole web UI port inside the container (default: 8080)
         """
         self.ssh_hostname = ssh_hostname
         self.ssh_port = ssh_port
@@ -57,6 +61,8 @@ class Computer:
         self.workspace_dir = workspace_dir
         self.enable_auto_lint = enable_auto_lint
         self.initialize_plugins = initialize_plugins
+        self.gui_port = gui_port
+        self.guac_client_url: Optional[str] = None
 
         # SSH session objects
         self.ssh: Optional[pxssh.pxssh] = None  # Main session (infant user)
@@ -150,6 +156,7 @@ class Computer:
                 self.ssh_hostname,
                 self.ssh_username,
                 self.ssh_password,
+                port=self.ssh_port,
             )
 
             logger.info('SSH connection established successfully')
@@ -183,6 +190,7 @@ class Computer:
                 self.ssh_hostname,
                 'root',
                 self.ssh_root_password,
+                port=self.ssh_port,
             )
 
             logger.info('Root SSH connection established successfully')
@@ -300,7 +308,8 @@ class Computer:
     def config_xorg_for_gui(self) -> None:
         """
         Configure Xorg settings for GUI access.
-        Sets up X authority, display settings, and prevents screen locking.
+        Disables VirtualGL, starts Xvfb, sets up X authority and display,
+        and prevents screen locking.
         """
         logger.info('Configuring Xorg for GUI...')
 
@@ -308,34 +317,55 @@ class Computer:
         self.execute('HN=$(hostname)')
         self.execute('grep -qE "(^|\\s)${HN}(\\s|$)" /etc/hosts || echo "127.0.1.1 ${HN}" | sudo tee -a /etc/hosts >/dev/null')
 
-        # Set up Xauthority for infant user
+        # Ensure VGL LD_PRELOAD stays disabled (also persisted in bashrc)
+        self.execute('grep -q "unset LD_PRELOAD" ~/.bashrc || echo "unset LD_PRELOAD" >> ~/.bashrc')
+
+        # ---- Start Xvfb on display :10 ----
+        self.execute('sudo rm -f /tmp/.X10-lock 2>/dev/null || true')
+        self.execute('sudo mkdir -p /tmp/.X11-unix 2>/dev/null || true')
+        self.execute('if ! DISPLAY=:10 xdpyinfo >/dev/null 2>&1; then Xvfb :10 -screen 0 1920x1080x24 -nolisten tcp >/tmp/xvfb.log 2>&1 & sleep 1; fi')
+
+        # Verify Xvfb is running
+        exit_code, output = self.execute('DISPLAY=:10 xdpyinfo >/dev/null 2>&1 && echo "X_OK" || echo "X_FAIL"')
+        if 'X_FAIL' in output:
+            logger.warning('Xvfb on :10 is not responding — GUI commands may fail')
+
+        # ---- Set up Xauthority for infant user ----
         self.execute('XAUTH=/home/infant/.Xauthority')
+        self.execute('touch "$XAUTH"')
         self.execute('U=$(id -u infant 2>/dev/null || id -u)')
         self.execute('G=$(id -g infant 2>/dev/null || id -g)')
-
-        # Set permissions
-        self.execute('sudo chown ${U}:${G} "$XAUTH" 2>/dev/null || sudo chown ${U} "$XAUTH" 2>/dev/null || true')
+        self.execute('sudo chown ${U}:${G} "$XAUTH" 2>/dev/null || true')
         self.execute('sudo chmod 600 "$XAUTH" 2>/dev/null || true')
 
-        # Clean up stale lock files
+        # Clean up stale lock/cookie files
         self.execute('sudo rm -f "$XAUTH"-c "$XAUTH"-l "$XAUTH".lock 2>/dev/null || true')
 
         # Read/create cookie for display :10
-        self.execute('COOKIE=$(sudo -u \\#${U} XAUTHORITY="$XAUTH" xauth list 2>/dev/null | awk \'/:10.*MIT-MAGIC-COOKIE-1/ {print $NF; exit}\')')
+        self.execute('COOKIE=$(XAUTHORITY="$XAUTH" xauth list 2>/dev/null | awk \'/:10.*MIT-MAGIC-COOKIE-1/ {print $NF; exit}\')')
         self.execute('[ -n "$COOKIE" ] || COOKIE=$(mcookie)')
 
-        # Write xauth keys
+        # Write xauth keys for display :10
         self.execute('HOST=$(hostname)')
-        self.execute('sudo -u \\#${U} XAUTHORITY="$XAUTH" xauth add ":10" . "$COOKIE" 2>/dev/null || true')
-        self.execute('sudo -u \\#${U} XAUTHORITY="$XAUTH" xauth add "$HOST/unix:10" . "$COOKIE" 2>/dev/null || true')
-        self.execute('sudo -u \\#${U} XAUTHORITY="$XAUTH" xauth add "localhost/unix:10" . "$COOKIE" 2>/dev/null || true')
+        self.execute('XAUTHORITY="$XAUTH" xauth add ":10" . "$COOKIE" 2>/dev/null || true')
+        self.execute('XAUTHORITY="$XAUTH" xauth add "$HOST/unix:10" . "$COOKIE" 2>/dev/null || true')
+        self.execute('XAUTHORITY="$XAUTH" xauth add "localhost/unix:10" . "$COOKIE" 2>/dev/null || true')
 
-        # Export DISPLAY
-        self.execute('grep -qx "export DISPLAY=:10" ~/.bashrc || echo "export DISPLAY=:10" >> ~/.bashrc')
+        # Allow all local connections (belt-and-suspenders with xauth)
+        self.execute('DISPLAY=:10 XAUTHORITY="$XAUTH" xhost +local: 2>/dev/null || true')
+        self.execute('DISPLAY=:10 XAUTHORITY="$XAUTH" xhost +SI:localuser:infant 2>/dev/null || true')
+        self.execute('DISPLAY=:10 XAUTHORITY="$XAUTH" xhost +SI:localuser:root 2>/dev/null || true')
+
+        # ---- Export DISPLAY and XAUTHORITY ----
+        # Remove any old DISPLAY= lines and add the correct one
+        self.execute("sed -i '/export DISPLAY=/d' ~/.bashrc")
+        self.execute('echo "export DISPLAY=:10" >> ~/.bashrc')
+        self.execute("sed -i '/export XAUTHORITY=/d' ~/.bashrc")
+        self.execute('echo "export XAUTHORITY=/home/infant/.Xauthority" >> ~/.bashrc')
         self.execute('export DISPLAY=:10')
         self.execute('export XAUTHORITY=/home/infant/.Xauthority')
 
-        # Prevent screen locking
+        # ---- Prevent screen locking ----
         self.execute('gsettings set org.gnome.desktop.session idle-delay 0 2>/dev/null || true')
         self.execute('gsettings set org.gnome.desktop.screensaver lock-delay 0 2>/dev/null || true')
         self.execute('gsettings set org.gnome.desktop.screensaver lock-enabled false 2>/dev/null || true')
@@ -348,6 +378,156 @@ class Computer:
         self.execute('gsettings set org.gnome.desktop.lockdown disable-lock-screen true 2>/dev/null || true')
 
         logger.info('Xorg configuration complete')
+
+    def split_bash_commands(self, commands: str) -> list[str]:
+        """
+        Split a multi-line bash string into individual commands.
+        Handles heredocs, quoted strings, line continuations, and compound commands.
+        """
+        if 'context.execute_javascript' in commands:
+            return [commands]
+
+        NORMAL = 0
+        IN_SINGLE_QUOTE = 1
+        IN_DOUBLE_QUOTE = 2
+        IN_HEREDOC = 3
+
+        state = NORMAL
+        heredoc_trigger = None
+        result = []
+        current_command: list[str] = []
+
+        i = 0
+        while i < len(commands):
+            char = commands[i]
+
+            if state == NORMAL:
+                if char == "'":
+                    state = IN_SINGLE_QUOTE
+                    current_command.append(char)
+                elif char == '"':
+                    state = IN_DOUBLE_QUOTE
+                    current_command.append(char)
+                elif char == '\\':
+                    if i + 1 < len(commands) and commands[i + 1] == '\n':
+                        current_command.append(char)
+                        i += 1
+                        current_command.append('\n')
+                        i += 1
+                        continue
+                    else:
+                        current_command.append(char)
+                elif char == '\n':
+                    if current_command:
+                        result.append(''.join(current_command).strip())
+                        current_command = []
+                elif char == '<' and commands[i: i + 2] == '<<':
+                    state = IN_HEREDOC
+                    start_op = i
+                    i += 2
+                    while i < len(commands) and commands[i] == ' ':
+                        i += 1
+                    start = i
+                    while i < len(commands) and commands[i] not in [' ', '\n']:
+                        i += 1
+                    heredoc_raw = commands[start:i]
+                    if heredoc_raw and heredoc_raw[0] in ("'", '"') and heredoc_raw[-1] == heredoc_raw[0]:
+                        heredoc_trigger = heredoc_raw[1:-1]
+                    else:
+                        heredoc_trigger = heredoc_raw
+                    current_command.append(commands[start_op:i])
+                    continue
+                else:
+                    current_command.append(char)
+
+            elif state == IN_SINGLE_QUOTE:
+                current_command.append(char)
+                if char == "'" and commands[i - 1] != '\\':
+                    state = NORMAL
+
+            elif state == IN_DOUBLE_QUOTE:
+                current_command.append(char)
+                if char == '"' and commands[i - 1] != '\\':
+                    state = NORMAL
+
+            elif state == IN_HEREDOC:
+                current_command.append(char)
+                if char == '\n' and heredoc_trigger:
+                    next_line_start = i + 1
+                    j = next_line_start
+                    while j < len(commands) and commands[j] != '\n':
+                        j += 1
+                    next_line = commands[next_line_start:j]
+                    if next_line.strip() == heredoc_trigger:
+                        current_command.append(next_line)
+                        if j < len(commands) and commands[j] == '\n':
+                            current_command.append('\n')
+                            i = j
+                        else:
+                            i = j
+                        state = NORMAL
+                        heredoc_trigger = None
+                        continue
+
+            i += 1
+
+        if current_command:
+            result.append(''.join(current_command).strip())
+        result = [cmd for cmd in result if cmd]
+        return result
+
+    def _send_interrupt(
+        self,
+        cmd: str,
+        prev_output: str = '',
+        ignore_last_output: bool = False,
+    ) -> Tuple[int, str]:
+        """Send SIGINT to a timed-out command and return the collected output."""
+        logger.error(f'Command "{cmd}" timed out, killing process...')
+        if 'shell' in cmd:
+            self.ssh.sendline('quit()')
+        self.ssh.sendintr()
+        self.ssh.prompt()
+        command_output = prev_output
+        if not ignore_last_output:
+            command_output += '\n' + self.ssh.before
+        return (
+            -1,
+            f'Command: "{cmd}" timed out. Sent SIGINT to the process: {command_output}',
+        )
+
+    def _run_command(self, command: str) -> str:
+        """Execute a command string through _run_immediately()."""
+        return self._run_immediately(command)
+
+    def _run_immediately(self, command: str) -> str:
+        """
+        Execute command(s), splitting multi-line input, with ANSI cleanup
+        and command-echo stripping.
+        """
+        try:
+            command_outputs = ''
+            commands = self.split_bash_commands(command)
+            exit_code = 0
+            for cmd in commands:
+                exit_code, output = self.execute(cmd)
+
+                if 'pip install' in cmd and 'Successfully installed' in output:
+                    logger.info(output)
+                    output = 'Package installed successfully'
+
+                # Strip ANSI escape codes
+                output = re.sub(r'\x1b\[[0-9;]*[mK]', '', output)
+                command_outputs += f'{output}\n'
+
+                # Remove echoed command from output
+                if command_outputs.startswith(cmd):
+                    command_outputs = command_outputs[len(cmd):].strip()
+
+            command_outputs = command_outputs.strip()
+            return f'(exit code={exit_code})\n{str(command_outputs)}'
+        except UnicodeDecodeError:
+            return 'Command output could not be decoded as utf-8'
 
     def _execute_as_root(self, cmd: str, timeout: Optional[int] = None) -> Tuple[int, str]:
         """
@@ -612,6 +792,113 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
 
         logger.info("Guacamole setup completed successfully!")
 
+    def ensure_and_login_guac(
+        self,
+        web_user: str = "web",
+        web_pass: str = "web",
+        rdp_user: str = "infant",
+        rdp_pass: str = "123",
+        connection_name: str = "GNOME Desktop (RDP)",
+        timeout_s: float = 60.0,
+    ) -> dict:
+        """
+        Authenticate with Guacamole web UI via curl (inside the container) to
+        trigger the RDP session that starts the GNOME desktop.
+
+        Steps:
+          1. Wait for Guacamole HTTP endpoint
+          2. POST credentials to /api/tokens for auth token
+          3. GET /api/session/data/<source>/connections to find the RDP connection
+          4. Store client URL in self.guac_client_url
+
+        All HTTP calls use curl via self.execute() — no requests dependency.
+
+        Returns:
+            dict with token, data_source, index_url, client_url
+        """
+        base = f"http://localhost:{self.gui_port}/guacamole"
+
+        # 1. Wait for Guacamole to be reachable
+        logger.info(f"Waiting up to {timeout_s}s for Guacamole at {base} ...")
+        start = time.time()
+        while time.time() - start < timeout_s:
+            exit_code, _ = self.execute(
+                f'curl -fsS {base}/ >/dev/null 2>&1', timeout=10
+            )
+            if exit_code == 0:
+                break
+            time.sleep(1)
+        else:
+            raise TimeoutError(
+                f"Guacamole not reachable at {base} after {timeout_s}s"
+            )
+
+        # 2. Obtain auth token
+        logger.info("Obtaining Guacamole auth token...")
+        exit_code, token_json = self.execute(
+            f'curl -sS -X POST {base}/api/tokens '
+            f'-H "Content-Type: application/x-www-form-urlencoded" '
+            f'-H "Accept: application/json" '
+            f'-d "username={web_user}&password={web_pass}"',
+            timeout=15,
+        )
+        if exit_code != 0:
+            raise RuntimeError(f"Failed to obtain Guacamole token: {token_json}")
+
+        # The curl output may include the echoed command; find the JSON part
+        # Find the first '{' to start of JSON
+        json_start = token_json.find('{')
+        if json_start == -1:
+            raise RuntimeError(f"No JSON in Guacamole token response: {token_json}")
+        token_data = json.loads(token_json[json_start:])
+
+        token = token_data["authToken"]
+        data_source = token_data.get("dataSource") or (
+            token_data.get("availableDataSources") or ["default", "file"]
+        )[0]
+        logger.info(f"Successfully obtained Guacamole auth token (data_source={data_source})")
+
+        # 3. Find the RDP connection
+        conn_id = None
+        if connection_name:
+            logger.info(f"Looking up connection '{connection_name}'...")
+            exit_code, conns_json = self.execute(
+                f'curl -sS "{base}/api/session/data/{data_source}/connections?token={token}"',
+                timeout=15,
+            )
+            if exit_code != 0:
+                raise RuntimeError(f"Failed to list Guacamole connections: {conns_json}")
+
+            json_start = conns_json.find('{')
+            if json_start == -1:
+                raise RuntimeError(f"No JSON in connections response: {conns_json}")
+            conns_data = json.loads(conns_json[json_start:])
+
+            if isinstance(conns_data, dict):
+                for obj in conns_data.values():
+                    if isinstance(obj, dict) and obj.get("name") == connection_name:
+                        conn_id = obj.get("identifier")
+                        break
+
+            if not conn_id:
+                raise RuntimeError(
+                    f"Connection '{connection_name}' not found in data source '{data_source}'."
+                )
+            logger.info(f"Found connection '{connection_name}' (id={conn_id})")
+
+        index_url = f"{base}/?token={token}"
+        client_url = f"{base}/#/client/{conn_id}?token={token}" if conn_id else None
+        self.guac_client_url = client_url
+
+        result = {
+            "token": token,
+            "data_source": data_source,
+            "index_url": index_url,
+            "client_url": client_url,
+        }
+        logger.info(f"Guacamole login complete. Client URL: {client_url or index_url}")
+        return result
+
     def connect(self) -> None:
         """
         Establish SSH connection and configure the session.
@@ -681,12 +968,34 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
         if self.enable_auto_lint:
             self.add_to_env('ENABLE_AUTO_LINT', 'true')
 
+        # Ensure workspace directory is writable by the current user before
+        # plugin init (the Jupyter kernel writes to /workspace/screenshots/ etc.)
+        logger.info('Ensuring workspace directory permissions...')
+        self.execute(f'sudo mkdir -p {self.workspace_dir}')
+        self.execute(f'sudo chown -R {self.ssh_username}:{self.ssh_username} {self.workspace_dir}')
+
+        # Disable VirtualGL LD_PRELOAD BEFORE starting the Jupyter kernel.
+        # VGL's profile.d script injects LD_PRELOAD that tries to open display :0
+        # for GPU rendering, which fails in headless/Xvfb mode and breaks Chrome.
+        logger.info('Disabling VirtualGL LD_PRELOAD...')
+        self.execute('sudo rm -f /etc/profile.d/virtualgl.sh 2>/dev/null || true')
+        self.execute('unset LD_PRELOAD')
+
         # Initialize plugins if enabled
         if self.initialize_plugins:
             logger.info('Initializing plugins...')
             exit_code, output = self.execute('whoami')
             logger.info(f'Current user: {output}')
             self.init_plugins()
+
+        # Login to Guacamole to trigger the GNOME desktop session via RDP
+        logger.info('Logging in to Guacamole to start GNOME desktop session...')
+        try:
+            guac_info = self.ensure_and_login_guac()
+            logger.info(f'Guacamole client URL: {guac_info.get("client_url") or guac_info.get("index_url")}')
+        except Exception as e:
+            logger.warning(f'Guacamole login failed: {e}')
+            logger.warning('Proceeding without Guacamole login — GUI commands may not work.')
 
         # Configure Xorg for GUI
         logger.info('Configuring Xorg for GUI access...')
@@ -712,6 +1021,9 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
         """
         Execute a command via SSH and return exit code and output.
 
+        Includes REPL/pager detection: if the command lands in a Python REPL,
+        pdb, IPython, or a pager (less/more), we auto-exit instead of hanging.
+
         Args:
             cmd: Command to execute
             timeout: Optional timeout override (uses instance timeout if None)
@@ -727,17 +1039,49 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
         # Send command
         self.ssh.sendline(cmd)
 
+        # Check if we landed in an interactive REPL / pager
+        try:
+            idx = self.ssh.expect(
+                [
+                    r'>>> ',              # 0  Python REPL
+                    r'\(Pdb\)\s*',        # 1  pdb / ipdb
+                    r'In \[\d+\]:\s*',    # 2  IPython
+                    r'--More--',          # 3  less/more pager
+                    pexpect.EOF,          # 4  EOF
+                ],
+                timeout=1,
+            )
+            if idx in (0, 1, 2):  # Python REPL / pdb / IPython
+                time.sleep(10)
+                self.ssh.sendline('q')
+                self.ssh.sendline('quit()')
+                self.ssh.sendintr()
+            elif idx in (3, 4):  # pager
+                self.ssh.send('q')
+        except Exception:
+            pass
+
         # Wait for command to complete
         success = self.ssh.prompt(timeout=timeout)
 
         if not success:
-            logger.error(f'Command timed out: {cmd}')
-            self.ssh.sendintr()  # Send Ctrl-C
-            self.ssh.prompt()
-            return -1, f'Command timed out after {timeout} seconds'
+            return self._send_interrupt(cmd)
 
         # Collect output
         command_output = self.ssh.before
+
+        # Drain any remaining output
+        while True:
+            logger.debug('Draining remaining output...')
+            self.ssh.sendline('\n')
+            timeout_not_reached = self.ssh.prompt(timeout=1)
+            if not timeout_not_reached:
+                logger.debug('Output drain timeout reached')
+                break
+            output = self.ssh.before
+            if isinstance(output, str) and output.strip() == '':
+                break
+            command_output += output
 
         # Clean up output
         command_output = command_output.removesuffix('\r\n')
@@ -746,6 +1090,13 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
         self.ssh.sendline('echo $?')
         self.ssh.prompt(timeout=2)
         exit_code_str = self.ssh.before.strip()
+        _start_time = time.time()
+        while not exit_code_str:
+            self.ssh.prompt(timeout=1)
+            exit_code_str = self.ssh.before.strip()
+            logger.debug(f'Waiting for exit code: {exit_code_str}')
+            if time.time() - _start_time > timeout:
+                return self._send_interrupt(cmd, command_output, ignore_last_output=True)
 
         # Parse exit code
         cleaned_exit_code = exit_code_str.replace('echo $?', '').strip()
@@ -773,13 +1124,7 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
             Formatted output string
         """
         command = memory.command
-        exit_code, output = self.execute(command)
-
-        # Clean up output
-        if output.startswith(command):
-            output = output[len(command):].strip()
-
-        return f'(exit code={exit_code})\n{output}'
+        return self._run_immediately(command)
 
     def run_python(self, code: str) -> str:
         """
@@ -792,25 +1137,20 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
             Formatted output string
         """
         # Write code to temporary file using heredoc
-        self.execute(
+        self._run_command(
             f"cat > /tmp/infant_jupyter_temp.py <<'EOL'\n{code}\nEOL"
         )
 
-        # Execute the Python file
-        exit_code, output = self.execute('python3 /tmp/infant_jupyter_temp.py')
-
-        # Clean up output
-        if output.startswith('python3 /tmp/infant_jupyter_temp.py'):
-            output = output[len('python3 /tmp/infant_jupyter_temp.py'):].strip()
-
-        return f'(exit code={exit_code})\n{output}'
+        # Execute using execute_cli.sh if available, otherwise use python3
+        output = self._run_command('cat /tmp/infant_jupyter_temp.py | execute_cli.sh')
+        return f'{output}'
 
     async def run_ipython(self, memory) -> str:
         """
         Execute IPython code from memory object (compatible with agent interface).
 
-        This is a simplified version that doesn't support all desktop GUI features.
-        Desktop-related commands (like press_key, mouse operations) are ignored.
+        GUI commands (press_key, mouse operations, take_screenshot, open_application)
+        are executed inside the container where xdotool and PIL.ImageGrab work.
 
         Args:
             memory: IPythonRun memory object with code attribute
@@ -826,7 +1166,6 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
                 logger.info(f'Executing {func_name} locally...')
                 local_vars = {}
                 try:
-                    # Import required functions for exec
                     from infant.helper_functions.audio_helper_function import parse_audio
                     from infant.helper_functions.video_helper_function import parse_video, watch_video
 
@@ -837,26 +1176,18 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
                     logger.error(f'Error executing {func_name}: {e}')
                     return f'(exit code=1)\nError: {e}'
 
-        # Skip desktop GUI commands that require X11/display
+        # Log GUI commands for debugging (no longer skipped)
         desktop_commands = ['press_key', 'mouse_', 'take_screenshot', 'open_application']
         if any(cmd in code for cmd in desktop_commands):
-            logger.warning(f'Skipping desktop GUI command (not supported in SSH-only mode): {code[:100]}...')
-            return '(exit code=0)\n[Desktop GUI command skipped in SSH-only mode]'
+            logger.info(f'Executing GUI command in container: {code[:100]}...')
 
         # Write code to temporary file using heredoc
-        self.execute(
+        self._run_command(
             f"cat > /tmp/infant_jupyter_temp.py <<'EOL'\n{code}\nEOL"
         )
 
-        # Execute using execute_cli.sh if available, otherwise use python3 directly
-        exit_code, output = self.execute('which execute_cli.sh')
-        if exit_code == 0:
-            # Use execute_cli.sh for IPython kernel execution
-            exit_code, output = self.execute('cat /tmp/infant_jupyter_temp.py | execute_cli.sh')
-        else:
-            # Fallback to direct python execution
-            logger.debug('execute_cli.sh not found, using python3 directly')
-            exit_code, output = self.execute('python3 /tmp/infant_jupyter_temp.py')
+        # Execute using execute_cli.sh
+        output = self._run_command('cat /tmp/infant_jupyter_temp.py | execute_cli.sh')
 
         # Handle pip install with kernel restart
         if 'pip install' in code and 'Successfully installed' in output:
@@ -866,17 +1197,14 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
             if 'Note: you may need to restart the kernel to use updated packages.' in output:
                 logger.info('Restarting IPython kernel...')
 
-                # Write restart code
-                self.execute(
+                self._run_command(
                     f"cat > /tmp/infant_jupyter_temp.py <<'EOL'\n{restart_kernel}\nEOL"
                 )
-
-                # Execute restart
-                restart_exit_code, restart_output = self.execute('cat /tmp/infant_jupyter_temp.py | execute_cli.sh')
+                obs = self._run_command('cat /tmp/infant_jupyter_temp.py | execute_cli.sh')
 
                 output = '[Package installed successfully]'
-                if "{'status': 'ok', 'restart': True}" != restart_output.strip():
-                    logger.warning(f'Kernel restart failed: {restart_output}')
+                if "{'status': 'ok', 'restart': True}" != obs.strip():
+                    logger.warning(f'Kernel restart failed: {obs}')
                     output += '\n[But failed to restart the kernel to load the package]'
                 else:
                     output += '\n[Kernel restarted successfully to load the package]'
@@ -884,10 +1212,10 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
                     # Re-initialize kernel if init code is provided
                     if hasattr(memory, 'kernel_init_code') and memory.kernel_init_code:
                         logger.info('Re-initializing kernel with init code...')
-                        self.execute(
+                        self._run_command(
                             f"cat > /tmp/infant_jupyter_init.py <<'EOL'\n{memory.kernel_init_code}\nEOL"
                         )
-                        self.execute('cat /tmp/infant_jupyter_init.py | execute_cli.sh')
+                        self._run_command('cat /tmp/infant_jupyter_init.py | execute_cli.sh')
 
         # Check for basic check failure
         if '<|Basic check failed|>' in output:
@@ -1115,6 +1443,7 @@ def create_computer_from_params(config, sid: str | None = None):
             workspace_dir=config.workspace_mount_path_in_computer or '/workspace',
             enable_auto_lint=False,
             initialize_plugins=True,
+            gui_port=int(config.gui_port) if hasattr(config, 'gui_port') and config.gui_port else 8080,
         )
     else:
         # If it's already keyword arguments, just pass through

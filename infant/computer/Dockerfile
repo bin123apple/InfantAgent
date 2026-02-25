@@ -266,7 +266,7 @@ WORKDIR /home
 
 # ==== infant Runtime Client ====
 RUN mkdir -p /infant && mkdir -p /infant/logs && chmod 777 /infant/logs
-RUN wget --progress=bar:force -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+RUN wget --progress=bar:force -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/download/24.7.1-2/Miniforge3-24.7.1-2-$(uname)-$(uname -m).sh"
 RUN bash Miniforge3.sh -b -p /infant/miniforge3
 RUN chmod -R g+w /infant/miniforge3
 RUN bash -c ". /infant/miniforge3/etc/profile.d/conda.sh && conda config --set changeps1 False && conda config --append channels conda-forge"
@@ -276,8 +276,12 @@ RUN rm -f Miniforge3.sh
 # - agentskills dependencies
 RUN apt-get autoclean
 RUN /infant/miniforge3/bin/pip install --upgrade pip
-RUN /infant/miniforge3/bin/pip install --no-cache-dir jupyterlab notebook jupyter_kernel_gateway flake8 Pillow python-docx PyPDF2 python-pptx pylatexenc openai openpyxl python-dotenv toml termcolor pydantic python-docx pyyaml docker pexpect tenacity e2b browsergym minio
+RUN /infant/miniforge3/bin/pip install --no-cache-dir jupyterlab notebook jupyter_kernel_gateway flake8 Pillow python-docx PyPDF2 python-pptx pylatexenc openai openpyxl python-dotenv toml termcolor pydantic python-docx pyyaml docker pexpect tenacity e2b browsergym minio chardet opencv-python pandas PyMuPDF pypdf
 
+# Copy infant tools and package init into the container
+COPY infant/__init__.py /infant/__init__.py
+COPY infant/tools /infant/tools
+RUN chmod +x /infant/tools/setup.sh /infant/tools/code_execute/execute_cli.sh
 
 RUN echo "infant ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/infant && \
     chmod 0440 /etc/sudoers.d/infant

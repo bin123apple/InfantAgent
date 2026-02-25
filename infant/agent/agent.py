@@ -338,8 +338,8 @@ class Agent:
 
         if case == "planning":
             memory_block = await process_memory_block(memory_block, planning_memory_rtve)
-            messages = planning_memory_to_diag(memory_block, end_prompt=self.planning_task_end_prompt, 
-                                                mount_path = self.computer.workspace_mount_path)
+            messages = planning_memory_to_diag(memory_block, end_prompt=self.planning_task_end_prompt,
+                                                mount_path = constant.MOUNT_PATH)
 
         elif case == "classification":
             memory_block = await process_memory_block(memory_block, classification_memory_rtve)
@@ -350,7 +350,7 @@ class Agent:
             # print(f'cmd_set in memory_to_input: {cmd_set}')
             memory_block = await process_memory_block(memory_block, execution_memory_rtve)
             messages = execution_memory_to_diag(memory_block, cmd_set, end_prompt=self.execution_task_end_prompt,
-                                                mount_path = self.computer.workspace_mount_path)
+                                                mount_path = constant.MOUNT_PATH)
         return messages
 
     def extract_image_from_response(self, response: str) -> bytes:

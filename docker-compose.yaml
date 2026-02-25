@@ -72,8 +72,8 @@ services:
   # Computer container with desktop environment
   infant-computer:
     build:
-      context: ./infant/computer
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: infant/computer/Dockerfile
     image: ubuntu-gnome-guacamole:22.04
     container_name: infant-computer
     restart: unless-stopped

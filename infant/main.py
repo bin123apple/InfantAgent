@@ -92,6 +92,7 @@ async def initialize_agent(config: Config = None):
         workspace_dir=computer_parameter.workspace_mount_path_in_computer or '/workspace',
         enable_auto_lint=False,  # Set to True to enable auto-linting
         initialize_plugins=True,  # Initialize plugins and tools
+        gui_port=int(computer_parameter.gui_port) if computer_parameter.gui_port else 8080,
     )
 
     # Set the workspace mount path for constant
@@ -152,7 +153,10 @@ async def main():
     try:
         # Initialize the agent
         agent, computer = await initialize_agent()
-        constant.MOUNT_PATH = computer.workspace_mount_path
+        # MOUNT_PATH is already set correctly in initialize_agent() from config.
+        # Do NOT overwrite with computer.workspace_mount_path which returns the
+        # path inside the computer container (/workspace), not the agent's mount
+        # point (/app/workspace).
 
         # Run the agent
         while True:

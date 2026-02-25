@@ -76,7 +76,7 @@ class TestConfig:
         """Test VLLM-related configuration attributes."""
         config = Config()
         
-        assert config.model_oss == 'ByteDance-Seed/UI-TARS-1.5-7B'
+        assert config.model_oss == 'openai/ByteDance-Seed/UI-TARS-1.5-7B'
         assert config.tensor_parallel_size == 1
         assert config.max_model_len == 8192
         assert config.vllm_temperature == 0
