@@ -271,6 +271,9 @@ class Config:
         Returns the parameters for the Litellm API.
         """
         overrides = overrides or {}
+        # Filter out empty string overrides so they don't clobber valid defaults
+        # (e.g. api_key="" in config.toml should not overwrite env var key)
+        filtered_overrides = {k: v for k, v in overrides.items() if v != ""}
 
         base_kwargs = dict(
             model                     = self.model,
@@ -300,7 +303,7 @@ class Config:
             gift_key                  = self.gift_key,
         )
 
-        base_kwargs.update(overrides)
+        base_kwargs.update(filtered_overrides)
 
         return LitellmParams(**base_kwargs)
 
@@ -309,6 +312,8 @@ class Config:
         Returns the parameters for the VLLM API.
         """
         overrides = overrides or {}
+        # Filter out empty string overrides so they don't clobber valid defaults
+        filtered_overrides = {k: v for k, v in overrides.items() if v != ""}
 
         base_kwargs = dict(
             model_oss              = self.model_oss,
@@ -327,7 +332,7 @@ class Config:
             api_key_oss             = self.api_key_oss,
         )
 
-        base_kwargs.update(overrides) 
+        base_kwargs.update(filtered_overrides)
         return VllmParams(**base_kwargs)
 
     def get_agent_params(self):

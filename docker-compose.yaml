@@ -23,7 +23,7 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ["all"]
+              device_ids: ['4']
               capabilities: [gpu, utility, compute, graphics]
     
     healthcheck:
@@ -43,6 +43,8 @@ services:
     restart: unless-stopped
     stdin_open: true  # Enable interactive mode (docker run -i)
     tty: true         # Allocate a pseudo-TTY (docker run -t)
+    ports:
+      - "${BACKEND_PORT:-8001}:8001"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - PYTHONUNBUFFERED=1

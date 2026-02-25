@@ -39,6 +39,8 @@ RUN uv venv && \
 # Copy application code
 COPY infant ./infant
 COPY config.toml ./
+COPY backend.py ./
+COPY frontend ./frontend
 
 # Activate virtual environment
 ENV PATH="/app/.venv/bin:$PATH"
@@ -48,6 +50,9 @@ ENV VIRTUAL_ENV="/app/.venv"
 RUN mkdir -p /tmp/cache /tmp/file_store /app/workspace && \
     chmod 777 /tmp/cache /tmp/file_store /app/workspace
 
-# Run the CLI application
-CMD ["python", "-m", "infant"]
+# Expose the backend port
+EXPOSE 8001
+
+# Run the web server
+CMD ["python", "backend.py"]
     

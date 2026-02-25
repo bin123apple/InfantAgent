@@ -58,9 +58,6 @@ tests/
 .coverage
 htmlcov/
 
-# Frontend (if not needed in server container)
-frontend/
-
 # Temporary files
 tmp/
 temp/

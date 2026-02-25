@@ -28,7 +28,7 @@ config = Config()
 app = FastAPI()
 
 upstream_http = httpx.AsyncClient(verify=False, follow_redirects=True)
-upstream_aiohttp = ClientSession(connector=TCPConnector(ssl=False))
+upstream_aiohttp = None
 
 # Enable CORS
 app.add_middleware(
@@ -41,6 +41,8 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
+    global upstream_aiohttp
+    upstream_aiohttp = ClientSession(connector=TCPConnector(ssl=False))
     logger.info("[WS] connecting to {url}")
 
 

@@ -8,4 +8,4 @@ RUN apt-get update && apt-get install -y \
 RUN pip3 install vllm
 
 
-CMD ["vllm", "serve", "ByteDance-Seed/UI-TARS-1.5-7B", "--host", "0.0.0.0", "--port", "8005", "--tensor-parallel-size", "2", "--max-model-len", "8192", "--gpu-memory-utilization", "0.8", "--dtype", "float16", "--api-key", "infant"]
+CMD ["vllm", "serve", "ByteDance-Seed/UI-TARS-1.5-7B", "--host", "0.0.0.0", "--port", "8005", "--max-model-len", "8192", "--gpu-memory-utilization", "0.8", "--dtype", "float16", "--api-key", "infant"]

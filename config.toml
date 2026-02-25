@@ -1,17 +1,15 @@
 # Optional, if not provided, the Global LLM will be used
+# api_key is inherited from ANTHROPIC_API_KEY env var — do NOT set empty api_key here
 [planning_llm]
 model = "claude-sonnet-4-20250514"
-api_key = "" # YOUR API KEY
 
 # Optional, if not provided, the Global LLM will be used
 [classification_llm]
 model = "claude-sonnet-4-20250514"
-api_key = "" # YOUR API KEY
 
 # Optional, if not provided, the Global LLM will be used
 [execution_llm]
 model = "claude-sonnet-4-20250514"
-api_key = "" # YOUR API KEY
 
 # Visual Grounding model served by the vLLM container (OpenAI-compatible API).
 # The "openai/" prefix tells litellm to use the OpenAI provider with our custom base_url.
@@ -31,4 +29,3 @@ model = "claude-sonnet-4-20250514"
 # Audio parsing model, if not provided, the default model will be used
 [ap_llm]
 model = "gpt-4o-audio-preview"
-api_key = "" # YOUR API KEY

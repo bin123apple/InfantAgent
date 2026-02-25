@@ -61,6 +61,29 @@ EOF
 RUN cat >/etc/guacamole/guacamole.properties <<EOF
 guacd-hostname: localhost
 guacd-port: 4822
+user-mapping: /etc/guacamole/user-mapping.xml
+auth-provider: net.sourceforge.guacamole.net.basic.BasicFileAuthenticationProvider
+EOF
+
+# Default user-mapping so Guacamole login works out of the box
+RUN cat >/etc/guacamole/user-mapping.xml <<EOF
+<user-mapping>
+<authorize username="web" password="web">
+<connection name="GNOME Desktop (RDP)">
+<protocol>rdp</protocol>
+<param name="hostname">localhost</param>
+<param name="port">3389</param>
+<param name="username">infant</param>
+<param name="password">123</param>
+<param name="security">any</param>
+<param name="ignore-cert">true</param>
+<param name="resize-method">display-update</param>
+<param name="width">1920</param>
+<param name="height">1080</param>
+<param name="dpi">96</param>
+</connection>
+</authorize>
+</user-mapping>
 EOF
 
 # ---------- Tools & i18n (optional) ----------
