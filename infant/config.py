@@ -123,7 +123,7 @@ class Config:
     gift_key: bool = False
     
     ## vllm Attributes (OSS-LLM)
-    model_oss: str = 'ByteDance-Seed/UI-TARS-1.5-7B'
+    model_oss: str = 'openai/ByteDance-Seed/UI-TARS-1.5-7B'
     api_key_oss: str | None = None
     base_url_oss: str | None = None
     tensor_parallel_size: int = 1 # Tensor parallelism splits the model's tensors across n GPUs
