@@ -517,12 +517,32 @@ document.addEventListener('DOMContentLoaded', () => {
   uploadFolderBtn.addEventListener('click',      () => fileUploadFolder.click());
   fileUploadFolder.addEventListener('change', handleFileUpload);
 
+  // Initialize Guacamole desktop iframe with auth token
+  loadGuacamoleDesktop();
+
   // 初始化连接
   console.log('[Debug] connectToBackend() 开始执行');
   connectToBackend();
 });
 
-// 在你的script.js中添加以下代码
+// Load Guacamole desktop with auto-login
+async function loadGuacamoleDesktop() {
+  const frame = document.getElementById('desktopFrame');
+  try {
+    const res = await fetch('/api/guacamole-token');
+    const data = await res.json();
+    if (data.success) {
+      // Connection ID: base64("GNOME Desktop (RDP)\0c\0default")
+      frame.src = `/guacamole/#/client/R05PTUUgRGVza3RvcCAoUkRQKQBjAGRlZmF1bHQ?token=${data.token}`;
+    } else {
+      console.error('Failed to get Guacamole token:', data.error);
+      frame.src = '/guacamole/';
+    }
+  } catch (e) {
+    console.error('Failed to load Guacamole desktop:', e);
+    frame.src = '/guacamole/';
+  }
+}
 
 // 全局变量存储EventSource
 let tasksEventSource = null;

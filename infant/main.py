@@ -92,7 +92,7 @@ async def initialize_agent(config: Config = None):
         workspace_dir=computer_parameter.workspace_mount_path_in_computer or '/workspace',
         enable_auto_lint=False,  # Set to True to enable auto-linting
         initialize_plugins=True,  # Initialize plugins and tools
-        gui_port=int(computer_parameter.gui_port) if computer_parameter.gui_port else 8080,
+        gui_port=8080,  # Always use internal container port (host port mapping is irrelevant here)
     )
 
     # Set the workspace mount path for constant

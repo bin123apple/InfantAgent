@@ -51,7 +51,7 @@ RUN mkdir -p /tmp/cache /tmp/file_store /app/workspace && \
     chmod 777 /tmp/cache /tmp/file_store /app/workspace
 
 # Expose the backend port
-EXPOSE 8001
+EXPOSE 8008
 
 # Run the web server
 CMD ["python", "backend.py"]

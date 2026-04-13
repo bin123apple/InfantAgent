@@ -75,14 +75,30 @@ async def shutdown_event():
             logger.error(f"Error during cleanup: {str(e)}")
 
 # Redirect to frontend
-@app.get("/")
-async def root():
+@app.get("/", name="root_frontend")
+async def root_frontend():
     return RedirectResponse(url="/frontend/index.html")
 
 # Static files
 app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
 
 # Status API
+@app.get("/api/guacamole-token")
+async def guacamole_token():
+    """Get a fresh Guacamole auth token for the iframe."""
+    try:
+        resp = await upstream_http.post(
+            "http://infant-computer:8080/guacamole/api/tokens",
+            data={"username": "web", "password": "web"},
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            return {"success": True, "token": data["authToken"]}
+        return {"success": False, "error": f"Guacamole returned {resp.status_code}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 @app.get("/api/status")
 async def status():
     if agent:
@@ -90,7 +106,7 @@ async def status():
             "success": True,
             "status": "ready",
             "currentTask": "none",
-            "model": agent._planning_llm.model,
+            "model": agent.planning_llm.model_name,
             "sessionActive": True,
         }
     return {"success": True, "status": "ready", "currentTask": "none", "model": "demo", "sessionActive": False}
@@ -102,8 +118,12 @@ async def chat(data: dict):
     if not user_message:
         return {"success": False, "error": "No message provided"}
     if agent and run_single_step:
-        response = await run_single_step(agent, user_message)
-        return {"success": True, "response": response, "status": "completed"}
+        try:
+            response = await run_single_step(agent, user_message)
+            return {"success": True, "response": response, "status": "completed"}
+        except Exception as e:
+            logger.error(f"Error in chat: {e}")
+            return {"success": False, "error": str(e)}
     await asyncio.sleep(1)
     return {"success": True, "response": f"Demo mode: Received '{user_message}'", "status": "completed"}
 
@@ -123,16 +143,26 @@ async def reset():
 @app.post("/api/settings")
 async def settings(data: dict):
     global config, agent, computer
-    config.model = data.get('model')
-    config.api_key = data.get('apiKey')
-    config.temperature = float(data.get('temperature'))
-    config.max_tokens = int(data.get('maxTokens'))
-    print(agent)
+    # Load base config from config.toml first
+    try:
+        user_config = config._load()
+        config.__dict__.update(user_config)
+    except FileNotFoundError:
+        logger.warning("config.toml not found, using defaults")
+    # Apply frontend settings
+    if data.get('model'):
+        config.model = data.get('model')
+    if data.get('apiKey'):
+        config.api_key = data.get('apiKey')
+    if data.get('temperature') is not None:
+        config.temperature = float(data.get('temperature'))
+    if data.get('maxTokens') is not None:
+        config.max_output_tokens = int(data.get('maxTokens'))
+    # Finalize config (resolves paths, SSH settings, etc.)
+    config.finalize_config()
     if agent:
-        # 实际实现中应该更新 agent 配置
         await agent.update_agent_config(config)
         return {"success": True, "message": "Agent updated", "appliedSettings": data}
-    await asyncio.sleep(0.5)
     return {"success": True, "message": "Agent initialized", "appliedSettings": data}
 
 @app.get("/api/initialize")
@@ -435,26 +465,8 @@ def get_forward_params(request: Request):
     return params
 
 # ——————————————
-# root: capture sid & redirect
+# root: handled by root_frontend above
 # ——————————————
-@app.get("/")
-async def root(request: Request):
-    logger.debug(f"[ROOT] incoming path={request.url.path} query={request.url.query!r}")
-    qs = request.url.query
-    target = "/gui/" + (f"?{qs}" if qs else "")
-    logger.debug(f"[ROOT] redirecting to {target}")
-    resp = RedirectResponse(target)
-    if "sid" in request.query_params:
-        sid_val = request.query_params["sid"]
-        logger.debug(f"[ROOT] setting cookie sid={sid_val!r}")
-        resp.set_cookie(
-            key="sid",
-            value=sid_val,
-            httponly=True,
-            secure=False,   # allow HTTP
-        )
-    logger.debug("[ROOT] response prepared")
-    return resp
 
 # ——————————————
 # SSE proxy
@@ -464,7 +476,7 @@ async def sse(request: Request):
     params = get_forward_params(request)
     logger.debug(f"[SSE] path={request.url.path} params={params} cookies={dict(request.cookies)}")
     upstream = await upstream_aiohttp.get(
-        f"https://localhost:4443{request.url.path}",
+        f"https://infant-computer:8080{request.url.path}",
         params=params,
         ssl=False
     )
@@ -483,7 +495,7 @@ async def sse(request: Request):
 async def ws_proxy(ws: WebSocket):
     await ws.accept()
     sid = ws.query_params.get("sid") or ws.cookies.get("sid")
-    url = f"wss://localhost:4443{ws.url.path}" + (f"?sid={sid}" if sid else "")
+    url = f"wss://infant-computer:8080{ws.url.path}" + (f"?sid={sid}" if sid else "")
     logger.debug(f"[WS] connecting to {url}")
     upstream = await upstream_aiohttp.ws_connect(url, ssl=False)
     logger.debug("[WS upstream] connected")
@@ -517,7 +529,7 @@ async def ws_proxy(ws: WebSocket):
 @app.api_route("/gui/{full_path:path}", methods=["GET","POST","HEAD","OPTIONS"])
 async def gui_proxy(request: Request, full_path: str):
     params = get_forward_params(request)
-    upstream_url = f"https://localhost:4443/gui/{full_path}"
+    upstream_url = f"https://infant-computer:8080/gui/{full_path}"
     logger.debug(f"[HTTP] {request.method} {upstream_url} params={params} headers={dict(request.headers)}")
 
     resp_up = await upstream_http.request(
@@ -558,11 +570,113 @@ async def gui_proxy(request: Request, full_path: str):
     )
 
 # ——————————————
+# Guacamole HTTP proxy
+# ——————————————
+@app.api_route("/guacamole/{full_path:path}", methods=["GET","POST","PUT","DELETE","HEAD","OPTIONS"])
+async def guacamole_proxy(request: Request, full_path: str):
+    params = get_forward_params(request)
+    upstream_url = f"http://infant-computer:8080/guacamole/{full_path}"
+    logger.debug(f"[guacamole] {request.method} {upstream_url} params={params}")
+
+    body = await request.body()
+    fwd_headers = {
+        k: v for k, v in request.headers.items()
+        if k.lower() not in ("host", "content-length", "transfer-encoding")
+    }
+    resp_up = await upstream_http.request(
+        method=request.method,
+        url=upstream_url,
+        params=params,
+        content=body,
+        headers=fwd_headers,
+    )
+    logger.debug(f"[guacamole upstream] status={resp_up.status_code}")
+
+    headers = {
+        k: v for k, v in resp_up.headers.multi_items()
+        if k.lower() not in ("x-frame-options", "content-security-policy")
+    }
+
+    # rewrite Set-Cookie to proxy domain
+    cookies = resp_up.headers.get_list("set-cookie")
+    for raw in cookies:
+        c = SimpleCookie()
+        c.load(raw)
+        for morsel in c.values():
+            cookie_str = (
+                f"{morsel.key}={morsel.value}; "
+                f"Path={morsel['path'] or '/'}; HttpOnly"
+            )
+            headers.setdefault("set-cookie", cookie_str)
+
+    return Response(
+        content=resp_up.content,
+        status_code=resp_up.status_code,
+        headers=headers,
+        media_type=resp_up.headers.get("content-type"),
+    )
+
+# ——————————————
+# Guacamole WebSocket proxy
+# ——————————————
+@app.websocket("/guacamole/websocket-tunnel")
+async def guacamole_ws_proxy(ws: WebSocket):
+    await ws.accept()
+    params = dict(ws.query_params)
+    qs = "&".join(f"{k}={v}" for k, v in params.items())
+    url = f"ws://infant-computer:8080/guacamole/websocket-tunnel" + (f"?{qs}" if qs else "")
+    logger.debug(f"[guacamole WS] connecting to {url}")
+    upstream = await upstream_aiohttp.ws_connect(url, ssl=False)
+    logger.debug("[guacamole WS] connected")
+
+    closed = asyncio.Event()
+
+    async def up_to_client():
+        try:
+            async for msg in upstream:
+                if closed.is_set():
+                    break
+                if msg.type == WSMsgType.TEXT:
+                    await ws.send_text(msg.data)
+                elif msg.type == WSMsgType.BINARY:
+                    await ws.send_bytes(msg.data)
+                elif msg.type in (WSMsgType.CLOSE, WSMsgType.CLOSING, WSMsgType.CLOSED):
+                    break
+        except Exception:
+            pass
+        finally:
+            closed.set()
+
+    async def client_to_up():
+        try:
+            while not closed.is_set():
+                m = await ws.receive()
+                if m["type"] == "websocket.receive":
+                    if "text" in m:
+                        await upstream.send_str(m["text"])
+                    else:
+                        await upstream.send_bytes(m["bytes"])
+                else:
+                    break
+        except (WebSocketDisconnect, Exception):
+            pass
+        finally:
+            closed.set()
+
+    try:
+        await asyncio.gather(up_to_client(), client_to_up())
+    except Exception:
+        pass
+    finally:
+        if not upstream.closed:
+            await upstream.close()
+
+# ——————————————
 # proxy for /nxplayer/* (Web Player assets)
 # ——————————————
 @app.api_route("/nxplayer/{full_path:path}", methods=["GET","HEAD","OPTIONS"])
 async def nxplayer_proxy(request: Request, full_path: str):
-    upstream_url = f"https://localhost:4443/nxplayer/{full_path}"
+    upstream_url = f"https://infant-computer:8080/nxplayer/{full_path}"
     logger.debug(f"[nxplayer] {request.method} {upstream_url}")
     resp_up = await upstream_http.request(
         method=request.method,
@@ -584,5 +698,6 @@ async def nxplayer_proxy(request: Request, full_path: str):
     )
 if __name__ == "__main__":
     import uvicorn
-    print("Starting server on http://localhost:8001")
-    uvicorn.run("backend:app", host="0.0.0.0", port=8001, reload=True)
+    port = int(os.getenv("BACKEND_PORT", "8008"))
+    print(f"Starting server on http://localhost:{port}")
+    uvicorn.run("backend:app", host="0.0.0.0", port=port, reload=True)

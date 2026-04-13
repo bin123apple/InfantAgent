@@ -44,7 +44,7 @@ services:
     stdin_open: true  # Enable interactive mode (docker run -i)
     tty: true         # Allocate a pseudo-TTY (docker run -t)
     ports:
-      - "${BACKEND_PORT:-8001}:8001"
+      - "${BACKEND_PORT:-8008}:8008"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - PYTHONUNBUFFERED=1
