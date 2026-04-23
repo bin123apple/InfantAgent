@@ -160,19 +160,32 @@ class LLM_API_BASED:
                 # Enough tokens for most output actions, and not too many for a bad llm to get carried away responding
                 # with thousands of unwanted tokens
                 self.max_output_tokens = 1024
+        # Anthropic models reject requests that include both `temperature` and
+        # `top_p`. Prefer `temperature` when both are set in the config.
+        if llm_temperature is not None and llm_top_p is not None:
+            logger.info(
+                'Both temperature and top_p are set; sending only temperature '
+                'to avoid provider-side rejection (e.g. Anthropic claude-sonnet-4+).'
+            )
+            llm_top_p = None
+
         if self.gift_key:
             def call_llm(messages, max_tokens, top_p, temperature, stop):
                 try:
                     from openai import OpenAI
                     client = OpenAI()
+                    sampling_kwargs = {}
+                    if temperature is not None:
+                        sampling_kwargs['temperature'] = temperature
+                    elif top_p is not None:
+                        sampling_kwargs['top_p'] = top_p
                     completion = client.chat.completions.create(
                         # model="anthropic.claude-3-5-sonnet-20241022-v2:0",
                         model = 'claude-3-7-sonnet-20250219',
                         messages=messages,
                         max_tokens=max_tokens,
-                        top_p=top_p,
-                        temperature=temperature,
-                        stop=stop
+                        stop=stop,
+                        **sampling_kwargs,
                     )
                     return completion
                 except Exception as e:
@@ -186,8 +199,7 @@ class LLM_API_BASED:
             )
 
         else:
-            self._completion = partial(
-                litellm_completion,
+            completion_kwargs = dict(
                 model=self.model_name,
                 api_key=self.api_key,
                 base_url=self.base_url,
@@ -195,9 +207,12 @@ class LLM_API_BASED:
                 custom_llm_provider=custom_llm_provider,
                 max_tokens=self.max_output_tokens,
                 timeout=self.llm_timeout,
-                temperature=llm_temperature,
-                top_p=llm_top_p,
             )
+            if llm_temperature is not None:
+                completion_kwargs['temperature'] = llm_temperature
+            elif llm_top_p is not None:
+                completion_kwargs['top_p'] = llm_top_p
+            self._completion = partial(litellm_completion, **completion_kwargs)
 
         completion_unwrapped = self._completion
 

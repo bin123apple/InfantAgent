@@ -20,7 +20,7 @@ class TestConfig:
         config = Config()
         
         # Test default values
-        assert config.model == 'claude-sonnet-4-20250514'
+        assert config.model == 'claude-sonnet-4-6'
         assert config.max_iterations == 100
         assert config.max_voting == 5
         assert config.temperature == 1.0

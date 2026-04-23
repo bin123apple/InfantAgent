@@ -594,20 +594,45 @@ async def guacamole_proxy(request: Request, full_path: str):
 
     headers = {
         k: v for k, v in resp_up.headers.multi_items()
-        if k.lower() not in ("x-frame-options", "content-security-policy")
+        if k.lower() not in ("x-frame-options", "content-security-policy", "set-cookie")
     }
 
-    # rewrite Set-Cookie to proxy domain
+    # Rewrite Set-Cookie: drop the upstream Domain (so the cookie attaches to our
+    # proxy host), but preserve SameSite/Secure/HttpOnly/Path as set by Guacamole.
     cookies = resp_up.headers.get_list("set-cookie")
+    rewritten = []
     for raw in cookies:
         c = SimpleCookie()
-        c.load(raw)
+        try:
+            c.load(raw)
+        except Exception:
+            rewritten.append(raw)
+            continue
         for morsel in c.values():
-            cookie_str = (
-                f"{morsel.key}={morsel.value}; "
-                f"Path={morsel['path'] or '/'}; HttpOnly"
-            )
-            headers.setdefault("set-cookie", cookie_str)
+            parts = [f"{morsel.key}={morsel.value}"]
+            parts.append(f"Path={morsel['path'] or '/'}")
+            if morsel["expires"]:
+                parts.append(f"Expires={morsel['expires']}")
+            if morsel["max-age"]:
+                parts.append(f"Max-Age={morsel['max-age']}")
+            if morsel["samesite"]:
+                parts.append(f"SameSite={morsel['samesite']}")
+            if morsel["secure"]:
+                parts.append("Secure")
+            if morsel["httponly"]:
+                parts.append("HttpOnly")
+            rewritten.append("; ".join(parts))
+    if rewritten:
+        # Starlette's Response needs a MutableHeaders to send multiple Set-Cookie lines.
+        resp = Response(
+            content=resp_up.content,
+            status_code=resp_up.status_code,
+            headers=headers,
+            media_type=resp_up.headers.get("content-type"),
+        )
+        for ck in rewritten:
+            resp.raw_headers.append((b"set-cookie", ck.encode("latin-1")))
+        return resp
 
     return Response(
         content=resp_up.content,
@@ -621,13 +646,34 @@ async def guacamole_proxy(request: Request, full_path: str):
 # ——————————————
 @app.websocket("/guacamole/websocket-tunnel")
 async def guacamole_ws_proxy(ws: WebSocket):
-    await ws.accept()
+    # Guacamole's guacamole-common-js WebSocketTunnel connects with subprotocol
+    # "guacamole". The server MUST echo it back or the browser fails the handshake.
+    requested_protocols = ws.headers.get("sec-websocket-protocol", "")
+    client_protocols = [p.strip() for p in requested_protocols.split(",") if p.strip()]
+    selected = "guacamole" if "guacamole" in client_protocols else (client_protocols[0] if client_protocols else None)
+
     params = dict(ws.query_params)
     qs = "&".join(f"{k}={v}" for k, v in params.items())
     url = f"ws://infant-computer:8080/guacamole/websocket-tunnel" + (f"?{qs}" if qs else "")
-    logger.debug(f"[guacamole WS] connecting to {url}")
-    upstream = await upstream_aiohttp.ws_connect(url, ssl=False)
-    logger.debug("[guacamole WS] connected")
+    logger.debug(f"[guacamole WS] connecting to {url} protocols={client_protocols}")
+
+    # Forward the browser's Cookie header so upstream session state stays consistent.
+    upstream_headers = {}
+    cookie = ws.headers.get("cookie")
+    if cookie:
+        upstream_headers["Cookie"] = cookie
+
+    upstream = await upstream_aiohttp.ws_connect(
+        url,
+        ssl=False,
+        protocols=client_protocols or (),
+        headers=upstream_headers or None,
+    )
+    logger.debug(f"[guacamole WS] connected upstream protocol={upstream.protocol}")
+
+    # Prefer the subprotocol the upstream actually selected; fall back to our guess.
+    accept_protocol = upstream.protocol or selected
+    await ws.accept(subprotocol=accept_protocol)
 
     closed = asyncio.Event()
 
