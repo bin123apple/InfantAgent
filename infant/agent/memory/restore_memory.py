@@ -1,3 +1,4 @@
+import io
 import os
 import base64
 import mimetypes
@@ -243,9 +244,18 @@ def execution_memory_to_diag(memory_block: list[Memory], cmd_set, end_prompt, mo
                     'content': end_prompt.format(task = last_task.task)})         
     return messages
 
+# Anthropic rejects a multi-image request outright if any image has a dimension
+# over 2000 px ("At least one of the image dimensions exceed max allowed size
+# for many-image requests"). Full-page browser screenshots blow past that. 1568
+# is the long edge Anthropic downsamples to anyway, so capping here costs no
+# detail the model would have seen, and it cuts image tokens.
+MAX_IMAGE_EDGE = 1568
+
+
 def image_base64_to_url(image_path: str) -> str:
     """
-    Convert an image file to a base64 data URL, auto-detecting the MIME type.
+    Convert an image file to a base64 data URL, auto-detecting the MIME type,
+    downscaling it first if it is too large for the API to accept.
     """
     if not os.path.exists(image_path):
         raise FileNotFoundError(f"File not found: {image_path}")
@@ -254,8 +264,25 @@ def image_base64_to_url(image_path: str) -> str:
         mime_type = "image/png"
 
     with open(image_path, "rb") as img_file:
-        b64 = base64.b64encode(img_file.read()).decode("utf-8")
+        raw = img_file.read()
 
+    try:
+        img = Image.open(io.BytesIO(raw))
+        if max(img.size) > MAX_IMAGE_EDGE:
+            scale = MAX_IMAGE_EDGE / max(img.size)
+            img = img.convert('RGB') if img.mode not in ('RGB', 'RGBA', 'L') else img
+            img = img.resize((max(1, round(img.width * scale)),
+                              max(1, round(img.height * scale))), Image.LANCZOS)
+            buf = io.BytesIO()
+            img.save(buf, format='PNG')
+            raw = buf.getvalue()
+            mime_type = 'image/png'
+            logger.debug(f'Downscaled {image_path} to {img.width}x{img.height} for the API')
+    except Exception as e:
+        # Better to send the original and let the API complain than to drop it.
+        logger.warning(f'Could not downscale {image_path}: {type(e).__name__}: {e}')
+
+    b64 = base64.b64encode(raw).decode("utf-8")
     return f"data:{mime_type};base64,{b64}"
 
 def check_dialogue_length(messages: list[dict[str, str]], max_chars: int = 10_000) -> bool:

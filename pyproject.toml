@@ -40,7 +40,7 @@ dependencies = [
   "lxml==5.3.1",
   "cssselect",
   "xmltodict",
-  "fitz",
+  "pymupdf",
   "tools",
   "borb",
   "easyocr",

@@ -79,19 +79,23 @@ def memory_list_to_dialogue(memory_list):
     dialogue = []
     for memory in memory_list:
         if isinstance(memory, CmdRun):
-            dialogue.append({'role': 'user' if memory.source == 'user' else 'assistant',
+            dialogue.append({'role': 'user' if getattr(memory, 'source', '') == 'user' else 'assistant',
                             'content': f'{memory.thought}\n<execute_bash>\n{memory.command}\n</execute_bash>'})
         elif isinstance(memory, Message):
-            dialogue.append({'role': 'user' if memory.source == 'user' else 'assistant',
-                            'content': memory.content})
+            # Message stores its text in .thought, not .content
+            dialogue.append({'role': 'user' if getattr(memory, 'source', '') == 'user' else 'assistant',
+                            'content': memory.thought})
         elif isinstance(memory, TaskFinish):
-            dialogue.append({'role': 'user' if memory.source == 'user' else 'assistant',
+            dialogue.append({'role': 'user' if getattr(memory, 'source', '') == 'user' else 'assistant',
                             'content': f'{memory.thought}<task_finish>exit</task_finish>'})
         elif isinstance(memory, Userrequest):
+            # Userrequest stores its text in .text, not .content. This raised on
+            # the very first memory of every run, so the dialogue was always
+            # empty (the caller swallowed the AttributeError).
             dialogue.append({'role': 'user',
-                            'content': memory.content})
+                            'content': memory.text})
         elif isinstance(memory, IPythonRun):
-            dialogue.append({'role': 'user' if memory.source == 'user' else 'assistant',
+            dialogue.append({'role': 'user' if getattr(memory, 'source', '') == 'user' else 'assistant',
                             'content': f'{memory.thought}\n<execute_ipython>\n{memory.code}\n</execute_ipython>'})
         elif isinstance(memory, Analysis):
             dialogue.append({'role': 'assistant',

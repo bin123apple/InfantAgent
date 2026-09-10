@@ -186,8 +186,7 @@ class LLM_API_BASED:
             )
 
         else:
-            self._completion = partial(
-                litellm_completion,
+            completion_kwargs = dict(
                 model=self.model_name,
                 api_key=self.api_key,
                 base_url=self.base_url,
@@ -198,6 +197,32 @@ class LLM_API_BASED:
                 temperature=llm_temperature,
                 top_p=llm_top_p,
             )
+            # Anthropic rejects temperature and top_p together ("`temperature`
+            # and `top_p` cannot both be specified for this model") on Claude
+            # 4.5 and newer. Keep temperature, which is what the configs tune.
+            model_lc = str(self.model_name).lower()
+            is_anthropic = custom_llm_provider == 'anthropic' or 'claude' in model_lc
+            if (is_anthropic
+                    and completion_kwargs['temperature'] is not None
+                    and completion_kwargs['top_p'] is not None):
+                logger.debug(
+                    f'{self.model_name}: dropping top_p={llm_top_p}; Anthropic '
+                    'accepts only one of temperature/top_p.'
+                )
+                completion_kwargs.pop('top_p')
+
+            # Opus 4.7 and everything after it removed the sampling parameters
+            # outright -- top_p returns "`top_p` is deprecated for this model",
+            # and so does any temperature other than the 1.0 default. Drop both
+            # rather than depend on the config happening to hold 1.0.
+            NO_SAMPLING = ('opus-4-7', 'opus-4-8', 'opus-5',
+                           'sonnet-5', 'fable-5', 'mythos-5')
+            if is_anthropic and any(m in model_lc for m in NO_SAMPLING):
+                for param in ('temperature', 'top_p'):
+                    if completion_kwargs.pop(param, None) is not None:
+                        logger.debug(f'{self.model_name}: dropping {param} '
+                                     '(removed on this model)')
+            self._completion = partial(litellm_completion, **completion_kwargs)
 
         completion_unwrapped = self._completion
 
