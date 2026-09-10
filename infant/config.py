@@ -176,7 +176,11 @@ class Config:
     max_finish_retry = 3 # max number of retries before the agent finishes the task
     max_message_retry = 3 # max number of retries for message actions (e.g. message actions appear in the middle of the analysis)
     max_continuous_errors = 10 # max number of continuous errors before the agent stops
-    use_oss_llm = True # whether to use OSS LLM (Need GPU!)
+    # Visual grounding backend. True -> UI-TARS on a local vLLM server (needs a
+    # GPU); False -> LLM_VG_API, an API vision model (no GPU). Read at field
+    # level so INFANT_USE_OSS_LLM=0 also reaches backend.py, which builds its
+    # own Config() and never calls finalize_config().
+    use_oss_llm: bool = os.getenv('INFANT_USE_OSS_LLM', '1').lower() not in ('0', 'false', 'no')
     verify_step_by_step: bool = True
     fake_response_mode: bool = False
     use_git: bool = False # whether to use git to log everything
