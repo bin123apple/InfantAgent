@@ -18,7 +18,7 @@ GET_STATE_CODE = """state = await context.get_state()
 print(state)
 """
 
-OPEN_BROWSER_CODE = """import os, subprocess, time, socket, asyncio, pathlib, textwrap
+OPEN_BROWSER_CODE = """import os, subprocess, time, socket, asyncio, pathlib, textwrap, tempfile
 
 PORT = 9222
 ADDR = "127.0.0.1"
@@ -71,17 +71,30 @@ try:
         print("✅ Detected existing Chrome on 9222, reusing it")
 except OSError:
     print("⚙️  No Chrome on 9222, launching a new one")
+    # Chrome refuses to run as root without --no-sandbox ("Running as root
+    # without --no-sandbox is not supported"). The container sandbox runs as
+    # the 'infant' user so it never needed this; dockerless mode is root.
+    _root_flags = ["--no-sandbox"] if os.geteuid() == 0 else []
+    # $PROFILE is a variable of the shell script above; this list is passed to
+    # Popen without a shell, so the literal string reached Chrome and it created
+    # a directory actually named '$PROFILE' in the cwd. Build the path here.
+    _profile = f"/run/user/{os.geteuid()}/chrome-profile"
+    try:
+        os.makedirs(_profile, exist_ok=True)
+    except OSError:
+        _profile = os.path.join(tempfile.gettempdir(), f"chrome-profile-{os.geteuid()}")
+        os.makedirs(_profile, exist_ok=True)
     chrome_proc = subprocess.Popen(
         [
             "/usr/bin/google-chrome",
             "--no-first-run",
             "--remote-debugging-port=9222",
             "--remote-debugging-address=127.0.0.1",
-            "--user-data-dir=$PROFILE",
+            f"--user-data-dir={_profile}",
             "--start-maximized",
             "--disable-gpu",
             "--disable-dev-shm-usage",
-        ],
+        ] + _root_flags,
         stdout=open("/tmp/log.log","w"),
         stderr=subprocess.STDOUT,
         close_fds=True,

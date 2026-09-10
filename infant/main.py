@@ -8,6 +8,7 @@ from infant.config import Config, config
 from infant.computer.computer import Computer
 from infant.llm.llm_api_base import LLM_API_BASED
 from infant.llm.llm_oss_base import LLM_OSS_BASED
+from infant.llm.llm_vg_api import LLM_VG_API
 from infant.agent.memory.memory import Userrequest
 from infant.util.logger import infant_logger as logger
 from infant.util.save_dataset import save_to_dataset
@@ -41,9 +42,30 @@ async def run_single_step(agent: Agent, user_request_text: str, image = None):
         except asyncio.CancelledError:
             logger.info("Special case task has been cancelled")
     
-    finish_memory: Finish = agent.state.memory_list[-1]
-    answer = finish_memory.thought
+    # The last memory is only a Finish when the agent actually completed. If it
+    # errored out (bad API key, cancelled step, ...) nothing was appended and
+    # blindly reading .thought raises an AttributeError that hides the real
+    # failure. Report the underlying problem instead.
+    finish_memory = agent.state.memory_list[-1] if agent.state.memory_list else None
+    answer = getattr(finish_memory, 'thought', None)
+    if answer is None:
+        state = getattr(agent.state, 'agent_state', None)
+        logger.error(
+            f'Agent produced no answer (state={state}, '
+            f'last memory={type(finish_memory).__name__}). '
+            'Check the errors above -- the agent did not reach a Finish step.'
+        )
+        return ''
     return answer
+
+# Directories the agent must never wipe, however it is configured.
+# /workspace is absent on purpose: it is the intended sandbox. This list guards
+# against the directory being mis-configured to something system-critical.
+_PROTECTED_DIRS = {
+    '/', '/root', '/home', '/usr', '/etc', '/var', '/opt', '/tmp',
+    os.path.expanduser('~'),
+}
+
 
 async def initialize_agent(config: Config = None):
     if config is None:
@@ -62,8 +84,19 @@ async def initialize_agent(config: Config = None):
     classification_llm = LLM_API_BASED(classification_parameter)
     execution_parameter = config.get_litellm_params(overrides = config.execution_llm)
     execution_llm = LLM_API_BASED(execution_parameter)
-    vg_parameter = config.get_vllm_params(overrides = config.vg_llm)
-    vg_llm = LLM_OSS_BASED(vg_parameter)
+    # Visual grounding: UI-TARS via vLLM when use_oss_llm is set (needs a GPU
+    # and a server on base_url_oss), otherwise an API vision model, which needs
+    # neither but localizes less precisely.
+    if config.use_oss_llm:
+        vg_parameter = config.get_vllm_params(overrides = config.vg_llm)
+        vg_llm = LLM_OSS_BASED(vg_parameter)
+    else:
+        # [vg_llm] is written for the vLLM path and carries `model_oss`, which
+        # LitellmParams rejects. Keep only the keys the API path understands.
+        vg_overrides = {k: v for k, v in (config.vg_llm or {}).items()
+                        if k not in ('model_oss', 'api_key_oss', 'base_url_oss')}
+        vg_parameter = config.get_litellm_params(overrides = vg_overrides)
+        vg_llm = LLM_VG_API(vg_parameter)
     fe_parameter = config.get_litellm_params(overrides = config.fe_llm)
     fe_llm = LLM_API_BASED(fe_parameter)
     tm_parameter = config.get_litellm_params(overrides = config.tm_llm)
@@ -77,12 +110,24 @@ async def initialize_agent(config: Config = None):
     computer = Computer(computer_parameter, sid = sid)
     constant.MOUNT_PATH = computer.workspace_mount_path
     # cd to the workspace/clear the workspace/activate conda
-    exit_code, output = computer.execute(f'cd /workspace && rm -rf *')
+    # Clear the configured sandbox directory, not a hard-coded path: in
+    # dockerless mode this is the host's real /workspace, so a wrong value here
+    # destroys whatever else lives there.
+    workspace_dir = computer.computer_workspace_dir
+    if os.path.realpath(workspace_dir) in _PROTECTED_DIRS:
+        logger.error(
+            f'Refusing to clear {workspace_dir}: it is a protected directory. '
+            'Check workspace_mount_path_in_computer.'
+        )
+        sys.exit(1)
+    # Deliberately a plain glob: it does not match dot-entries, which is what
+    # keeps /workspace/.infant (the venv, in dockerless mode) out of reach.
+    exit_code, output = computer.execute(f'cd {workspace_dir} && rm -rf *')
     if exit_code != 0:
         logger.error(f'Failed to clear the workspace directory: {output}')
         sys.exit(1)
     else:
-        logger.info("Workspace directory has been cleared successfully.")
+        logger.info(f"Workspace directory {workspace_dir} has been cleared successfully.")
     
     # activate conda
     exit_code, output = computer.execute(f'source /infant/miniforge3/etc/profile.d/conda.sh')

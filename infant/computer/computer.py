@@ -1,10 +1,12 @@
 import os
 import re
+import sys
 import time
 import json
 import atexit
 import docker
 import socket
+import shutil
 import tarfile
 import pexpect
 import tempfile
@@ -13,6 +15,7 @@ import subprocess
 from glob import glob
 from pathlib import Path
 from pexpect import pxssh
+from infant.computer.local_shell import LocalShell
 from typing import Optional, Dict, Any
 from tenacity import retry, stop_after_attempt, wait_fixed
 from infant.util.exceptions import ComputerInvalidBackgroundCommandError
@@ -105,39 +108,54 @@ class Computer:
         for key in params:
             logger.info(f"{key}: {params[key]}")
         
-        # connect to docker client
-        try:
-            self.docker_client = docker.from_env()
-        except Exception as ex:
-            logger.exception(f'Error creating docker client. Please check Docker is running.',exc_info=False,)
-            raise ex        
+        self.dockerless = getattr(config, 'dockerless', False)
+        self.novnc_port = os.environ.get('INFANT_NOVNC_PORT', '6080')
 
-        # check if the container exists
-        try:
-            docker.DockerClient().containers.get(self.container_name)
-            self.is_initial_session = False
-        except docker.errors.NotFound:
+        if self.dockerless:
+            # No container: this host *is* the computer. The agent drives the
+            # Xvfb desktop already running on it through a local bash session,
+            # so there is no image to pull and nothing to SSH into.
+            self.docker_client = None
+            self.container = None
             self.is_initial_session = True
-            logger.info('Detected initial session.')
+            logger.info('Dockerless mode: using the local host as the computer.')
+        else:
+            # connect to docker client
+            try:
+                self.docker_client = docker.from_env()
+            except Exception as ex:
+                logger.exception(f'Error creating docker client. Please check Docker is running.',exc_info=False,)
+                raise ex        
+
+            # check if the container exists
+            try:
+                self.docker_client.containers.get(self.container_name)
+                self.is_initial_session = False
+            except docker.errors.NotFound:
+                self.is_initial_session = True
+                logger.info('Detected initial session.')
             
         if self.is_initial_session:
             # create mount folder
             os.makedirs(self.workspace_mount_path, exist_ok=True)
             logger.info(f'Created workspace mount path: {self.workspace_mount_path}')
             
-            logger.info('Creating new Docker container')
-            n_tries = 5
-            while n_tries > 0:
-                try:
-                    self.restart_docker_container()
-                    break
-                except Exception as e:
-                    logger.exception('Failed to start Docker container, retrying...', exc_info=False)
-                    n_tries -= 1
-                    if n_tries == 0:
-                        raise e
-                    time.sleep(5)
-            self.setup_user()
+            if self.dockerless:
+                self.setup_local_computer()
+            else:
+                logger.info('Creating new Docker container')
+                n_tries = 5
+                while n_tries > 0:
+                    try:
+                        self.restart_docker_container()
+                        break
+                    except Exception as e:
+                        logger.exception('Failed to start Docker container, retrying...', exc_info=False)
+                        n_tries -= 1
+                        if n_tries == 0:
+                            raise e
+                        time.sleep(5)
+                self.setup_user()
             
             # ssh login to the container
             try:
@@ -168,7 +186,10 @@ class Computer:
                 self.init_plugins()
             
             # GPU driver initialization # Move to the dockerfile
-            if self.nvidia_driver == "Tesla":
+            if self.dockerless:
+                # Xvfb renders in software; there is no Xorg config to patch.
+                logger.info('Dockerless mode: skipping GPU/Xorg driver setup.')
+            elif self.nvidia_driver == "Tesla":
                 logger.info("Initializing Tesla GPU driver")
                 exec_response = self.container.exec_run(
                     "bash /home/Tesla-XorgDisplaySettingAuto.sh",
@@ -195,15 +216,22 @@ class Computer:
 
         # auto login to the nomachine
         # self.automate_nomachine_login(initial_session = self.is_initial_session)
-        info = self.ensure_and_login_guac(
-            base_url=f"http://localhost:{self.gui_port}/guacamole",  # such as 4443
-            web_user="web", web_pass="web",
-            rdp_user="infant", rdp_pass="123",
-            connection_name="GNOME Desktop (RDP)",
-        )
-        print(info["client_url"] or info["index_url"])
-        
-        self.config_xorg_for_gui()
+        if self.dockerless:
+            # The desktop is served by x11vnc + noVNC on the host, so there is
+            # no Guacamole/RDP stack to provision or log into.
+            desktop_url = f"http://localhost:{self.novnc_port}/vnc.html"
+            logger.info(f'Dockerless mode: desktop available at {desktop_url}')
+            print(desktop_url)
+        else:
+            info = self.ensure_and_login_guac(
+                base_url=f"http://localhost:{self.gui_port}/guacamole",  # such as 4443
+                web_user="web", web_pass="web",
+                rdp_user="infant", rdp_pass="123",
+                connection_name="GNOME Desktop (RDP)",
+            )
+            print(info["client_url"] or info["index_url"])
+
+            self.config_xorg_for_gui()
         
         # set up chrome for fast manual openning
         output = self.run_python(PYTHON_SETUP_CODE)
@@ -226,6 +254,11 @@ class Computer:
             logger.info('Initializing plugins in the computer')
 
             # clean-up ~/.bashrc and touch ~/.bashrc
+            if self.dockerless:
+                # This is the host's real ~/.bashrc, not a throwaway container
+                # one -- keep a copy before the tools overwrite it.
+                self.execute('[ -f ~/.bashrc ] && [ ! -f ~/.bashrc.infant-backup ] '
+                             '&& cp ~/.bashrc ~/.bashrc.infant-backup || true')
             exit_code, output = self.execute('rm -f ~/.bashrc && touch ~/.bashrc')
 
             self._source_bashrc()
@@ -265,6 +298,94 @@ class Computer:
         self._env[key] = value
         # Note: json.dumps gives us nice escaping for free
         self.execute(f'export {key}={json.dumps(value)}')
+
+    def _assert_venv_survives_workspace_wipe(self):
+        """Refuse to start if the agent would delete its own interpreter.
+
+        `initialize_agent()` clears the workspace on every run with
+        `rm -rf *`. In a container that is a throwaway mount; in dockerless mode
+        it is a real host directory. The glob does not match dot-entries, so a
+        venv at /workspace/.infant/venv survives while /workspace/infant/venv
+        does not -- an easy distinction to lose track of, so assert it here
+        rather than discover it as a 17 GB deletion.
+        """
+        ws = os.path.realpath(self.computer_workspace_dir)
+        venv = os.path.realpath(sys.prefix)
+        if not (venv == ws or venv.startswith(ws + os.sep)):
+            return  # venv lives outside the workspace: nothing to wipe
+
+        entry = venv[len(ws):].lstrip(os.sep).split(os.sep)[0] if venv != ws else ''
+        if not entry.startswith('.'):
+            raise RuntimeError(
+                f'The virtualenv ({venv}) sits inside the workspace ({ws}), which '
+                f'the agent clears on every run -- "{entry}" would be deleted. '
+                f'Move it to a dot-directory, e.g. {os.path.join(ws, ".infant", "venv")}, '
+                'or outside the workspace entirely.'
+            )
+        logger.info(f'Venv at {venv} is shielded from the workspace wipe (dot-entry "{entry}")')
+
+    def setup_local_computer(self):
+        """Prepare this host to act as the computer (dockerless mode).
+
+        The sandbox image ships the agent's tools under /infant with their own
+        Python at /infant/miniforge3/bin/python, and tools/setup.sh hard-codes
+        that path and aborts if it is missing. Point it at the interpreter we
+        are already running so setup.sh works unmodified.
+        """
+        os.makedirs(self.computer_workspace_dir, exist_ok=True)
+        self._assert_venv_survives_workspace_wipe()
+        os.makedirs('/infant/miniforge3/bin', exist_ok=True)
+        # setup.sh greps these logs in a `while` loop and never exits if the
+        # directory is missing.
+        os.makedirs('/infant/logs', exist_ok=True)
+
+        # A symlink here would break venv detection: Python looks for
+        # pyvenv.cfg next to argv[0], finds none under /infant/miniforge3, and
+        # silently falls back to the system prefix -- so setup.sh's pip installs
+        # would land outside the venv. A wrapper that execs the real
+        # interpreter keeps sys.executable (and therefore sys.prefix) correct.
+        interpreter = '/infant/miniforge3/bin/python'
+        wrapper = f'#!/bin/sh\nexec "{sys.executable}" "$@"\n'
+        if not os.path.exists(interpreter) or open(interpreter).read() != wrapper:
+            if os.path.islink(interpreter) or os.path.exists(interpreter):
+                os.remove(interpreter)
+            with open(interpreter, 'w') as f:
+                f.write(wrapper)
+            os.chmod(interpreter, 0o755)
+            logger.info(f'Wrote {interpreter} -> exec {sys.executable}')
+
+        if not os.path.exists('/infant/bash.bashrc'):
+            Path('/infant/bash.bashrc').touch()
+
+        # The tools import each other absolutely (`from infant.tools.web_browser
+        # ...`) and resolve `infant` to /infant via PYTHONPATH=/, which needs
+        # /infant to be a package. The sandbox image ships this file; a
+        # dockerless host does not, and without it every `from
+        # web_browser.browser import *` dies with "No module named 'infant'",
+        # surfacing much later as "NameError: BrowserConfig is not defined".
+        if not os.path.exists('/infant/__init__.py'):
+            Path('/infant/__init__.py').touch()
+            logger.info('Created /infant/__init__.py so the tools are importable')
+
+        # initialize_agent() runs `git init && git add .` in the workspace. On a
+        # dockerless host the venv and model caches may live under it in
+        # dot-directories, and `git add .` does not skip those.
+        gitignore = Path(self.computer_workspace_dir) / '.gitignore'
+        if not gitignore.exists():
+            gitignore.write_text('.infant/\n.cache/\n.git/\n')
+            logger.info(f'Wrote {gitignore} to keep the venv out of the workspace repo')
+
+        display = os.environ.get('DISPLAY', ':10')
+        probe = subprocess.run(
+            ['xdpyinfo', '-display', display],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        if probe.returncode != 0:
+            raise RuntimeError(
+                f'No X display at {display}. Start the local desktop first '
+                '(scripts/start_local_desktop.sh), or unset dockerless mode.'
+            )
+        logger.info(f'Dockerless computer ready on display {display}')
 
     def setup_user(self):
         # Make users sudoers passwordless
@@ -396,6 +517,17 @@ class Computer:
     # Use the retry decorator, with a maximum of 5 attempts and a fixed wait time of 5 seconds between attempts
     @retry(stop=stop_after_attempt(5), wait=wait_fixed(5))
     def __ssh_login(self):
+        if self.dockerless:
+            logger.info('Starting local shell session (dockerless mode)...')
+            self.ssh = LocalShell(
+                cwd=self.computer_workspace_dir,
+                env={'DISPLAY': os.environ.get('DISPLAY', ':10')},
+                timeout=self.timeout,
+            )
+            self.ssh.login()
+            logger.info('Local shell session ready')
+            return
+
         try:
             self.ssh = pxssh.pxssh(
                 echo=False,
@@ -945,6 +1077,23 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
         return exit_code, command_output
 
     def copy_to(self, host_src: str, computer_dest: str, recursive: bool = False):
+        if self.dockerless:
+            # Same filesystem -- no tar/put_archive round trip needed. Mirrors
+            # the docker branch's semantics: recursively, the *contents* of
+            # host_src land in computer_dest; for a single file it lands beside
+            # computer_dest, under its own basename.
+            if recursive:
+                assert os.path.isdir(host_src), 'Source must be a directory when recursive is True'
+                shutil.copytree(host_src, computer_dest, dirs_exist_ok=True)
+                dest = computer_dest
+            else:
+                assert os.path.isfile(host_src), 'Source must be a file when recursive is False'
+                dest = os.path.join(os.path.dirname(computer_dest), os.path.basename(host_src))
+                os.makedirs(os.path.dirname(dest), exist_ok=True)
+                shutil.copy2(host_src, dest)
+            logger.info(f'Copied {host_src} -> {dest} (dockerless)')
+            return
+
         # mkdir -p computer_dest if it doesn't exist
         exit_code, logs = self.container.exec_run(
             ['/bin/bash', '-c', f'mkdir -p {computer_dest}'],
@@ -986,8 +1135,13 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
             self.container.put_archive(os.path.dirname(computer_dest), data)
 
     def get_pid(self, cmd):
-        exec_result = self.container.exec_run('ps aux', environment=self._env)
-        processes = exec_result.output.decode('utf-8').splitlines()
+        if self.dockerless:
+            processes = subprocess.run(
+                ['ps', 'aux'], stdout=subprocess.PIPE, text=True
+            ).stdout.splitlines()
+        else:
+            exec_result = self.container.exec_run('ps aux', environment=self._env)
+            processes = exec_result.output.decode('utf-8').splitlines()
         cmd = ' '.join(self.get_exec_cmd(cmd))
 
         for process in processes:
@@ -1182,6 +1336,13 @@ sudo -u "$U" env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" DBUS_SESSION_BUS_ADDRESS="$D
 
     # clean up the container, cannot do it in __del__ because the python interpreter is already shutting down
     def close(self):
+        if self.dockerless:
+            try:
+                self.ssh.logout()
+            except Exception:
+                pass
+            return
+
         containers = self.docker_client.containers.list(all=True)
         for container in containers:
             try:

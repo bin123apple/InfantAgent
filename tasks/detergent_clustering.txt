@@ -1,0 +1,10 @@
+For all nonionic, anionic, cationic, and zwitterionic detergents in the Anatrace and Sigma-Aldrich detergent selection tables, cluster them by structural similarity — head-group chemistry, alkyl or aryl tail structure, linker type, and computed fingerprint similarity to Triton X-100, Tween 20, and SDS — and for each cluster, explain mechanistically why its shared structural features would preserve or abolish polymerase and Cas12a activity, stating which structural feature drives the prediction and what evidence supports that mechanism.
+
+HOW TO GATHER THE SOURCE DATA — follow this, do not improvise:
+1. Use the Chrome web browser to FIND the Anatrace detergent selection guide and the Sigma-Aldrich detergent selection table. Search for them, open the result pages, and follow the real links you see on those pages.
+2. Do NOT guess or hand-construct download URLs and do NOT retry wget/curl against invented paths. If a URL you did not read off a real page 404s, go back to the browser and navigate instead.
+3. Only after you have located a document through the browser may you download it for parsing.
+4. Record, for every detergent you include, which source table it came from.
+If after a genuine browser search a table is still unreachable, say so explicitly in your answer and state clearly which parts rest on your own knowledge rather than the retrieved tables — do not silently substitute recalled data for the tables.
+
+RDKit is installed; use it for the fingerprint similarity calculations.

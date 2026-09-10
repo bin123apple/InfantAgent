@@ -10,6 +10,11 @@ from typing import Optional, Union, List, Any, Dict
 
 logger = logging.getLogger(__name__)
 
+# Read once at import: backend.py builds its own Config() and never calls
+# finalize_config(), so env-driven defaults have to live at field level.
+_DOCKERLESS = os.getenv('INFANT_DOCKERLESS', '').lower() in ('1', 'true', 'yes')
+
+
 @dataclass
 class Config:
     """
@@ -96,7 +101,7 @@ class Config:
     ap_llm: dict | None = None
     
     # litellm Attributes
-    model: str = 'claude-sonnet-4-5'
+    model: str = 'claude-opus-4-8'
     api_key: str | None = os.getenv("ANTHROPIC_API_KEY")
     base_url: str | None = None
     api_version: str | None = None
@@ -125,7 +130,11 @@ class Config:
     ## vllm Attributes (OSS-LLM)
     model_oss: str = 'ByteDance-Seed/UI-TARS-1.5-7B'
     api_key_oss: str | None = None
-    base_url_oss: str | None = 'http://127.0.0.1:8888'
+    # Where the visual-grounding server (UI-TARS) listens. Note that 8888 -- the
+    # upstream default kept here -- is also JupyterLab's default port, and some
+    # images (RunPod's, for one) already have one running there; set
+    # INFANT_VG_URL to move off it.
+    base_url_oss: str | None = os.getenv('INFANT_VG_URL', 'http://127.0.0.1:8888')
     tensor_parallel_size: int = 1 # Tensor parallelism splits the model's tensors across n GPUs
     max_model_len: int = 8192
     disable_custom_all_reduce: bool = True
@@ -180,7 +189,19 @@ class Config:
     gui_port: str = '4443'
     workspace_git_path: str = '/workspace' # The path to the git repo in the computer
     workspace_base: str = os.path.join(os.getcwd(), 'workspace')
-    workspace_mount_path: str = os.path.join(os.getcwd(), 'workspace')
+    # Host-side path of the sandbox workspace. With Docker the two differ and
+    # are joined by a bind mount, and sandbox paths are translated by swapping
+    # /workspace for this value (constant.MOUNT_PATH). Dockerless has no mount:
+    # the sandbox /workspace *is* this directory, so they must be identical or
+    # every screenshot the agent saves is looked up in the wrong place.
+    workspace_mount_path: str = (
+        '/workspace' if _DOCKERLESS else os.path.join(os.getcwd(), 'workspace')
+    )
+    # The agent CLEARS this directory on every initialization (see main.py).
+    # It cannot be moved: the tools hard-code /workspace (e.g. the screenshot
+    # dir in tools/computer_use/computeruse.py), as does the sandbox <-> host
+    # path translation. In dockerless mode this is the host's real /workspace,
+    # so nothing else may live there -- see Computer.setup_local_computer().
     workspace_mount_path_in_computer: str = '/workspace'
     workspace_mount_rewrite: str | None = None
     cache_dir: str = '/tmp/cache'
@@ -208,6 +229,10 @@ class Config:
     text_only_docker: bool = False # whether to use a text-only docker image
     intermediate_results_dir: str = os.path.join(os.getcwd(), 'workspace')
     evalution_mode = False # whether to run in evaluation mode
+    # Run the sandbox on this host (local Xvfb desktop) instead of in a container.
+    # Read at field level, not in finalize_config(): backend.py constructs its
+    # own Config() and never calls finalize_config().
+    dockerless: bool = _DOCKERLESS
     
     def __str__(self):
         def to_items(obj):
@@ -378,7 +403,8 @@ class Config:
             consistant_computer = self.consistant_computer,
             text_only_docker = self.text_only_docker,
             intermediate_results_dir = self.intermediate_results_dir,
-            evalution_mode = self.evalution_mode
+            evalution_mode = self.evalution_mode,
+            dockerless = self.dockerless
         )
 
     def _load(self) -> Dict[str, Any]:
@@ -423,7 +449,8 @@ class ComputerParams:
         nomachine_bind_port,
         consistant_computer,
         intermediate_results_dir,
-        evalution_mode
+        evalution_mode,
+        dockerless = False
     ):
         self.runtime = runtime
         self.file_store = file_store
@@ -456,6 +483,7 @@ class ComputerParams:
         self.consistant_computer = consistant_computer
         self.intermediate_results_dir = intermediate_results_dir
         self.evalution_mode = evalution_mode
+        self.dockerless = dockerless
 
 class LitellmParams:
     def __init__(

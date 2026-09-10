@@ -38,7 +38,7 @@ source ~/.bashrc
 
 # ADD /infant/tools to PATH to make `jupyter_cli` available
 echo 'export PATH=$PATH:/infant/tools/code_execute' >> ~/.bashrc
-echo 'export DISPLAY=:0' >> ~/.bashrc
+echo "export DISPLAY=${DISPLAY:-:0}" >> ~/.bashrc
 export PATH=/infant/tools/code_execute:$PATH
 
 # if user name is `infant`, add '/home/infant/.local/bin' to PATH

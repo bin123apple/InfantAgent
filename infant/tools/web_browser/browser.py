@@ -2,6 +2,7 @@
 Playwright browser on steroids.
 """
 import gc
+import os
 import asyncio
 import logging
 from dataclasses import dataclass, field
@@ -143,11 +144,15 @@ class Browser:
 			logger.debug('No existing Chrome instance found, starting a new one')
 
 		# Start a new Chrome instance
+		# Chrome will not start as root without --no-sandbox; dockerless mode
+		# runs as root, the container sandbox ran as the 'infant' user.
+		_root_flags = ['--no-sandbox'] if os.geteuid() == 0 else []
 		subprocess.Popen(
 			[
 				self.config.chrome_instance_path,
 				'--remote-debugging-port=9222',
 			]
+			+ _root_flags
 			+ self.config.extra_chromium_args,
 			stdout=subprocess.DEVNULL,
 			stderr=subprocess.DEVNULL,
