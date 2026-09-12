@@ -103,6 +103,13 @@ async def initialize_agent(config: Config = None):
     tm_llm = LLM_API_BASED(tm_parameter)
     ap_parameter = config.get_litellm_params(overrides = config.ap_llm)
     ap_llm = LLM_API_BASED(ap_parameter)
+
+    # Label each instance so the LLM trace says which role made a call --
+    # planning, classification and execution all run the same model otherwise.
+    for role, llm in (('planning', planning_llm), ('classification', classification_llm),
+                      ('execution', execution_llm), ('file_editing', fe_llm),
+                      ('toolmaker', tm_llm), ('audio_parsing', ap_llm)):
+        llm.role = role
      
     # Initialize the computer
     computer_parameter = config.get_computer_params()

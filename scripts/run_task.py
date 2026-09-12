@@ -12,6 +12,8 @@ directory out.
 
 Writes to runs/<timestamp>/:
     task.txt          the request as given
+    console.log       the step log (what the console shows), written live
+    llm_trace.jsonl   every LLM request and response, written live
     answer.md         the agent's final answer
     trajectory.json   every memory, raw (dataclasses.asdict)
     dialogue.json     the same trajectory as a chat transcript
@@ -23,6 +25,7 @@ import argparse
 import asyncio
 import dataclasses
 import json
+import logging
 import os
 import shutil
 import sys
@@ -51,6 +54,7 @@ os.environ.setdefault('DISPLAY', ':10')
 from infant.config import Config                     # noqa: E402
 from infant.main import initialize_agent, run_single_step, cleanup  # noqa: E402
 from infant.util.save_dataset import memory_list_to_dialogue        # noqa: E402
+from infant.util.logger import infant_logger, file_formatter    # noqa: E402
 import infant.util.constant as constant              # noqa: E402
 
 
@@ -92,6 +96,15 @@ async def main():
     run_dir = Path(args.out) / stamp
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / 'task.txt').write_text(task + '\n')
+
+    # Trajectory to disk, as it happens rather than only at the end: the step
+    # log that used to exist only on the console, and every raw LLM exchange.
+    # A run that crashes or is killed still leaves both behind.
+    os.environ['INFANT_TRACE_FILE'] = str(run_dir / 'llm_trace.jsonl')
+    handler = logging.FileHandler(run_dir / 'console.log', encoding='utf-8')
+    handler.setFormatter(file_formatter)
+    infant_logger.addHandler(handler)
+
     print(f'[run_task] output -> {run_dir}')
 
     config = Config()

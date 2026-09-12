@@ -24,6 +24,7 @@ from litellm import completion as litellm_completion
 from PIL import Image
 
 from infant.util.logger import infant_logger as logger
+from infant.util.llm_trace import trace as trace_llm
 
 # Anthropic downsamples any image over the limits before the model sees it, and
 # the model then answers in *that* frame -- so left implicit, coordinates come
@@ -148,12 +149,16 @@ class LLM_VG_API:
                       max_tokens=self.max_tokens, stop=stop or None)
         if self.temperature is not None:
             kwargs['temperature'] = self.temperature
+        trace_llm('request', self.model, messages=payload, role='visual_grounding',
+                  image_scale=round(scale, 4))
         try:
             resp = litellm_completion(**kwargs)
         except Exception as e:
             # extract_coordinates() reads result[0]; returning the sentinel keeps
             # the caller on its "element not found" path instead of raising.
             logger.error(f'Visual grounding call failed: {type(e).__name__}: {e}')
+            trace_llm('error', self.model, response=f'{type(e).__name__}: {e}',
+                      role='visual_grounding')
             return ['(-1, -1)']
 
         try:
@@ -163,6 +168,8 @@ class LLM_VG_API:
             pass
 
         texts = [self._unscale(c.message.content or '', scale) for c in resp.choices]
+        trace_llm('response', self.model, response=texts[0] if texts else '',
+                  role='visual_grounding', cost=round(self.accumulated_cost, 4))
         logger.debug(f'Visual grounding reply (scale={scale:.3f}): '
                      f'{texts[0][:80] if texts else "<empty>"}')
         return texts or ['(-1, -1)']

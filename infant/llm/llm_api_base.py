@@ -1,3 +1,4 @@
+import time
 import warnings
 import inspect
 #import asyncio
@@ -29,6 +30,7 @@ from tenacity import (
 
 from infant.config import LitellmParams
 from infant.util.logger import infant_logger as logger
+from infant.util.llm_trace import trace as trace_llm
 from infant.util.metrics import Metrics
 from infant.agent.parser import parse
 from infant.agent.memory.memory import Memory, Message
@@ -124,6 +126,8 @@ class LLM_API_BASED:
         self.gift_key = gift_key
         self.base_url = base_url
         self.model_name = model
+        # Which agent role this instance serves; set by main.py, used by the trace.
+        self.role = None
         self.metrics = metrics
         self.llm_timeout = llm_timeout
         self.api_version = api_version
@@ -226,6 +230,26 @@ class LLM_API_BASED:
 
         completion_unwrapped = self._completion
 
+        def traced_completion(*args, **kwargs):
+            """completion_unwrapped, with the raw exchange appended to the trace.
+
+            All three call sites below (feedback / gift_key / plain) go through
+            here, so a run's JSONL holds every request that left the process,
+            retries included. Inert unless INFANT_TRACE_FILE is set.
+            """
+            msgs = kwargs.get('messages', args[1] if len(args) > 1 else None)
+            role = getattr(self, 'role', None)
+            trace_llm('request', self.model_name, messages=msgs, role=role)
+            t0 = time.time()
+            resp = completion_unwrapped(*args, **kwargs)
+            try:
+                back = resp['choices'][0]['message']['content']
+            except Exception:
+                back = resp.choices[0].message.content
+            trace_llm('response', self.model_name, response=back, role=role,
+                      seconds=round(time.time() - t0, 2))
+            return resp
+
         def attempt_on_error(retry_state):
             logger.error(
                 f'{retry_state.outcome.exception()}. Attempt #{retry_state.attempt_number} | You can customize these settings in the configuration.',
@@ -277,7 +301,7 @@ class LLM_API_BASED:
                 feedback = "None"
                 while feedback != 'yes':
                     # call the completion function
-                    resp = completion_unwrapped(*args, **kwargs)
+                    resp = traced_completion(*args, **kwargs)
                     assistant_response = resp['choices'][0]['message']['content']
                     print(f'Assistant response: \n{assistant_response}'.encode('utf-8').decode('unicode_escape', errors='replace'))
                     messages.append({
@@ -295,7 +319,7 @@ class LLM_API_BASED:
             else:
                 if self.gift_key:
                     # call the completion function
-                    resp = completion_unwrapped(*args, **kwargs)
+                    resp = traced_completion(*args, **kwargs)
 
                     # log the response
                     message_back = resp.choices[0].message.content
@@ -306,7 +330,7 @@ class LLM_API_BASED:
                     return resp.choices[0].message.content, None                    
                 else:
                     # call the completion function
-                    resp = completion_unwrapped(*args, **kwargs)
+                    resp = traced_completion(*args, **kwargs)
 
                     # log the response
                     message_back = resp['choices'][0]['message']['content']
