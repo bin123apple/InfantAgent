@@ -233,6 +233,52 @@ and so generates an `__init__` that overrides it; `source` is really assigned at
 runtime by `parser.py`. `dataclasses.asdict()` therefore drops it -- the
 trajectory serializer re-adds `source` and `output` explicitly.
 
+### Trajectory on disk, and one-command runs (added 2026-09-12)
+
+`./go.sh` is the whole thing in one command: edit `TASK` at the top of the file
+and run it. It does the preflight and the desktop (`run.sh --check`), activates
+the venv, loads `.env`, reaps leaked kernel-gateway processes, runs the task and
+prints the run directory. `./go.sh "..."` takes the task on the command line
+instead, `-f file` from a file, and `--tail` follows the LLM trace live.
+
+The trajectory now reaches disk *while the run happens*, not only at the end, so
+a run that crashes or is killed still leaves one behind:
+
+| file | contents |
+|---|---|
+| `console.log` | the step log -- what the console prints, per parsed memory |
+| `llm_trace.jsonl` | one JSON line per LLM request and per response |
+
+`logger.py` has defined `llm_prompt_logger` and `llm_response_logger` since the
+first commit, but **nothing ever called them** -- so prompts and responses were
+never persisted anywhere, and only the parsed steps reached the console. They
+are left alone (one file per message, and the directory is wiped on init unless
+`DEBUG`); `infant/util/llm_trace.py` writes a single JSONL instead. It is inert
+unless `INFANT_TRACE_FILE` is set, so the backend and the eval harness are
+unaffected.
+
+- Image parts become `{"type": "image", "bytes": N}`. One screenshot is ~2 MB of
+  base64 per call and would bury the text; `screenshots/` keeps the pixels.
+- Strings over `INFANT_TRACE_MAX_CHARS` (20000) are clipped; the full text is in
+  `trajectory.json`.
+- All three `completion_unwrapped()` call sites in `llm_api_base.py` go through
+  one `traced_completion()`, so retries are recorded too.
+- `main.py` tags each LLM instance with a `role`. Planning, classification and
+  execution are the same model, and without the tag the trace cannot say which
+  of them spoke.
+
+A four-round `uname -a` run looks like this end to end:
+
+```
+[1] request  planning              [5] request  execution
+[2] response planning   1.04s      [6] response execution  3.17s
+[3] request  execution             [7] request  planning
+[4] response execution  1.52s      [8] response planning   3.00s
+```
+
+`--tail` finds the run directory by watching for a new entry under `runs/`, so
+it can follow the wrong one if two tasks start at once. Serial runs are fine.
+
 ### Visual grounding
 
 `_ask_llm_for_coordinate()` sends one screenshot and `extract_coordinates()`
@@ -251,6 +297,19 @@ window whose true centre was (1084, 739):
 | claude-sonnet-4-5 | (1004, 659) | 113 px |
 
 The API model is usable for large targets and unreliable for small controls.
+
+**Update 2026-09-12**: with `claude-opus-4-8` as `LLM_VG_API` the gap closes.
+Locating the centre of the 1004x564 xterm on a 1920x1080 screenshot (true
+centre (564, 372)) it answered (561, 348) -- **24 px**, one call, $0.0147, no
+GPU. Opus 4.7+ allows a 2576 px long edge, so a 1920 px screenshot reaches the
+model unresized and `_rescale()` does nothing; the 113 px above was mostly
+sonnet-4-5 being downsampled to 1568 px.
+
+`image_description_to_coordinate()` used to ask twice -- once on the full
+screenshot, then again on a 1400x900 crop around the first answer, adding the
+offset back. That second pass was written for UI-TARS, which gains from the
+zoom; on an API model it doubles cost and latency for little benefit, so it is
+now **off by default**. `INFANT_VG_REFINE=1` restores it.
 Its first attempt was 332 px out: Anthropic downsamples images whose long edge
 exceeds 1568 px and the model answers in *that* frame, so a 1920px-wide
 screenshot comes back scaled by ~0.82. `LLM_VG_API` now resizes explicitly and

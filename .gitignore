@@ -22,8 +22,9 @@ venv/
 # Pytest cache
 .pytest_cache/
 
-# Environment variables
+# Environment variables (and any backup of one -- they hold API keys)
 .env
+.env.*
 
 # Byte-compiled / optimized / DLL files
 *.pyc
