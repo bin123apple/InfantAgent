@@ -481,6 +481,9 @@ def highlight_and_save_region(center: tuple[int, int], half_size_x: int = 700, h
     offset = (left, top)
     return byte_cropped, offset
 
+# One grounding round per click by default (see image_description_to_coordinate).
+VG_REFINE = os.getenv('INFANT_VG_REFINE', '0').lower() not in ('0', 'false', 'no')
+
 def _ask_llm_for_coordinate(agent: Agent, image_bytes: bytes, description: str) -> tuple[int,int]:
     """Send a request to oss_llm_completion, parse and return (x,y)."""
     b64 = encode_image(image_bytes)
@@ -511,8 +514,11 @@ def image_description_to_coordinate(agent: Agent, icon, desc, image):
     byte_image = save_image_and_convert_to_byte(constant.MOUNT_PATH, image)
     coordination = _ask_llm_for_coordinate(agent, byte_image, icon+" ("+desc+")")
     
-    # localization
-    if not coordination[0] == -1:
+    # Second pass: re-ask on a crop around the first answer. Written for
+    # UI-TARS, which gains accuracy from the zoom; with an API vision model it
+    # doubles the cost and latency for little benefit, so it is off by default.
+    # Set INFANT_VG_REFINE=1 to restore the two-round behaviour.
+    if VG_REFINE and not coordination[0] == -1:
         byte_cropped, offset = highlight_and_save_region(coordination, half_size_x = 700, half_size_y = 450)
         coordination = _ask_llm_for_coordinate(agent, byte_cropped, icon+" ("+desc+")")
         dx = offset[0]
